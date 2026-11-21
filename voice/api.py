@@ -224,7 +224,12 @@ def demo_wiretap(a: str, b: str) -> list[dict] | None:
 @router.get("/wiretap")
 async def wiretap(a: str, b: str):
     """Live lines from agents.wiretap() by default. VOICE_WIRETAP=demo plays the pre-rendered
-    script for the pair instead (instant, works offline) for the recorded demo."""
+    script for the pair instead (instant, works offline) for the recorded demo.
+    A mediator sees public positions only (DECIDED 13:17): 403 before any audio is made."""
+    game = _game()
+    seat = game.state.seat if game is not None else None
+    if seat is not None and seat.role == "mediator":
+        raise HTTPException(403, "a mediator has no wiretap: public positions only")
     lines = demo_wiretap(a, b) if os.environ.get("VOICE_WIRETAP") == "demo" else None
     if not lines:
         try:

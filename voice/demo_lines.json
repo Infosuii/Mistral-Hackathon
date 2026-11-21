@@ -1,5 +1,9 @@
 {
   "_note": "Wiretap scripts for the demo seed, pre-rendered by `python -m voice.prerender`. /wiretap uses these when /agents has no wiretap(); key is 'a|b' in either order.",
+  "crisis_alternates": [
+    {"label": "one_berth tick 7, no contradiction (DECIDED 13:20)", "speaker": "ostrava", "emotion": "tense",
+     "text": "The storm is lifting and my ships are still waiting. Give me the berth now, or I blockade the strait."}
+  ],
   "wiretap": {
     "ostrava|zarnia": [
       {"speaker": "ostrava", "text": "Valdoria promised me the berth for the whole day. What did they promise you?", "emotion": "skeptical"},
