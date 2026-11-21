@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, ValidationError
 from contracts.models import Action, Advice, CallOutput, CrisisPromise, Decision, LeaderDetail, ReceivedMessage, State
 from engine.core import starting_buildings, update_rail_services
 from engine.game import Game, allowed_crises, available_crises, available_roles
-from engine.snapshots import snapshot
+from engine.snapshots import clear_snapshots, snapshot
 
 
 class SaveInfo(BaseModel):
@@ -42,6 +42,8 @@ class Checkpoint(BaseModel):
     dispatch_log: list[dict] = Field(default_factory=list)
     leaders: dict[str, LeaderDetail]
     inbox: dict[str, list[ReceivedMessage]]
+    intent_history: dict[str, list[str]] = Field(default_factory=dict)
+    monthly_deals: list[Action] = Field(default_factory=list)
     queued: list[Action]
     player_action: Action | None
     promises: list[CrisisPromise]
@@ -70,7 +72,7 @@ def directory() -> Path:
 
 
 def create(game: Game, name: str) -> SaveInfo:
-    if game.state.last_call and game.state.last_call.pending:
+    if any(result.pending for result in game.call_results.values()):
         raise ValueError("wait for the current call to finish")
     name = name.strip()
     if not name:
@@ -114,17 +116,24 @@ def restore(game: Game, slot: UUID) -> State:
         record.state.buildings = starting_buildings()
     update_rail_services(record.state)
     game.epoch += 1
+    game.call_generation += 1
+    game.needle_seq = 0
+    game.call_results.clear()
+    clear_snapshots()
     game.call_count = 0
     game.latest_call_id = None
     for field in Checkpoint.model_fields:
         if field not in {"version", "info", "last_crisis"}:
             setattr(game, field, getattr(record, field))
+    for nation in game.state.nations:
+        game.intent_history.setdefault(nation, [])
     game.last_crisis = None
     if record.last_crisis:
         archive = record.last_crisis
         game.last_crisis = {field: getattr(archive, field) for field in CrisisArchive.model_fields}
         game.last_crisis["snapshot_id"] = snapshot(archive.start)
-    game.state = game.state.model_copy(update={
+    game.state = State.model_validate({
+        **game.state.model_dump(),
         "available_roles": available_roles(),
         "available_crises": available_crises(),
     })
