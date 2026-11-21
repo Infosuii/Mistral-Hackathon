@@ -111,3 +111,42 @@ def test_replay_shows_what_waiting_would_have_cost():
     assert g.replay(0) == []  # same timing, same outcome
     late = {c["nation"]: (c["was"], c["now"]) for c in g.replay(5)}  # the interruption arrives after his deadline
     assert late.get("ostrava") == ("dock", "blockade")
+
+
+# --- the tugs: a paid request is dependable, and its timing shows in the replay ----------
+
+
+def paid_tug_request() -> CallOutput:
+    return CallOutput.model_validate({
+        "reply_text": "I will see what is free.", "emotion": "calm", "actions": [], "ends_call": False,
+        "promises": [{"to": "nordhaven", "what": "send_tugs", "when": "all_day", "condition": None}],
+        "belief_updates": {"trust_in_player": 0, "resolve_of_player": 0}})
+
+
+async def one_berth_with_tug_call(ask_at_tick: int | None) -> Game:
+    """Nordhaven's leader always prefers to stay out. The player may ask for tugs, and pay."""
+    g = Game(seed=7, decide=always("stay_out"), needle=False)
+    g.start_crisis("one_berth")
+    while g.state.crisis is not None:
+        if ask_at_tick is not None and g.state.crisis.tick == ask_at_tick:
+            g.apply_call("nordhaven", paid_tug_request())
+            ask_at_tick = None
+        await g.turn()
+    return g
+
+
+def test_a_paid_request_gets_the_tugs_even_from_a_reluctant_leader():
+    g = asyncio.run(one_berth_with_tug_call(ask_at_tick=2))
+    assert g.last_crisis["decisions"]["nordhaven"].action == "send_tugs"
+
+
+def test_without_a_request_nordhaven_stays_out():
+    g = asyncio.run(one_berth_with_tug_call(ask_at_tick=None))
+    assert g.last_crisis["decisions"]["nordhaven"].action == "stay_out"
+
+
+def test_replay_shows_the_tug_call_arriving_too_late():
+    g = asyncio.run(one_berth_with_tug_call(ask_at_tick=2))
+    assert g.replay(0) == []
+    late = {c["nation"]: (c["was"], c["now"]) for c in g.replay(5)}  # tick 7, after his tick-6 deadline
+    assert late.get("nordhaven") == ("send_tugs", "stay_out")

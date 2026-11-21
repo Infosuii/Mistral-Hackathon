@@ -168,8 +168,10 @@ def check_new_promise(s: State, to: str) -> None:
 
 def defiance_limit(rules: dict, action: str) -> Optional[float]:
     """How far below the advisers' top a leader's own choice may score before the cabinet
-    overrules him. Choices in rules.escalations (the ones that can start a war) use the
-    tighter rules.max_defiance_escalation; everything else uses rules.max_defiance.
+    overrules him. Choices in rules.escalations use the tighter rules.max_defiance_escalation:
+    the ones that can start a war, and refusing help the player asked and paid for (One
+    Berth lists stay_out). Everything else uses rules.max_defiance, so a leader stays free
+    to be more generous than advised.
     None means unbounded."""
     if action in rules.get("escalations", []) and rules.get("max_defiance_escalation") is not None:
         return rules["max_defiance_escalation"]
