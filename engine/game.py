@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
 from contracts.models import (
-    NATION_IDS, Action, Advice, CallOutput, CrisisPromise, LeaderDetail, LeaderOutput,
+    NATION_IDS, Action, Advice, CallOutput, CallResult, CrisisPromise, LeaderDetail, LeaderOutput,
     LeaderView, ReceivedMessage, Seat, State,
 )
 from engine.core import advise, is_legal, new_game, relation_key, step, weights
@@ -74,6 +74,7 @@ class Game:
         self.leaders: dict[str, LeaderDetail] = {}
         self.inbox: dict[str, list[ReceivedMessage]] = {n: [] for n in NATION_IDS}
         self.queued: list[Action] = []  # agreed on the phone; applied next turn
+        self.call_count = 0
         self.promises: list[CrisisPromise] = []  # strategy-phase promises (crisis ones live in state)
         self.pending_announce: Optional[Action] = None  # becomes public next tick unless interrupted
         self.crisis_log: list[State] = []  # every crisis tick, for replay and the needle
@@ -207,8 +208,18 @@ class Game:
         return LeaderDetail(public_statement=n.public_statement, private_intent="", advice=advise(self.state, nation),
                             chosen=[], reason="", persona=_persona(nation))
 
+    def begin_call(self, to: str) -> str:
+        """For split replies: call when the spoken reply goes out. state.last_call shows
+        this call as pending until apply_call(..., call_id=...) fills it in."""
+        self.call_count += 1
+        call_id = f"c{self.call_count}"
+        s = self.state.model_copy(deep=True)
+        s.last_call = CallResult(call_id=call_id, to=to, pending=True)
+        self.state = s
+        return call_id
+
     def apply_call(self, to: str, out: CallOutput, interrupted: bool = False,
-                   hesitation_ms: Optional[int] = None) -> State:
+                   hesitation_ms: Optional[int] = None, call_id: Optional[str] = None) -> State:
         """For /call: apply a leader's reply to the world. Changes take effect at once,
         except actions, which are applied on the next turn."""
         if interrupted and self.pending_announce and self.pending_announce.by == to:
@@ -218,6 +229,11 @@ class Game:
         if s.crisis:
             self.crisis_calls.append((s.crisis.tick, to, out.model_copy(deep=True), interrupted))
         self.queued += out.actions
+        if call_id is None:
+            self.call_count += 1
+            call_id = f"c{self.call_count}"
+        s.last_call = CallResult(call_id=call_id, to=to, pending=False, promises=out.promises,
+                                 actions=out.actions, ends_call=out.ends_call)
         self.state = s
         return s
 

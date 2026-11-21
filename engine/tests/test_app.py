@@ -75,3 +75,14 @@ def test_apply_call_updates_beliefs_relations_promises_and_queues_actions():
     assert s.relations["ostrava|valdoria"] == before.relations["ostrava|valdoria"] - 5
     assert g.promises[0].to == "ostrava" and g.promises[0].by == "player"
     assert g.queued and before.model_dump_json() != s.model_dump_json()
+
+
+def test_split_call_pending_then_filled():
+    g = Game(seed=7, use_agents=False)
+    cid = g.begin_call("ostrava")
+    assert g.state.last_call.call_id == cid and g.state.last_call.pending
+    out = CallOutput.model_validate(json.loads((EXAMPLES / "call_reply.output.json").read_text()))
+    s = g.apply_call("ostrava", out, call_id=cid)
+    assert s.last_call.call_id == cid and not s.last_call.pending
+    assert s.last_call.promises[0].what == "berth"
+    State.model_validate(s.model_dump(mode="json", by_alias=True))
