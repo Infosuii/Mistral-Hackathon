@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice V0 format test</title>
+<style>
+  :root { --bg: #111418; --fg: #e8e6e1; --muted: #8a8f98; --ok: #5fbf7f; --bad: #e0605a; --btn: #2a3038; }
+  body { background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 24px 16px; }
+  main { max-width: 640px; margin: 0 auto; }
+  button { background: var(--btn); color: var(--fg); border: 1px solid #3a424d; border-radius: 6px; padding: 10px 14px; font-size: 15px; cursor: pointer; margin: 4px 8px 4px 0; }
+  pre { background: #0b0d10; padding: 12px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>V0: does transcription accept the browser's recording?</h1>
+  <p class="muted">Records with MediaRecorder's default format and posts the raw blob to <code>POST /transcribe</code>.</p>
+  <button id="synthetic">Synthetic test (no mic)</button>
+  <button id="mic">Hold to record from mic</button>
+  <pre id="log">ready</pre>
+</main>
+<script>
+const log = (msg, cls) => {
+  const el = document.getElementById('log');
+  el.innerHTML += `\n<span class="${cls || ''}">${msg}</span>`;
+};
+
+async function post(blob) {
+  log(`recorded ${blob.size} bytes as ${blob.type || '(no type)'}`);
+  const r = await fetch('/transcribe', { method: 'POST', headers: { 'Content-Type': blob.type || 'audio/webm' }, body: blob });
+  const j = await r.json();
+  if (r.ok) log(`ACCEPTED in ${j.seconds}s: "${j.text}"`, 'ok');
+  else log(`REJECTED ${r.status}: ${JSON.stringify(j)}`, 'bad');
+  window.__v0 = { status: r.status, body: j, mime: blob.type, size: blob.size };
+}
+
+function record(stream, stopWhen) {
+  return new Promise(resolve => {
+    const rec = new MediaRecorder(stream);
+    const parts = [];
+    rec.ondataavailable = e => parts.push(e.data);
+    rec.onstop = () => resolve(new Blob(parts, { type: rec.mimeType }));
+    rec.start();
+    stopWhen(() => rec.stop());
+  });
+}
+
+// Plays a synthesized leader line through Web Audio into a MediaStream and records it,
+// so the bytes are exactly what Chrome's MediaRecorder produces from a mic.
+document.getElementById('synthetic').onclick = async () => {
+  try {
+    const tap = await (await fetch('/wiretap?a=ostrava&b=zarnia')).json();
+    const line = tap.lines[0];
+    log(`source line: "${line.text}" (${line.audio_url})`, 'muted');
+    const t0 = performance.now();
+    const buf = await (await fetch(line.audio_url)).arrayBuffer();
+    log(`fetched audio in ${Math.round(performance.now() - t0)} ms`, 'muted');
+    const ctx = new AudioContext();
+    const audio = await ctx.decodeAudioData(buf);
+    const src = ctx.createBufferSource();
+    src.buffer = audio;
+    const dest = ctx.createMediaStreamDestination();
+    src.connect(dest);
+    const blob = await record(dest.stream, stop => { src.onended = stop; src.start(); });
+    await post(blob);
+  } catch (e) { log(`error: ${e}`, 'bad'); }
+};
+
+const mic = document.getElementById('mic');
+let stopMic = null;
+mic.onpointerdown = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    log('recording...', 'muted');
+    const blob = await record(stream, stop => { stopMic = () => { stop(); stream.getTracks().forEach(t => t.stop()); }; });
+    await post(blob);
+  } catch (e) { log(`mic error: ${e}`, 'bad'); }
+};
+mic.onpointerup = mic.onpointerleave = () => { if (stopMic) { stopMic(); stopMic = null; } };
+</script>
+</body>
+</html>
