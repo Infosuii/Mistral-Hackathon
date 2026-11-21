@@ -13,6 +13,7 @@ actions agreed on the phone.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from pathlib import Path
@@ -23,7 +24,7 @@ from contracts.models import (
     LeaderView, ReceivedMessage, Seat, State,
 )
 from engine.core import advise, is_legal, new_game, relation_key, step, weights
-from engine.crisis import crisis_file, rerun_crisis, scripted_now, start_crisis, with_announcement
+from engine.crisis import crisis_file, defiance_limit, rerun_crisis, scripted_now, start_crisis, with_announcement
 from engine.snapshots import snapshot
 from engine.calls import apply_call_effects
 from engine.futures import futures
@@ -67,6 +68,10 @@ def available_crises() -> Optional[list[dict]]:
 
 def allowed_crises() -> list[str]:
     return [c["id"] for c in available_crises() or []] or ["one_berth"]
+
+
+PLAYER_ACTIONS = os.environ.get("GAMBIT_PLAYER_ACTIONS", "").lower() in ("1", "true", "on", "yes")
+ONE_SIDED = ("set_tariff", "declare_war", "make_peace")  # trade and alliances stay phone calls
 
 
 PRIVATE_STRATEGY = os.environ.get("GAMBIT_PRIVATE_STRATEGY", "").lower() in ("1", "true", "on", "yes")
@@ -169,6 +174,7 @@ class Game:
         self.leaders: dict[str, LeaderDetail] = {}
         self.inbox: dict[str, list[ReceivedMessage]] = {n: [] for n in NATION_IDS}
         self.queued: list[Action] = []  # agreed on the phone; applied next turn
+        self.player_action: Optional[Action] = None  # POST /action; applied next month
         # Each reset starts a new epoch; call ids carry it, so a reply that finishes after
         # a reset is dropped instead of leaking into the new game.
         self.epoch = getattr(self, "epoch", 0) + 1
@@ -273,9 +279,12 @@ class Game:
         c = self.state.crisis
         if c is None or not chosen or not advice:
             return out, chosen
-        limit = crisis_file(c.id).rules.get("max_defiance")
         scores = {a.action.type: a.score for a in advice}
         pick = chosen[0].type
+        # Escalations (blockade, mobilise...) have their own, tighter limit: a leader does not
+        # start a war against his cabinet. Live at 13:58, an interrupted Ostrava offered half a
+        # day (dock 3.2 against blockade 2.2) still blockaded, so interrupting changed nothing.
+        limit = defiance_limit(crisis_file(c.id).rules, pick)
         if limit is None or pick not in scores or scores[advice[0].action.type] - scores[pick] <= limit:
             return out, chosen
         top = advice[0].action
@@ -304,6 +313,9 @@ class Game:
 
             queued_by = {a.by for a in self.queued}
             actions = list(self.queued)
+            if self.player_action is not None:
+                actions.append(self.player_action)  # step() checks it is still legal
+                self.player_action = None
             for n, (out, chosen) in zip(ai, results):
                 if n not in queued_by:  # a deal struck on the phone beats the leader's own plan
                     actions += chosen
@@ -463,6 +475,31 @@ class Game:
         n = self.state.nations[nation]
         return LeaderDetail(public_statement=n.public_statement, private_intent="", advice=advise(self.state, nation),
                             chosen=[], reason="", persona=_persona(nation), private_strategy=strategy)
+
+    def player_options(self) -> list[Action]:
+        """The one-sided moves the player's nation may make now (strategy phase only)."""
+        seat = self.state.seat.nation
+        if seat is None or self.state.phase != "strategy":
+            return []
+        from engine.core import legal_actions
+        return [a for a in legal_actions(self.state, seat) if a.type in ONE_SIDED]
+
+    def queue_player_action(self, action: Action) -> None:
+        """Queue one move for the player's nation for next month, replacing any earlier one.
+        Raises ValueError when it is not allowed now."""
+        seat = self.state.seat.nation
+        if seat is None:
+            raise ValueError("a mediator has no nation to act for")
+        if self.state.phase != "strategy":
+            raise ValueError(f"no moves during phase {self.state.phase!r}")
+        if action.by != seat:
+            raise ValueError(f"you act for {seat}, not {action.by}")
+        if action.type not in ONE_SIDED:
+            raise ValueError(f"{action.type} needs the other leader's agreement: make it on the phone")
+        key = lambda a: (a.type, a.target, json.dumps(a.params, sort_keys=True))
+        if key(action) not in {key(a) for a in self.player_options()}:
+            raise ValueError(f"{action.type} on {action.target} is not legal now")
+        self.player_action = action
 
     def interrupt(self, to: str) -> bool:
         """The player cut this leader off. Cancels a threat that has not gone public yet.

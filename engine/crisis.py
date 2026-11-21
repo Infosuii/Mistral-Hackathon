@@ -166,6 +166,16 @@ def check_new_promise(s: State, to: str) -> None:
             _compare_notes(s, e.between, quiet=True)
 
 
+def defiance_limit(rules: dict, action: str) -> Optional[float]:
+    """How far below the advisers' top a leader's own choice may score before the cabinet
+    overrules him. Choices in rules.escalations (the ones that can start a war) use the
+    tighter rules.max_defiance_escalation; everything else uses rules.max_defiance.
+    None means unbounded."""
+    if action in rules.get("escalations", []) and rules.get("max_defiance_escalation") is not None:
+        return rules["max_defiance_escalation"]
+    return rules.get("max_defiance")
+
+
 def with_announcement(s: State, announce: Optional[Action]) -> State:
     """The state as a leader sees it at the next tick's deadline: a threat about to go
     public already counts (its back-down cost applies). For advice only."""
@@ -438,7 +448,7 @@ def rerun_crisis(start: State, calls: list, cached: dict[str, Decision],
             # leader's own choice now falls further below that top than rules.max_defiance
             # allows: the same limit the live turn loop applies (#94; Neon, #27).
             scores = {a.action.type: a.score for a in now}
-            limit = _rules(s).get("max_defiance")
+            limit = defiance_limit(_rules(s), d.action)
             too_far = (limit is not None and now and
                        (d.action not in scores or now[0].score - scores[d.action] > limit))
             if now and (too_far or (cached_advice[n] and now[0].action.type != cached_advice[n][0].action.type)):
