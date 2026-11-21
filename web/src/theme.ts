@@ -13,6 +13,8 @@ export const theme = {
   '--mood-friendly': '#6fe0a4',
   '--bubble': '#f4ecd6',
   '--gain': '#6fe0a4',
+  '--heat-low': '#2f4a4c',
+  '--heat-high': '#d9573f',
   '--loss': '#ff8a7d',
   '--sea-deep': '#09151a',
   '--grid': '#1f3942',

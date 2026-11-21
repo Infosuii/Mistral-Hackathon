@@ -4,6 +4,7 @@ import { MapOverlays } from './MapOverlays'
 import { relationBetween, statLabels, type GameState } from './state'
 import { nationStyle } from './theme'
 import { CapitalMarkers, CrisisFocus, flagOf, LeaderMedallions, NationalBorders, TerritoryLabels, UnitCounters } from './hud/MapLayers'
+import { OrdersBar } from './hud/OrdersBar'
 import { Relief, Sea, TerrainDefs, TerrainFeatures, terrainLabel, terrainOf } from './hud/Terrain'
 
 interface Props {
@@ -25,9 +26,19 @@ function limitView(view: typeof homeView) {
   }
 }
 
-function provinceStyle(state: GameState, owner: string, relations: boolean): CSSProperties {
+type MapMode = 'political' | 'relations' | 'military' | 'unrest'
+
+function provinceStyle(state: GameState, owner: string, mode: MapMode): CSSProperties {
   const style = nationStyle(owner)
-  if (!relations || !owner) return style
+  if (!owner || !state.nations[owner]) return style
+  if (mode === 'military' || mode === 'unrest') {
+    const stats = state.nations[owner].stats
+    const heat = mode === 'military' ? stats.army : 100 - stats.stability
+    const fill = `color-mix(in srgb, var(--heat-low), var(--heat-high) ${Math.round(Math.max(0, Math.min(100, heat)))}%)`
+    return { ...style, '--nation-fill': fill } as CSSProperties
+  }
+  const relations = mode === 'relations'
+  if (!relations) return style
   const score = relationBetween(state, state.seat.nation, owner) ?? 0
   const hue = score >= 0 ? '--relation-positive' : '--relation-negative'
   const fill = owner === state.seat.nation
@@ -59,16 +70,17 @@ function ProvinceCard({ state, id, x, y }: { state: GameState; id: string; x: nu
         {rel !== undefined && <div><dt>Relations</dt><dd data-sign={Math.sign(rel)}>{rel > 0 ? `+${rel}` : rel}</dd></div>}
       </dl>
       <p>{atWar ? 'At war. ' : ''}{nation.status.includes('PROTESTS') ? 'Protests in the streets. ' : ''}{nation.leader}</p>
-      <footer>Click to open dossier</footer>
+      <footer>Click for orders: call, intel, diplomacy</footer>
     </div>
   )
 }
 
 export function PoliticalMap({ state, selected, onSelect }: Props) {
   const [view, setView] = useState(homeView)
-  const [relationView, setRelations] = useState(false)
+  const [mode, setMode] = useState<MapMode>('political')
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null)
-  const relations = relationView && Boolean(state.seat.nation)
+  const relations = mode === 'relations' && Boolean(state.seat.nation)
+  const shownMode: MapMode = mode === 'relations' && !relations ? 'political' : mode
   const drag = useRef<{ id: number; x: number; y: number; view: typeof homeView; moved: boolean } | null>(null)
   const suppressClick = useRef(false)
   const windowRef = useRef<HTMLDivElement>(null)
@@ -146,7 +158,7 @@ export function PoliticalMap({ state, selected, onSelect }: Props) {
               const owner = state.provinces[id]
               const nation = state.nations[owner]
               return (
-                <path key={id} d={path} className="province" style={provinceStyle(state, owner, relations)}
+                <path key={id} d={path} className="province" style={provinceStyle(state, owner, shownMode)}
                   data-province={id} data-owner={owner} data-selected={Boolean(nation && owner === selected)}
                   data-hover={hover?.id === id}
                   onPointerMove={(event) => hoverProvince(id, event)}
@@ -173,17 +185,22 @@ export function PoliticalMap({ state, selected, onSelect }: Props) {
         <rect className="map-decoration" x={VB.x} y={VB.y} width={VB.w} height={VB.h} fill="url(#vignette)" />
       </svg>
       {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} />}
+      <OrdersBar state={state} selected={selected} />
       <div className="map-hud-top">
-        {state.seat.nation && (
-          <div className="map-mode" role="group" aria-label="Map view">
-            <button aria-pressed={!relations} onClick={() => setRelations(false)}>Political</button>
-            <button aria-pressed={relations} onClick={() => setRelations(true)}>Relations</button>
-          </div>
-        )}
+        <div className="map-mode" role="group" aria-label="Map view">
+          {(['political', 'relations', 'military', 'unrest'] as const)
+            .filter((m) => m !== 'relations' || state.seat.nation)
+            .map((m) => <button key={m} aria-pressed={shownMode === m} onClick={() => setMode(m)}>{m[0].toUpperCase() + m.slice(1)}</button>)}
+        </div>
       </div>
       <div className="map-footer">
         <div className="map-legend" aria-label={relations ? 'Relations legend' : 'Map legend'}>
-          {relations ? (
+          {shownMode === 'military' || shownMode === 'unrest' ? (
+            <>
+              <span className="heat-low">{shownMode === 'military' ? 'Weak army' : 'Stable'}</span>
+              <span className="heat-high">{shownMode === 'military' ? 'Strong army' : 'Unrest'}</span>
+            </>
+          ) : relations ? (
             <>
               <span className="negative">Hostile</span>
               <span className="neutral">Neutral</span>
