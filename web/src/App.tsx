@@ -2,7 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react'
 import { CrisisBar, crisisTime } from './CrisisBar'
 import { EndScreen } from './EndScreen'
 import { Intelligence } from './Intelligence'
-import { Phone } from './Phone'
+import { Phone, type PhoneActivity } from './Phone'
 import { ReplayPanel } from './ReplayPanel'
 import { WarForecast } from './WarForecast'
 import { PoliticalMap } from './PoliticalMap'
@@ -138,7 +138,13 @@ function Dispatches({ news }: { news: GameState['news'] }) {
   )
 }
 
-export function App({ state, controls, online }: { state: GameState; controls: ReactNode; online: boolean }) {
+export function App({ state, controls, online, clockHeld, onPhoneActivity }: {
+  state: GameState
+  controls: ReactNode
+  online: boolean
+  clockHeld: boolean
+  onPhoneActivity: (change: Partial<PhoneActivity>) => void
+}) {
   const nationIds = Object.keys(state.nations)
   const seat = state.seat.nation
   const firstContact = state.nations.ostrava && seat !== 'ostrava' ? 'ostrava' : nationIds.find((id) => id !== seat)
@@ -162,7 +168,7 @@ export function App({ state, controls, online }: { state: GameState; controls: R
   return (
     <div className="game-screen" style={theme as CSSProperties} data-crisis={Boolean(state.crisis)}>
       <ResourceBar state={state} controls={controls} />
-      {state.crisis && <CrisisBar crisis={state.crisis} nations={state.nations} />}
+      {state.crisis && <CrisisBar crisis={state.crisis} nations={state.nations} clockHeld={clockHeld} />}
       <main className="theatre">
         <PoliticalMap state={state} selected={selected} onSelect={setSelection} />
         <div className="left-rail">
@@ -176,7 +182,7 @@ export function App({ state, controls, online }: { state: GameState; controls: R
             <NationDetail nation={nation} id={selected} relation={relation}
               intel={selected !== seat && state.seat.role !== 'mediator' && <Intelligence key={selected} state={state} id={selected} online={online} />} />
           )}
-          <Phone state={state} selected={selected} online={online} />
+          <Phone state={state} selected={selected} online={online} onActivity={onPhoneActivity} />
         </div>
       </main>
       <footer className="ticker">
