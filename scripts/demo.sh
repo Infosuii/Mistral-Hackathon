@@ -173,7 +173,9 @@ if [ -n "$FIRST_MP3" ]; then
 fi
 
 if [ "$BACKEND_ONLY" -eq 0 ]; then
-  echo "[demo] Starting web app on http://localhost:${WEB_PORT} ..."
+  export BACKEND_PORT
+  export GAMBIT_BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}"
+  echo "[demo] Starting web app on http://localhost:${WEB_PORT} (proxy /api -> ${GAMBIT_BACKEND_URL}) ..."
   (cd "$ROOT/web" && npm run dev -- --host 127.0.0.1 --port "$WEB_PORT" --strictPort) >/tmp/gambit_web_${WEB_PORT}.log 2>&1 &
   WEB_PID=$!
   for _ in $(seq 1 60); do
