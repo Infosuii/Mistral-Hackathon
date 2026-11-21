@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
 from contracts.models import (
-    NATION_IDS, Action, Advice, CallOutput, CallResult, Ending, CrisisPromise, LeaderDetail, LeaderOutput,
+    NATION_IDS, Action, Advice, CallOutput, CallResult, Decision, Ending, CrisisPromise, LeaderDetail, LeaderOutput,
     LeaderView, ReceivedMessage, Seat, State,
 )
 from engine.core import advise, is_legal, new_game, relation_key, step, weights
@@ -178,6 +178,7 @@ class Game:
         self.pending_announce: Optional[Action] = None  # becomes public next tick unless interrupted
         self.crisis_log: list[State] = []  # every crisis tick, for replay and the needle
         self.crisis_advice: dict[str, list[Advice]] = {}  # each leader's advice when it decided
+        self.crisis_own: dict[str, Decision] = {}  # each leader's own choice, before any phone deal
         self.crisis_announces: list[tuple[int, Action]] = []
         self.crisis_calls: list[tuple[int, str, CallOutput, bool]] = []
         self.last_crisis: Optional[dict] = None  # inputs of the finished crisis, for replay
@@ -198,6 +199,7 @@ class Game:
         self.state = start_crisis(self.state, crisis_id)
         self.pending_announce, self.crisis_log = None, [self.state]
         self.crisis_advice, self.crisis_announces, self.crisis_calls, self.last_crisis = {}, [], [], None
+        self.crisis_own = {}
         self._strategize(crisis_id)
         return self.state
 
@@ -321,6 +323,9 @@ class Game:
         for n, (out, chosen) in zip(due, results):
             new.nations[n].public_statement = out.public_statement
             self.crisis_advice[n] = advice[n]
+            own = chosen[0].type if chosen else (advice[n][0].action.type if advice[n] else None)
+            if own:
+                self.crisis_own[n] = Decision(action=own, tick=nxt)
             self.leaders[n] = LeaderDetail(
                 public_statement=out.public_statement, private_intent=out.private_intent,
                 advice=advice[n], chosen=chosen, reason=out.reason, persona=_persona(n))
@@ -336,13 +341,13 @@ class Game:
         if new.crisis is None:  # resolved: keep what a replay needs
             last = s.crisis
             done = next(e for e in reversed(new.events) if e.type == "crisis_resolved")
-            from contracts.models import Decision
             decisions = dict(last.decisions)
             for n_, a_ in done.model_extra["decisions"].items():
                 decisions.setdefault(n_, Decision(action=a_, tick=last.ticks_total))
             self.last_crisis = {
                 "start": self.crisis_log[0], "calls": list(self.crisis_calls), "decisions": decisions,
-                "advice": dict(self.crisis_advice), "announces": list(self.crisis_announces),
+                "advice": dict(self.crisis_advice), "own": dict(self.crisis_own),
+                "announces": list(self.crisis_announces),
                 "snapshot_id": snapshot(self.crisis_log[0]),
             }
         self.state = new
@@ -421,7 +426,7 @@ class Game:
         total = lc["start"].crisis.ticks_total
         moved = [(min(total, max(0, t + shift_ticks)), to, out, intr) for t, to, out, intr in lc["calls"]]
         was = {n: d.action for n, d in lc["decisions"].items()}
-        _, now = rerun_crisis(lc["start"], moved, lc["decisions"], lc["advice"], lc["announces"],
+        _, now = rerun_crisis(lc["start"], moved, lc["own"], lc["advice"],
                               lc["start"].seed)
         return [{"nation": n, "was": was[n], "now": now.get(n, was[n])}
                 for n in NATION_IDS if n in was and now.get(n, was[n]) != was[n]]
