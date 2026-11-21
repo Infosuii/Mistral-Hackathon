@@ -23,8 +23,7 @@ from contracts.models import (
 )
 from engine.futures import futures
 from engine.snapshots import load
-from engine.crisis import available
-from engine.game import GAME
+from engine.game import GAME, allowed_crises
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("gambit.engine")
@@ -53,8 +52,8 @@ async def turn() -> State:
 
 @router.post("/crisis/start", response_model=State)
 async def crisis_start(req: CrisisStartRequest) -> State:
-    if req.id not in available():
-        raise HTTPException(404, f"unknown crisis {req.id!r}; have {available()}")
+    if req.id not in allowed_crises():
+        raise HTTPException(404, f"unknown crisis {req.id!r}; have {allowed_crises()}")
     async with GAME.lock:
         if GAME.state.phase != "strategy":
             raise HTTPException(409, f"cannot start a crisis during phase {GAME.state.phase!r}")

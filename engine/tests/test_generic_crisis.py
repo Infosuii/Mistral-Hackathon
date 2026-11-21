@@ -69,7 +69,9 @@ def test_other_branch_and_advisers_fill_missing_decisions(border):
     assert set(decisions) == set(BORDER["actions"])  # everyone decided, by the end at the latest
 
 
-def test_new_files_load_through_the_endpoint(border):
+def test_new_files_load_through_the_endpoint(border, monkeypatch):
+    from engine import game as game_mod
+    monkeypatch.setattr(game_mod, "EXTRA_CRISES", True)
     assert "border_test" in cr.available()
     from fastapi.testclient import TestClient
     from engine.app import app
