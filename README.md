@@ -34,7 +34,7 @@ echo "MISTRAL_API_KEY=your_key_here" > .env
 ./scripts/demo.sh
 ```
 
-`scripts/demo.sh` checks your API key, bootstraps `.venv` and `web/node_modules` on a fresh clone, verifies/warms pre-rendered crisis and Wiretap audio, starts the FastAPI backend (`http://127.0.0.1:8000`) with the stage defaults (`GAMBIT_DECIDE_MODEL=mistral-medium-latest`, `GAMBIT_PRIVATE_STRATEGY=1`, `GAMBIT_PLAYER_ACTIONS=1`, `GAMBIT_EXTRA_CRISES=1`, `VOICE_WIRETAP=demo`), and starts the web app at **`http://localhost:5173`**. Run `python scripts/preflight.py` before going on stage to verify your key, models, speech and transcription in 10 seconds.
+`scripts/demo.sh` checks your API key, bootstraps `.venv` and `web/node_modules` on a fresh clone, verifies/warms pre-rendered crisis and Wiretap audio, starts the FastAPI backend (`http://127.0.0.1:8000`) with the stage defaults (`GAMBIT_DECIDE_MODEL=mistral-medium-latest`, `GAMBIT_PRIVATE_STRATEGY=1`, `GAMBIT_PLAYER_ACTIONS=1`, `GAMBIT_EXTRA_CRISES=1`, `GAMBIT_MEDIATOR=1`, `GAMBIT_ROLLOUTS=120`, `VOICE_WIRETAP=demo`), and starts the web app at **`http://localhost:5173`**. Run `python scripts/preflight.py` before going on stage to verify your key, models, speech and transcription in 10 seconds (if the war-odds needle takes >4 s on a slower laptop, start with `GAMBIT_ROLLOUTS=80 ./scripts/demo.sh`).
 
 Open **`http://localhost:5173`** in **Chrome** (allow microphone access when prompted). Hold the red talk button to speak — or press it while a leader is speaking to interrupt them mid-sentence. A typed fallback box sits directly underneath for noisy rooms.
 
@@ -87,7 +87,7 @@ On seed `7` as President of Valdoria:
 Across 10 live WAV voice calls on `main` (0 fallbacks, uncached streaming TTS):
 - **Spoken reply (`speak_fast`):** 1.39 s median / 3.11 s worst
 - **TTS first chunk (`voxtral-mini-tts-3-0`):** 0.39 s median / 1.27 s worst (~1.78 s typed → first audio)
-- **STT (`voxtral-mini-transcribe-3`, ~220 KB WAV):** 3.32 s median / 8.72 s worst (first audio total 4.98 s median)
+- **STT (`voxtral-mini-transcribe-3`):** **0.25–0.37 s** on live Chrome mic WebM/Opus clips (14:45 playtest); **3.32 s** median / **8.72 s** worst on uncompressed ~220 KB WAV uploads (first audio total 4.98 s median for WAV)
 - **Call interpretation (`mistral-large-4`, async):** 13.10 s median / 21.44 s worst
 - **`POST /futures` (200 rollouts):** 3.52 s median / 4.69 s worst
 - **`POST /replay`:** 0.03 s pure code / 3.95 s with live `agents.why()`
