@@ -35,7 +35,7 @@ How Tamim carries both jobs: three seats. **Tamim's build agent** does the inter
 |---|---|---|
 | 12:15 | First tests done (§6). `contracts/` on `main` | Fix the failing test before anything else |
 | 12:45 | **Layer 0.** The world runs 20 turns in a terminal | Fewer action types |
-| 14:15 | **Voice playtest.** One person plays One Berth by voice for five minutes and reports what felt wrong | Prioritise the playtest fixes |
+| 14:40 | **Voice playtest.** Ashish plays One Berth by voice for five minutes and reports what felt wrong | Prioritise the playtest fixes |
 | 15:15 | **Layer 2.** One Berth plays through and can be interrupted | Cut hesitation; keep interruption |
 | 16:00 | **Layer 3.** Needle moves; replay names who flipped | Cut replay, keep needle |
 | 16:15 | **Freeze.** Polish and demo seed only | — |
@@ -282,7 +282,7 @@ Response to the page: `{transcript, reply_text, reply_audio_url, emotion, promis
 | V2 | 14:15 | `talk-button.js`: hold to talk, reports `interrupted` and `hesitation_ms`, emits transcript events, typed fallback. `/wiretap` audio | Tamim mounts it without editing | Main |
 | V3 | 15:00 | Pre-render opening lines and Wiretap for the demo seed | Plays with the network off | Main |
 | V4 | 15:30 | More crisis files: `outbreak.json`, `coup.json` | Load without code changes | Vibe |
-| D1 | 14:15 / 16:30 | One five-minute One Berth voice playtest, then record the backup after the freeze | Feedback posted at 14:15 and video saved and replayed at 16:30 | — |
+| D1 | 14:40 / 16:30 | One five-minute One Berth voice playtest, then record the backup after the freeze | Feedback posted after the five-minute playtest and video saved and replayed at 16:30 | — |
 | D2 | 16:15 | Demo script and who says what | Rehearsed twice | — |
 | D3 | 17:00 / 17:45 | Final video; submission | Submitted | — |
 
