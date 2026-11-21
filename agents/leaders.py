@@ -28,6 +28,7 @@ EMOTIONS: tuple[str, ...] = Emotion.__args__  # type: ignore[attr-defined]
 # The engine waits 8 s (engine/game.py); finish or raise before that.
 DECIDE_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_DECIDE_S", "7.5"))
 CALL_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_CALL_S", "6"))
+SPEAK_HEDGE_S = float(os.environ.get("GAMBIT_SPEAK_HEDGE_S", "2.5"))  # medium joins the spoken reply
 # Large 4 first; the hedge model joins if Large 4 has not answered by then.
 # Shorter head start for a reasoning model (Large 4 almost never answers in time).
 HEDGE_AFTER_S = float(os.environ.get("GAMBIT_HEDGE_AFTER_S", "2.5" if llm.reasons(llm.DECIDE_MODEL) else "3.5"))
@@ -390,17 +391,17 @@ def _parse_judgement(data: dict, v: CallView, options: list[dict], state: Option
 
 
 async def speak_fast(view: CallView | dict) -> dict:
-    """The spoken reply only: {reply_text, emotion}, about 1 s on the fast model. Falls back
-    to llm.FAST_FALLBACK (Large 4) if the fast model fails. Raises llm.LLMError on failure."""
+    """The spoken reply only: {reply_text, emotion}, about 1 s on the fast model. If it has
+    not answered within SPEAK_HEDGE_S (or fails sooner), llm.FAST_FALLBACK (medium) races it;
+    the first valid reply wins. One hard deadline of CALL_BUDGET_S for both, so the caller's
+    fallback line plays within it. Raises llm.LLMError on failure."""
     v = _call_view(view)
     system, user, _ = _call_context(v)
     msgs = [{"role": "system", "content": system + "\n" + SPEAK_JSON}, {"role": "user", "content": _j(user)}]
-    try:
-        return await llm.chat_json(msgs, lambda d: _parse_voice(d, v), model=llm.FAST_MODEL,
-                                   deadline=time.perf_counter() + CALL_BUDGET_S, max_tokens=150, temperature=0.8)
-    except llm.LLMError:
-        return await llm.chat_json(msgs, lambda d: _parse_voice(d, v), model=llm.FAST_FALLBACK,
-                                   deadline=time.perf_counter() + 20, max_tokens=150, temperature=0.8)
+    deadline = time.perf_counter() + CALL_BUDGET_S
+    return await llm.hedged(lambda m: llm.chat_json(msgs, lambda d: _parse_voice(d, v), model=m, deadline=deadline,
+                                                    max_tokens=150, temperature=0.8),
+                            primary=llm.FAST_MODEL, backup=llm.FAST_FALLBACK, after=SPEAK_HEDGE_S)
 
 
 async def interpret(view: CallView | dict, reply_text: str) -> CallOutput:
