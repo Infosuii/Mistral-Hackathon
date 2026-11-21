@@ -75,6 +75,31 @@ def test_split_path_speaks_first_and_applies_later(client):
     assert [t.text for t in seen["view"].history] == ["You can have the morning.", "Half a day is an insult."]
 
 
+def test_pending_call_fills_last_call(client):
+    from engine.game import GAME
+    if not hasattr(GAME, "begin_call"):
+        pytest.skip("engine has no begin_call yet (PR #45)")
+
+    async def speak_fast(view):
+        return {"reply_text": "Half a day is an insult.", "emotion": "angry"}
+
+    async def interpret(view, reply_text):
+        return {"promises": [{"to": "ostrava", "what": "berth", "when": "morning", "condition": None}],
+                "actions": [], "belief_updates": {"trust_in_player": -0.1, "resolve_of_player": 0},
+                "ends_call": False}
+
+    fake_agents(speak_fast=speak_fast, interpret=interpret)
+    r = client.post("/api/call", json=CALL).json()
+    assert r["pending"] is True and r["call_id"]
+    for _ in range(50):
+        last = client.get("/state").json().get("last_call") or {}
+        if last.get("call_id") == r["call_id"] and last.get("pending") is False:
+            break
+        time.sleep(0.05)
+    assert last["call_id"] == r["call_id"] and last["pending"] is False
+    assert last["promises"][0]["what"] == "berth"
+
+
 def test_failing_reply_still_speaks(client):
     async def speak_fast(view):
         raise RuntimeError("model down")

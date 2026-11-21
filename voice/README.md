@@ -53,7 +53,8 @@ If the web dev server proxies `/api` to port 8000 with the prefix kept, set
 (fast model, `mistral-large-2512`, with `mistral-large-4` as fallback), sends it to speech at
 once, then runs `agents.interpret(view: CallView, reply_text: str) -> CallOutput` (Large 4) in
 the background and applies it with `GAME.apply_call`. On that path the `/call` response has
-`promises: []` and `actions: []`; the results reach the page through `/state`. If `/agents` only
+`promises: []` and `actions: []`, plus `call_id` and `pending: true` once the engine has
+`GAME.begin_call` (PR #45); the results reach the page in `state.last_call`. If `/agents` only
 has `call_reply`, it is used as one call and applied at once.
 
 `python -m voice.v0 fastcheck`: `mistral-large-2512` gave 20/20 valid replies (enum emotion, at

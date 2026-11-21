@@ -75,11 +75,20 @@ def _current_state() -> dict:
     return json.loads(EXAMPLE_STATE.read_text())
 
 
-def _apply_to_engine(req: CallRequest, out: CallOutput) -> None:
+def _apply_to_engine(req: CallRequest, out: CallOutput, call_id: str | None = None) -> None:
     """Belief updates and promises take effect at once; actions on the next turn."""
     game = _game()
-    if game is not None:
-        game.apply_call(req.to, out, interrupted=req.interrupted, hesitation_ms=req.hesitation_ms)
+    if game is None:
+        return
+    kw = {"call_id": call_id} if call_id else {}
+    game.apply_call(req.to, out, interrupted=req.interrupted, hesitation_ms=req.hesitation_ms, **kw)
+
+
+def _begin_call(nation: str) -> str | None:
+    """Mark state.last_call pending (PR #45). None until the engine offers begin_call."""
+    game = _game()
+    begin = getattr(game, "begin_call", None)
+    return begin(nation) if begin else None
 
 
 # One running conversation per nation (CallView.history, decided 12:14). A call ends when
@@ -143,24 +152,28 @@ async def call(req: CallRequest):
     history += [{"role": "player", "text": transcript}, {"role": "leader", "text": raw["reply_text"]}]
     _calls[req.to]["at"] = time.time()
 
-    promises, actions = [], []
-    if interp is None:  # one call did everything: apply it now
-        result = _to_output(raw)
-        _apply(req, result)
-        promises, actions = result.model_dump(mode="json")["promises"], result.model_dump(mode="json")["actions"]
-    else:  # Large 4 works out what was agreed; the page sees it through /state
-        task = asyncio.create_task(_interpret(req, arg, raw, interp))
-        _background.add(task)
-        task.add_done_callback(_background.discard)
-    print(f"[voice] /call {req.to}: stt {t_stt - t0:.2f}s, reply {t_llm - t_stt:.2f}s")
-    return {
+    response = {
         "transcript": transcript,
         "reply_text": raw["reply_text"],
         "reply_audio_url": url,
         "emotion": raw["emotion"],
-        "promises": promises,
-        "actions": actions,
+        "promises": [],
+        "actions": [],
     }
+    if interp is None:  # one call did everything: apply it now
+        result = _to_output(raw)
+        _apply(req, result)
+        done = result.model_dump(mode="json")
+        response["promises"], response["actions"] = done["promises"], done["actions"]
+    else:  # Large 4 works out what was agreed; the page sees it in state.last_call
+        call_id = _begin_call(req.to)
+        if call_id:
+            response.update(call_id=call_id, pending=True)
+        task = asyncio.create_task(_interpret(req, arg, raw, interp, call_id))
+        _background.add(task)
+        task.add_done_callback(_background.discard)
+    print(f"[voice] /call {req.to}: stt {t_stt - t0:.2f}s, reply {t_llm - t_stt:.2f}s")
+    return response
 
 
 _background: set[asyncio.Task] = set()
@@ -175,20 +188,21 @@ def _to_output(raw: dict) -> CallOutput:
                                           "emotion": raw["emotion"]})
 
 
-def _apply(req: CallRequest, result: CallOutput) -> None:
+def _apply(req: CallRequest, result: CallOutput, call_id: str | None = None) -> None:
     if result.ends_call:
         _calls.pop(req.to, None)
-    _apply_to_engine(req, result)
+    _apply_to_engine(req, result, call_id)
 
 
-async def _interpret(req: CallRequest, arg, said: dict, interp) -> None:
+async def _interpret(req: CallRequest, arg, said: dict, interp, call_id: str | None) -> None:
     t = time.perf_counter()
     try:
         extra = _plain(await interp(arg, said["reply_text"]))
-    except Exception as e:
+    except Exception as e:  # still close the pending call, with no promises or belief change
         print(f"[voice] interpret failed for {req.to}, applying nothing: {e}")
-        return
-    _apply(req, _to_output({**extra, "reply_text": said["reply_text"], "emotion": said["emotion"]}))
+        extra = {}
+    _apply(req, _to_output({**extra, "reply_text": said["reply_text"], "emotion": said["emotion"]}),
+           call_id)
     print(f"[voice] interpret {req.to}: {time.perf_counter() - t:.2f}s")
 
 
