@@ -109,3 +109,12 @@ def test_historian_president_owns_their_nation(monkeypatch):
     assert "controlled NO nation" not in seen["system"]
     assert '"by":"valdoria","actor":"the player"' in seen["user"]
     assert '"by":"ostrava","actor":"ostrava (AI leader, not the player)"' in seen["user"]
+
+
+def test_historian_never_shows_a_bracketed_placeholder(monkeypatch):
+    async def fake(system, user, field, timeout, max_tokens=200):
+        assert "never write a bracketed placeholder" in system
+        return "President [Player]'s single month in office was brief."
+    monkeypatch.setattr(leaders, "_one_field", fake)
+    st = _crisis_state(Seat(role="president", nation="valdoria"))
+    assert asyncio.run(leaders.historian([], state=st)) == "President's single month in office was brief."

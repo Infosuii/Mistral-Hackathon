@@ -745,11 +745,14 @@ async def historian(log: list[dict], state: Any = None) -> str:
     try:
         st = _dump(state) if state is not None else (_game_context()[0] or {})
         rule, payload = _historian_context(log, st)
-        return await _one_field(
+        text = await _one_field(
             "You are a historian writing, years later, one paragraph (80-120 words) judging the player's time "
             "in this fictional world. " + (rule + " " if rule else "") + "Name the turning point and one leader who was deceived or "
-            "betrayed, if any. Wry and specific; no bullet points.",
+            "betrayed, if any. Wry and specific; no bullet points. The player has no personal name: call them "
+            f"\"{payload['the_player']}\" or by that office, and never write a bracketed placeholder such as [Player] or [Name].",
             _j(payload), "verdict", 40.0, 600)
+        # a placeholder that slips through anyway ("President [Player]'s") is cut out
+        return re.sub(r"\s*\[(?:the )?(?:player|name|your name)[^\]]*\]", "", text, flags=re.I)
     except Exception:  # noqa: BLE001
         return ("History records a short and turbulent tenure, the details of which "
                 "the archives have not yet released.")
