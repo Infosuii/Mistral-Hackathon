@@ -59,6 +59,14 @@ DEMO_LINES = {
         "Stop, hear me out before you announce anything! "
         "I offer Ostrava the berth in the morning right now if you wait and do not blockade."
     ),
+    "honest_ostrava": (
+        "General Dravic, I promise Ostrava the berth in the morning. "
+        "Your grain ships dock at first light."
+    ),
+    "honest_zarnia": (
+        "Premier, I promise Zarnia the berth in the evening. "
+        "Ostrava takes the morning slot and Zarnia unloads tonight."
+    ),
 }
 
 
@@ -246,7 +254,7 @@ class BeatResult:
 
 def _start_backend(port: int, extra_env: dict[str, str] | None = None) -> tuple[subprocess.Popen, Path]:
     env = os.environ.copy()
-    env.setdefault("GAMBIT_DECIDE_MODEL", "mistral-large-2512")
+    env.setdefault("GAMBIT_DECIDE_MODEL", "mistral-medium-latest")
     env.setdefault("VOICE_WIRETAP", "demo")
     if extra_env:
         env.update(extra_env)
@@ -283,6 +291,7 @@ def run_demo_path(
     seed: int = 7,
     shift_ticks: int = 3,
     allow_fallback_reply: bool = False,
+    check_replay_flip: bool = True,
 ) -> list[BeatResult]:
     results: list[BeatResult] = []
     ctx: dict[str, Any] = {}
@@ -551,18 +560,23 @@ def run_demo_path(
 
     beat("futures", beat_futures)
 
-    # Beat 10: POST /replay with a shift and check it names who changed
+    # Beat 10: POST /replay with shift=0 (no flips) and shift=+3 (names who changed)
     def beat_replay() -> str:
+        zero = ReplayResponse.model_validate(
+            client.request_json("POST", "/replay", {"shift_ticks": 0}, timeout=30.0)
+        )
+        assert not zero.changed, f"POST /replay shift_ticks=0 unexpectedly flipped: {zero.changed}"
         rep = ReplayResponse.model_validate(
             client.request_json("POST", "/replay", {"shift_ticks": shift_ticks}, timeout=30.0)
         )
         assert rep.shift_ticks == shift_ticks
-        assert rep.changed, f"POST /replay shift_ticks={shift_ticks} returned no changed nations"
+        if check_replay_flip:
+            assert rep.changed, f"POST /replay shift_ticks={shift_ticks} returned no changed nations"
         for ch in rep.changed:
             assert ch.was != ch.now, f"replay change had identical action: {ch}"
             assert ch.why.strip(), f"replay change missing why: {ch}"
         summary = ", ".join(f"{c.nation}:{c.was}->{c.now}" for c in rep.changed)
-        return f"shift={shift_ticks:+d} changed=[{summary}]"
+        return f"shift=0 ok (0 flips); shift={shift_ticks:+d} changed=[{summary}]"
 
     beat("replay", beat_replay)
 
@@ -595,7 +609,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--url", help="Already-running backend URL (starts a temporary server if omitted)")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--shift", type=int, default=3, help="shift_ticks for POST /replay")
-    ap.add_argument("--decide-model", default=os.environ.get("GAMBIT_DECIDE_MODEL", "mistral-large-2512"))
+    ap.add_argument("--decide-model", default=os.environ.get("GAMBIT_DECIDE_MODEL", "mistral-medium-latest"))
     args = ap.parse_args(argv)
 
     if not args.url and not os.environ.get("MISTRAL_API_KEY"):

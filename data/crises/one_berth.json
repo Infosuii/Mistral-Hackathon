@@ -180,7 +180,8 @@
       "split_cargo": {
         "food": 3
       }
-    }
+    },
+    "max_defiance": 4.0
   },
   "scripted": [
     {
