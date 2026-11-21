@@ -372,12 +372,13 @@ The directions written in this plan are starting points. Each person keeps steer
 
 | Design area | Owner | Lives in |
 |---|---|---|
-| Look of the game | Tamim | `web/DESIGN.md` and `web/src/theme.ts` |
+| Website design | Tamim, Abi and Om | `web/DESIGN.md` and `web/src/theme.ts` |
 | Leader personalities and tone | Abi | `agents/personas/*.md` |
 | Voices and how leaders sound | Ashish | `voice/CASTING.md` |
 | Game feel and balance | Om | `data/weights.json` |
 
 - **Your own area:** tell your agent what you want, as often as you like. It follows your latest direction over what the plan says, and records it in the file above so the next session keeps it.
+- **Shared website design:** Tamim, Abi and Om can steer the design and land verified design PRs in `/web` under the same workflow as their own folders. List the files you plan to edit in #26, #28 or #27 respectively and coordinate overlapping work before editing.
 - **Someone else's area:** post a `DESIGN` note on their work issue. Say what you want it to feel like, name a reference (a screenshot, a link, another game), and say which screen or leader. Screenshots can be dropped straight into the issue.
 - **When the owner is unsure between two looks,** their agent shows two quick variants and the owner picks. No guessing.
 - **Direction changes must be cheap.** Colours, type and spacing live in one theme file; personalities and voices live in data files. A new direction is an edit to those, not a rewrite.
