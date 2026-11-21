@@ -2,9 +2,12 @@
 
 import asyncio
 
-from contracts.models import Action, CallOutput, LeaderOutput
+import agents
+import engine.game as game_mod
+from contracts.models import Action, CallOutput, LeaderOutput, ReplayRequest, Seat
 from engine.core import advise
 from engine.game import Game
+from replay import api as replay_api
 
 
 def always(action: str):
@@ -123,9 +126,9 @@ def paid_tug_request() -> CallOutput:
         "belief_updates": {"trust_in_player": 0, "resolve_of_player": 0}})
 
 
-async def one_berth_with_tug_call(ask_at_tick: int | None) -> Game:
+async def one_berth_with_tug_call(ask_at_tick: int | None, seat: Seat | None = None) -> Game:
     """Nordhaven's leader always prefers to stay out. The player may ask for tugs, and pay."""
-    g = Game(seed=7, decide=always("stay_out"), needle=False)
+    g = Game(seed=7, seat=seat, decide=always("stay_out"), needle=False)
     g.start_crisis("one_berth")
     while g.state.crisis is not None:
         if ask_at_tick is not None and g.state.crisis.tick == ask_at_tick:
@@ -150,3 +153,25 @@ def test_replay_shows_the_tug_call_arriving_too_late():
     assert g.replay(0) == []
     late = {c["nation"]: (c["was"], c["now"]) for c in g.replay(5)}  # tick 7, after his tick-6 deadline
     assert late.get("nordhaven") == ("send_tugs", "stay_out")
+
+
+def test_mediator_replay_explains_the_archived_call_timing(monkeypatch):
+    monkeypatch.setattr(game_mod, "MEDIATOR", True)
+    monkeypatch.setenv("GAMBIT_AGENTS", "live")
+    game = asyncio.run(one_berth_with_tug_call(2, Seat(role="mediator", nation=None)))
+    monkeypatch.setattr(replay_api, "GAME", game)
+    explained = []
+
+    async def model_reason(change):
+        explained.append(change)
+        return "An oil deal arrived too late."
+
+    monkeypatch.setattr(agents, "why", model_reason)
+    response = asyncio.run(replay_api.replay(ReplayRequest(shift_ticks=5)))
+    nordhaven = next(change for change in response.changed if change.nation == "nordhaven")
+    assert (nordhaven.was, nordhaven.now) == ("send_tugs", "stay_out")
+    assert nordhaven.why == "The call moved from tick 2 to 7, after Nordhaven's original decision."
+    assert explained == []
+
+    unchanged = asyncio.run(replay_api.replay(ReplayRequest(shift_ticks=0)))
+    assert unchanged.changed == []
