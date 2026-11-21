@@ -27,7 +27,7 @@ async def fixed_reply(view: dict) -> dict:
 
 async def quick_reply(view: dict) -> dict:
     system = (
-        f"You are the leader of {view['to']}, a proud fictional nation, on a tense phone call "
+        f"You are the leader of {view['nation']}, a proud fictional nation, on a tense phone call "
         "with a foreign president about the single remaining berth at Port Kessar. "
         "Answer in character in at most two short sentences. "
         f"Reply only with JSON: {{\"reply_text\": str, \"emotion\": one of {sorted(EMOTIONS)}}}."
@@ -41,6 +41,8 @@ async def quick_reply(view: dict) -> dict:
         "max_tokens": 800,  # reasoning tokens count against this
         "messages": [
             {"role": "system", "content": system},
+            *({"role": "user" if t["role"] == "player" else "assistant", "content": t["text"]}
+              for t in (view.get("history") or [])),
             {"role": "user", "content": view["transcript"] or "(silence)"},
         ],
     }
@@ -52,7 +54,8 @@ async def quick_reply(view: dict) -> dict:
     if isinstance(content, list):  # reasoning models return [thinking..., text]
         content = "".join(p.get("text", "") for p in content if p.get("type") == "text")
     out = json.loads(content)
-    return {**EXAMPLE_REPLY, "promises": [], "belief_updates": {},
+    return {**EXAMPLE_REPLY, "promises": [],
+            "belief_updates": {"trust_in_player": 0, "resolve_of_player": 0},
             "reply_text": out.get("reply_text", ""), "emotion": out.get("emotion", "calm")}
 
 

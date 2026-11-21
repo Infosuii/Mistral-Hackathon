@@ -17,7 +17,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel
+
+from contracts.models import CallOutput, CallRequest
 
 from . import mock_agents
 from .audio import CACHE, EMOTIONS, JOBS, speak, transcribe
@@ -43,22 +44,54 @@ def _agents():
     return call_reply
 
 
-def _apply_to_engine(to: str, out: dict) -> None:
-    """Hand promises, actions and belief updates to the engine once it offers a hook."""
+EXAMPLE_STATE = Path(__file__).resolve().parent.parent / "contracts" / "examples" / "state.json"
+
+
+def _engine_hook(name: str):
+    """engine.app.<name> once Om's E2 app provides it, else None."""
     try:
-        import engine  # type: ignore
-        apply_call = getattr(engine, "apply_call")
-    except (ImportError, AttributeError):
-        return
-    apply_call(to, out)
+        import importlib
+        return getattr(importlib.import_module("engine.app"), name, None)
+    except ImportError:
+        return None
 
 
-class CallRequest(BaseModel):
-    to: str
-    audio: str | None = None     # base64 of whatever the browser recorded
-    text: str | None = None      # typed fallback
-    interrupted: bool = False
-    hesitation_ms: int | None = None
+def _current_state() -> dict:
+    get = _engine_hook("current_state")
+    if get:
+        s = get()
+        return s.model_dump(mode="json", by_alias=True) if hasattr(s, "model_dump") else s
+    return json.loads(EXAMPLE_STATE.read_text())
+
+
+def _apply_to_engine(nation: str, out: dict) -> None:
+    """Hand promises, actions and belief updates to the engine once it offers a hook."""
+    apply_call = _engine_hook("apply_call")
+    if apply_call:
+        apply_call(nation, out)
+
+
+# One running conversation per nation (CallView.history, decided 12:14). A call ends when
+# the leader sets ends_call, or after CALL_IDLE_S of silence.
+CALL_IDLE_S = 180
+_calls: dict[str, dict] = {}
+
+
+def _history(nation: str, state: dict) -> list[dict]:
+    call = _calls.get(nation)
+    if call is None or time.time() - call["at"] > CALL_IDLE_S:
+        call = _calls[nation] = {"at": time.time(), "turns": []}
+        ring = state.get("incoming_call") or {}
+        if ring.get("from") == nation and ring.get("opening_line"):
+            call["turns"].append({"role": "leader", "text": ring["opening_line"]})
+    return call["turns"]
+
+
+FALLBACK_REPLY = {
+    "reply_text": "The line is breaking up. Say that again.",
+    "emotion": "tense", "promises": [], "actions": [],
+    "belief_updates": {"trust_in_player": 0, "resolve_of_player": 0}, "ends_call": False,
+}
 
 
 @router.post("/call")
@@ -76,12 +109,25 @@ async def call(req: CallRequest):
         raise HTTPException(422, "send audio or text")
     t_stt = time.perf_counter()
 
-    view = {"to": req.to, "transcript": transcript, "interrupted": req.interrupted,
-            "hesitation_ms": req.hesitation_ms}
-    out = await _agents()(view)
-    if out.get("emotion") not in EMOTIONS:
-        out["emotion"] = "calm"
+    state = _current_state()
+    history = _history(req.to, state)
+    view = {"nation": req.to, "transcript": transcript, "interrupted": req.interrupted,
+            "hesitation_ms": req.hesitation_ms, "state": state,
+            "history": list(history) or None}
+    try:
+        raw = await _agents()(view)
+        if raw.get("emotion") not in EMOTIONS:  # an off-list tag is ignored by Voxtral anyway
+            raw["emotion"] = "calm"
+        out = CallOutput.model_validate(raw).model_dump(mode="json")
+    except Exception as e:  # never leave the player in silence
+        print(f"[voice] call_reply failed, using fallback line: {e}")
+        out = dict(FALLBACK_REPLY)
     t_llm = time.perf_counter()
+
+    history += [{"role": "player", "text": transcript}, {"role": "leader", "text": out["reply_text"]}]
+    _calls[req.to]["at"] = time.time()
+    if out.get("ends_call"):
+        _calls.pop(req.to, None)
 
     _apply_to_engine(req.to, out)
     url = await speak(out["reply_text"], voice_id, out["emotion"])
