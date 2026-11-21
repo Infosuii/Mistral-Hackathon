@@ -1,6 +1,6 @@
-import type { GameState, PresidentScore } from './state'
+import type { GameState } from './state'
 
-const scoreLabels: Record<keyof PresidentScore, string> = {
+const scoreLabels = {
   months_in_power: 'Months in power',
   peace_months: 'Months at peace',
   gdp_change: 'Economy change',
@@ -17,7 +17,7 @@ const endReasons: Record<string, string> = {
 
 const signed = new Intl.NumberFormat('en', { signDisplay: 'exceptZero', maximumFractionDigits: 1 })
 const percent = new Intl.NumberFormat('en', { style: 'percent' })
-const scoreKeys = Object.keys(scoreLabels) as (keyof PresidentScore)[]
+const scoreKeys = Object.keys(scoreLabels) as (keyof typeof scoreLabels)[]
 
 export function EndScreen({ state, online }: { state: GameState; online: boolean }) {
   const ending = state.ending
@@ -25,8 +25,9 @@ export function EndScreen({ state, online }: { state: GameState; online: boolean
   const seat = state.seat.nation ? state.nations[state.seat.nation]?.name : 'Independent mediator'
   const score = ending?.score
   const metrics: [string, string | number][] = []
-  if (score && 'peaceful_crises' in score) {
-    metrics.push(['Peaceful crises', score.peaceful_crises], ['Average trust', percent.format(score.average_trust)])
+  if (score && state.seat.role === 'mediator') {
+    if (score.peaceful_crises != null) metrics.push(['Peaceful crises', score.peaceful_crises])
+    if (score.average_trust != null) metrics.push(['Average trust', percent.format(score.average_trust)])
   } else if (score) {
     for (const key of scoreKeys) {
       const value = key === 'gdp_change' || key === 'stability_change' ? signed.format(score[key]) : score[key]
