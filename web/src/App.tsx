@@ -1,17 +1,12 @@
 import { useState, type CSSProperties } from 'react'
+import callRequest from '../../contracts/examples/call.request.text.json'
+import callResponse from '../../contracts/examples/call.response.json'
 import { PoliticalMap } from './PoliticalMap'
 import { statLabels, systemLabels, type GameState, type Nation, type Stats } from './state'
 import { nationStyle, theme } from './theme'
 
 const resourceKeys = ['gdp', 'oil', 'food', 'chips', 'army', 'stability', 'approval'] as const
 const detailKeys: (keyof Stats)[] = [...resourceKeys, 'territory']
-const mockCall = {
-  to: 'ostrava',
-  transcript: 'Can we split the berth and take half a day each?',
-  reply_text: 'Half a day is an insult. You promised us the berth.',
-  emotion: 'angry',
-}
-
 function TurnClock({ state }: { state: GameState }) {
   const crisis = state.phase === 'crisis' ? state.crisis : null
   const minutes = crisis?.ticks_total ? Math.floor(1440 * crisis.tick / crisis.ticks_total) : 0
@@ -119,7 +114,7 @@ function Phone({ state, selected }: { state: GameState; selected: string | undef
   const incoming = state.incoming_call
   const contactId = incoming?.from ?? selected
   const contact = contactId && contactId !== state.seat.nation ? state.nations[contactId] : undefined
-  const canPreview = !incoming && contactId === mockCall.to && contact
+  const canPreview = !incoming && contactId === callRequest.to && Boolean(contact)
 
   return (
     <section className="panel phone" aria-labelledby="phone-heading">
@@ -135,14 +130,14 @@ function Phone({ state, selected }: { state: GameState; selected: string | undef
         {incoming?.opening_line && <p>{incoming.opening_line}</p>}
         {canPreview && showPreview && (
           <div className="transcript">
-            <p><b>You</b> {mockCall.transcript}</p>
-            <p><b>{contact?.name}</b> {mockCall.reply_text}</p>
+            <p><b>You</b> {callResponse.transcript}</p>
+            <p><b>{contact?.name}</b> {callResponse.reply_text}</p>
           </div>
         )}
       </div>
       <div id="phone-controls">
         {canPreview ? (
-          <button className="preview-call" onClick={() => setShowPreview(!showPreview)} aria-expanded={showPreview}>
+          <button className="preview-call" onClick={() => setShowPreview((visible) => !visible)} aria-expanded={showPreview}>
             {showPreview ? 'Close preview' : 'Preview call'}
           </button>
         ) : <p className="subtle phone-offline">Voice offline</p>}

@@ -50,8 +50,6 @@ export const theme = {
   '--contact-min': '9.5rem',
   '--ticker-height': '2.625rem',
   '--symbol-size': '1.125rem',
-  '--status-size': '.4375rem',
-  '--map-min-height': '29rem',
   '--map-max-width': '85rem',
   '--edge': '1px',
   '--map-line': '1.2px',
