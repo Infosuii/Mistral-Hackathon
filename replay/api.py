@@ -47,7 +47,8 @@ async def replay(request: ReplayRequest) -> ReplayResponse:
         if archived is None:
             raise HTTPException(409, "Finish a crisis before replaying it.")
         changed = GAME.replay(shift)
-        crisis = archived["start"].crisis
+        start = archived["start"]
+        crisis = start.crisis
         calls = [
             {
                 "to": to,
@@ -68,7 +69,10 @@ async def replay(request: ReplayRequest) -> ReplayResponse:
             for change in changed
         ]
 
-    explanations = await asyncio.gather(*(explain(change, shift, facts) for change, facts in zip(changed, inputs)))
+    if start.seat.role == "mediator":
+        explanations = [timing_reason(change, facts) for change, facts in zip(changed, inputs)]
+    else:
+        explanations = await asyncio.gather(*(explain(change, shift, facts) for change, facts in zip(changed, inputs)))
     return ReplayResponse.model_validate({
         "shift_ticks": shift,
         "changed": [{**change, "why": reason} for change, reason in zip(changed, explanations)],
