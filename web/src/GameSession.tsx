@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import crisisRequest from '../../contracts/examples/crisis_start.request.json'
 import startRequest from '../../contracts/examples/start.request.json'
 import { api, post } from './api'
 import { App } from './App'
@@ -6,6 +7,14 @@ import { exampleState, type GameState } from './state'
 
 const pollInterval = 1_000
 const turnInterval = 20_000
+const crisisInterval = 7_500
+
+const gameRequests = {
+  start: { path: '/start', body: startRequest, error: 'Could not start the game.' },
+  turn: { path: '/turn', body: undefined, error: 'Could not advance. Try again.' },
+  crisis: { path: '/crisis/start', body: crisisRequest, error: 'Could not start One Berth.' },
+}
+
 
 export function GameSession() {
   const [state, setState] = useState(exampleState)
@@ -43,19 +52,20 @@ export function GameSession() {
     }
   }, [])
 
-  const send = useCallback(async (action: 'start' | 'turn') => {
+  const send = useCallback(async (action: keyof typeof gameRequests) => {
     if (actionPending.current) return
     actionPending.current = true
     stateRequest.current?.abort()
     setPending(true)
     setError('')
+    const request = gameRequests[action]
     try {
-      const next = await post<GameState>(`/${action}`, action === 'start' ? startRequest : undefined)
+      const next = await post<GameState>(request.path, request.body)
       setState(next)
       setConnection('online')
-      if (action === 'start') setPaused(false)
+      if (action !== 'turn') setPaused(false)
     } catch {
-      setError(action === 'start' ? 'Could not start the game. Check the server connection.' : 'Could not advance the turn. Try again.')
+      setError(request.error)
       setPaused(true)
     } finally {
       actionPending.current = false
@@ -66,18 +76,22 @@ export function GameSession() {
   const online = connection === 'online'
   const canAdvance = online && state.phase !== 'ended'
 
+  const crisisTick = state.crisis?.tick
   useEffect(() => {
     if (canAdvance && !paused && !pending) {
-      const timer = window.setTimeout(() => void send('turn'), turnInterval)
+      const timer = window.setTimeout(() => void send('turn'), crisisTick === undefined ? turnInterval : crisisInterval)
       return () => window.clearTimeout(timer)
     }
-  }, [canAdvance, paused, pending, send, state.turn])
+  }, [canAdvance, paused, pending, send, state.turn, crisisTick])
 
   const controls = (
     <div className="session-controls" aria-label="Session controls">
       <button onClick={() => void send('start')} disabled={pending}>{state.turn === 0 || !online ? 'Start game' : 'New game'}</button>
       <button onClick={() => setPaused((wasPaused) => !wasPaused)} disabled={!canAdvance || pending}>{paused ? 'Resume' : 'Pause'}</button>
-      <button onClick={() => void send('turn')} disabled={!canAdvance || pending}>Next turn</button>
+      <button onClick={() => void send('turn')} disabled={!canAdvance || pending}>{state.crisis ? 'Next tick' : 'Next turn'}</button>
+      {online && state.phase === 'strategy' && (
+        <button onClick={() => void send('crisis')} disabled={pending}>Start One Berth</button>
+      )}
       {connection !== 'online' && <span className="session-status" role="status">{connection === 'connecting' ? 'Connecting' : 'Engine offline'}</span>}
       {pending && <span className="session-status" role="status">Updating world</span>}
       {error && <span className="session-error" role="alert">{error}</span>}

@@ -22,6 +22,16 @@ export interface Nation {
   status: string[]
 }
 
+export interface CrisisState {
+  id: string
+  tick: number
+  ticks_total: number
+  deadlines: Record<string, number>
+  promises: { id: string; by: string; to: string; what: string; when: string; condition: string | null; kept: boolean | null }[]
+  public_commitments: { nation: string; action: string; tick: number }[]
+  decisions: Record<string, { action: string; tick: number }>
+}
+
 export interface GameState {
   turn: number
   phase: string
@@ -34,7 +44,7 @@ export interface GameState {
   news: { turn: number; text: string }[]
   events: { turn: number; type: string; nation?: string | null; province?: string | null }[]
   incoming_call: { from: string; emotion: string; opening_line: string; audio_url?: string | null } | null
-  crisis: { id: string; tick: number; ticks_total: number } | null
+  crisis: CrisisState | null
   last_futures: unknown
 }
 

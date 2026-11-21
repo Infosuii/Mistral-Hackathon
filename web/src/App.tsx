@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
+import { CrisisBar, crisisTime } from './CrisisBar'
 import { Intelligence } from './Intelligence'
 import { Phone } from './Phone'
 import { PoliticalMap } from './PoliticalMap'
@@ -11,13 +12,10 @@ const resourceKeys = ['gdp', 'oil', 'food', 'chips', 'army', 'stability', 'appro
 const detailKeys: (keyof Stats)[] = [...resourceKeys, 'territory']
 function TurnClock({ state }: { state: GameState }) {
   const crisis = state.phase === 'crisis' ? state.crisis : null
-  const minutes = crisis?.ticks_total ? Math.floor(1440 * crisis.tick / crisis.ticks_total) : 0
-  const pad = (value: number) => String(value).padStart(2, '0')
-  const time = `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`
   return (
     <div className="turn-clock">
       <span className="subtle">{crisis ? 'Crisis clock' : state.phase === 'ended' ? 'Session ended' : 'Strategy phase'}</span>
-      <strong>{crisis ? time : `Month ${pad(state.turn)}`}</strong>
+      <strong>{crisis ? crisisTime(crisis.tick, crisis.ticks_total) : `Month ${String(state.turn).padStart(2, '0')}`}</strong>
     </div>
   )
 }
@@ -149,8 +147,9 @@ export function App({ state, controls, online }: { state: GameState; controls: R
   const headline = news[0]
 
   return (
-    <div className="game-screen" style={theme as CSSProperties}>
+    <div className="game-screen" style={theme as CSSProperties} data-crisis={Boolean(state.crisis)}>
       <ResourceBar state={state} controls={controls} />
+      {state.crisis && <CrisisBar crisis={state.crisis} nations={state.nations} />}
       <main className="theatre">
         <PoliticalMap state={state} selected={selected} onSelect={setSelection} />
         <div className="left-rail">
