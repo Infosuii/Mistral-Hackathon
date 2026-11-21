@@ -46,6 +46,7 @@ python -m agents.test_turns      # A1: engine turn loop, seed 7, 20 months with 
 python -m agents.test_phone      # A2: ten lines through speak_fast + interpret
 python -m agents.test_talk       # A3/A4: wiretap, why, historian, headline
 python -m agents.test_strategy   # strategize_all (mediator: all five), flag on/off, reset on same seed, crisis strategy, mediator call
+python -m agents.test_decisive   # One Berth tick 7: no pride-only blockade against a decisive recommendation
 python -m agents.test_promises   # One Berth: promises in engine vocabulary; double promise caught at compare-notes
 python -m agents.a0_test         # A0: 10 sequential, 8 parallel, call latency → A0_RESULTS.md
 python -m agents.probe           # raw decide prompt per model: finish_reason and token usage

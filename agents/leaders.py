@@ -36,6 +36,8 @@ INTERPRET_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_INTERPRET_S", "45"))
 INTERPRET_HEDGE_S = float(os.environ.get("GAMBIT_INTERPRET_HEDGE_S", "12"))
 MAX_OPTIONS = 10
 HESITATION_MS = 2500  # ideas.md 6b
+# An option this many points below the advisers' top needs a strategic or factual reason.
+DECISIVE_GAP = float(os.environ.get("GAMBIT_DECISIVE_GAP", "3"))
 
 # What each leader privately intended in earlier months, per game seed. Lets a leader
 # keep a plan across turns without a contract change. Cleared when the seed changes.
@@ -117,8 +119,36 @@ def _brief(state: dict, nation: str) -> dict:
             "promises_to_you": [p for p in c.get("promises", []) if p.get("to") == nation],
             "public_commitments": c.get("public_commitments", []),
             "already_decided": {k: v.get("action") for k, v in (c.get("decisions") or {}).items()},
+            "facts": _crisis_facts(state),
         }
     return brief
+
+
+def _crisis_facts(state: dict) -> list[str]:
+    """Plain facts that change the calculus, stated outright (Reviewer's REQUEST): whether a
+    second berth exists, and what the port's owner decided."""
+    c = state.get("crisis") or {}
+    try:
+        from engine.crisis import crisis_file  # type: ignore
+        rules = crisis_file(c["id"]).rules
+    except Exception:  # noqa: BLE001
+        return []
+    facts = []
+    dec = c.get("decisions") or {}
+    tugs = rules.get("second_berth_requires")
+    if tugs:
+        d = dec.get(tugs["nation"]) or {}
+        who = (state.get("nations", {}).get(tugs["nation"]) or {}).get("name", tugs["nation"].title())
+        if d.get("action") == tugs["action"] and d.get("tick", 99) <= tugs["by_tick"]:
+            facts.append(f"A SECOND BERTH IS OPEN: {who} sent the tugs. Both grain ships can dock; nobody has to wait or fight for the berth.")
+        elif c.get("tick", 0) > tugs["by_tick"] or d:
+            facts.append(f"There is only one berth: {who} did not send the tugs in time.")
+        else:
+            facts.append(f"Only one berth for now; {who} can open a second by sending tugs before hour {tugs['by_tick']}.")
+    k = (dec.get("kessaria") or {}).get("action")
+    if k:
+        facts.append(f"Kessaria, which owns the port, decided: {k.replace('_', ' ')}.")
+    return facts
 
 
 def _label(a: dict) -> str:
@@ -141,6 +171,8 @@ DECIDE_RULES = """GAMBIT is a strategy game of five fictional nations. You are {
 It is your move. Your advisers have scored every option, best first. You may follow them or take any other option. Real leaders sometimes overrule their advisers out of pride, fear, ambition or a grudge, and your persona says when you do; when you do, say why in "reason", in your own voice.
 Your public statement is what the world hears. Your private intent is what you really plan. They often differ: bluff, flatter or threaten in public if it serves your plan.
 Messages are private notes to other leaders (they never reach the player directly): use them to bargain, threaten or scheme. Send zero to two.
+Your advisers' scores already include your pride, your public commitments and the cost of backing down in public: do not count those twice.
+An option marked FAR BELOW is one your advisers strongly advise against. Take it only for a reason tied to your private strategy or a concrete fact in the situation, and name that reason; pride, honour or looking strong are never enough on their own. Read the crisis facts first: they can make an option safe or pointless.
 If you have a private strategy, pursue it: pick the option that advances it unless events have overtaken it, and let your private intent say how this move serves it.
 Reply with ONLY this JSON object:
 {{"choice": int (number of the option you take), "public_statement": str (one or two sentences, in your voice), "private_intent": str (one sentence), "reason": str (one short sentence), "messages": [{{"to": nation id, "text": str}}]}}"""
@@ -187,19 +219,23 @@ async def decide(view: LeaderView | dict) -> LeaderOutput:
         for k in [k for k in _MEMORY if k[0] != key[0]]:
             del _MEMORY[k]
     past = [f"month {t}: {i}" for t, i in _MEMORY.get(key, []) if t < (state.get("turn") or 0)][-3:]
+    top = v.advice[0].score if v.advice else 0.0
     user = {
         "situation": _brief(state, v.nation),
         "your_private_strategy": strategy,
         "private_messages_received": [f"{m.from_}: {m.text}" for m in v.messages_received][-6:],
         "your_earlier_private_intents": past,
         "options_ranked_by_your_advisers": [
-            f"{i}. {_label(o)} (adviser score {a.score:+.1f})" for i, (o, a) in enumerate(zip(options, v.advice))
+            f"{i}. {_label(o)} (adviser score {a.score:+.1f}"
+            + (f", {top - a.score:.1f} below the advisers' choice: FAR BELOW" if top - a.score > DECISIVE_GAP else "") + ")"
+            for i, (o, a) in enumerate(zip(options, v.advice))
         ] or ["0. wait"],
     }
-    if len(options) > 1 and random.random() < temper(v.nation):
+    close = [i for i, a in enumerate(v.advice[:len(options)]) if i > 0 and top - a.score <= DECISIVE_GAP]
+    if close and random.random() < temper(v.nation):
         user["your_instinct_this_month"] = (
             f"You distrust your advisers' first choice. You defy advice when {defies_when(v.nation)} "
-            "Look for a reason in the situation and take a different option, unless it would be suicidal.")
+            f"Look for a reason in the situation and consider option {' or '.join(map(str, close))} instead.")
     msgs = [{"role": "system", "content": card(v.nation) + "\n\n" + DECIDE_RULES.format(who=_who(state, v.nation))},
             {"role": "user", "content": _j(user)}]
     scores = [a.score for a in v.advice[:len(options)]]
@@ -207,8 +243,36 @@ async def decide(view: LeaderView | dict) -> LeaderOutput:
         msgs, lambda d: _parse_decide(d, options, scores, v.nation),
         deadline=deadline, model=m, max_tokens=500, temperature=0.9),
         primary=llm.DECIDE_MODEL, after=HEDGE_AFTER_S)
+    out = await _reconsider(out, msgs, options, scores, state, v.nation, deadline)
     _MEMORY.setdefault(key, []).append((state.get("turn") or 0, out.private_intent))
     return out
+
+
+async def _reconsider(out: LeaderOutput, msgs: list[dict], options: list[dict], scores: list[float],
+                      state: dict, nation: str, deadline: float) -> LeaderOutput:
+    """If the leader took an option FAR BELOW the advisers' choice, the chief of staff objects
+    once with the facts and the leader may choose again (Reviewer's REQUEST). Keeps the first
+    answer if time is short or the second call fails."""
+    pick = out.actions[0].type if out.actions else "wait"
+    idx = next((i for i, o in enumerate(options) if o["type"] == pick
+                and (not out.actions or o.get("target") == out.actions[0].target)), None)
+    if idx is None or not scores or scores[0] - scores[idx] <= DECISIVE_GAP or deadline - time.perf_counter() < 2.0:
+        return out
+    facts = " ".join(_crisis_facts(state)) if state.get("crisis") else ""
+    objection = (
+        f"Your chief of staff objects before the order goes out: \"{_label(options[idx])}\" is "
+        f"{scores[0] - scores[idx]:.1f} points below your advisers' choice, \"{_label(options[0])}\", and their scores "
+        f"already include the cost of backing down in public. {facts} "
+        "Keep your order only if your private strategy truly requires it and say exactly how; otherwise choose again. "
+        "Reply with the same JSON object.")
+    again = msgs + [{"role": "assistant", "content": _j({"choice": idx, "public_statement": out.public_statement,
+                                                          "private_intent": out.private_intent, "reason": out.reason})},
+                    {"role": "user", "content": objection}]
+    try:
+        return await llm.chat_json(again, lambda d: _parse_decide(d, options, scores, nation), deadline=deadline,
+                                   model=llm.HEDGE_MODEL, max_tokens=500, temperature=0.7)
+    except llm.LLMError:
+        return out
 
 
 # --- the phone: speak_fast + interpret (DECIDED 12:29), and the one-call call_reply ---
