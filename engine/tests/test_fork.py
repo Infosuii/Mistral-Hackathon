@@ -36,7 +36,7 @@ def test_fork_applies_changes():
 
 
 def _played(script: str) -> Game:
-    g = Game(seed=7, use_agents=False)
+    g = Game(seed=7, use_agents=False, needle=False)
     g.start_crisis("one_berth")
     while g.state.phase == "crisis":
         s = asyncio.run(g.turn())

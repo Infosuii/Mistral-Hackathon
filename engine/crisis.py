@@ -26,12 +26,9 @@ CRISES = Path(__file__).resolve().parent.parent / "data" / "crises"
 
 
 @lru_cache(maxsize=None)
-def _raw(crisis_id: str) -> str:
-    return (CRISES / f"{crisis_id}.json").read_text()
-
-
 def crisis_file(crisis_id: str) -> CrisisFile:
-    return CrisisFile.model_validate(json.loads(_raw(crisis_id)))
+    """Parsed data/crises/<id>.json. Shared and read-only: never modify what this returns."""
+    return CrisisFile.model_validate(json.loads((CRISES / f"{crisis_id}.json").read_text()))
 
 
 def available() -> list[str]:
@@ -255,7 +252,8 @@ def _resolve(s: State) -> None:
 def crisis_step(state: State, actions: list[Action], seed: int) -> State:
     """Advance one crisis tick. Pure. `actions` may hold decisions (a type from the
     crisis file) and `announce` actions ({"type": "announce", "by": n, "params": {"action": a}})."""
-    s = state.model_copy(deep=True)
+    from engine.core import copy_state
+    s = copy_state(state)
     c = s.crisis
     cf = crisis_file(c.id)
     c.tick += 1

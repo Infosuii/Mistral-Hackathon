@@ -25,16 +25,18 @@ KEEP_NEWS = 30
 
 
 @lru_cache(maxsize=None)
-def _load(name: str) -> str:
-    return (DATA / name).read_text()
+def _load(name: str) -> dict[str, Any]:
+    return json.loads((DATA / name).read_text())
 
 
 def weights() -> dict[str, Any]:
-    return json.loads(_load("weights.json"))  # a fresh copy each call, so nobody can mutate it
+    """Parsed data/weights.json. Shared and read-only: never modify what this returns."""
+    return _load("weights.json")
 
 
 def world() -> dict[str, Any]:
-    return json.loads(_load("nations.json"))
+    """Parsed data/nations.json. Shared and read-only: never modify what this returns."""
+    return _load("nations.json")
 
 
 # --- setup -------------------------------------------------------------------
@@ -74,10 +76,19 @@ def allies(state: State, nation: str) -> list[str]:
     return sorted(o for o in NATION_IDS if o != nation and has_link(state, "alliance", nation, o))
 
 
+@lru_cache(maxsize=4096)
+def _border_pairs(owners: tuple[tuple[str, str], ...]) -> frozenset[tuple[str, str]]:
+    nb, own = world()["neighbours"], dict(owners)
+    return frozenset((own[p], own[q]) for p in own for q in nb[p] if q in own and own[p] != own[q])
+
+
 def borders(state: State, a: str, b: str) -> bool:
-    nb = world()["neighbours"]
-    return any(state.provinces.get(q) == b
-               for p, owner in state.provinces.items() if owner == a for q in nb[p])
+    return (a, b) in _border_pairs(tuple(sorted(state.provinces.items())))
+
+
+def copy_state(state: State) -> State:
+    """A deep copy, about twice as fast as model_copy(deep=True)."""
+    return State.model_validate(state.model_dump())
 
 
 def power(state: State, nation: str, w: dict) -> float:
@@ -413,7 +424,7 @@ def step(state: State, actions: list[Action], seed: int) -> State:
     if state.phase == "crisis":
         from engine.crisis import crisis_step
         return crisis_step(state, actions, seed)
-    s = state.model_copy(deep=True)
+    s = copy_state(state)
     if s.phase != "strategy":
         return s  # the game has ended
     w = weights()

@@ -26,6 +26,7 @@ from engine.core import advise, is_legal, new_game, relation_key, step, weights
 from engine.crisis import crisis_file, rerun_crisis, start_crisis
 from engine.snapshots import snapshot
 from engine.calls import apply_call_effects
+from engine.futures import futures
 
 log = logging.getLogger("gambit.engine")
 ROOT = Path(__file__).resolve().parent.parent
@@ -64,7 +65,8 @@ def _persona(nation: str) -> str:
 
 class Game:
     def __init__(self, seed: int = 7, seat: Optional[Seat] = None,
-                 decide: Optional[Decide] = None, use_agents: bool = True):
+                 decide: Optional[Decide] = None, use_agents: bool = True, needle: bool = True):
+        self.needle = needle  # recompute state.last_futures in the background after calls
         self._decide_fn = decide if decide is not None else (_load_decide() if use_agents else None)
         self.lock = asyncio.Lock()
         self.reset(seed, seat)
@@ -238,6 +240,7 @@ class Game:
             return self.state
         if interrupted and self.pending_announce and self.pending_announce.by == to:
             self.pending_announce = None  # cut off before the threat went public
+        before = self.state
         s, strategy_promises = apply_call_effects(self.state, to, out, interrupted, len(self.promises))
         self.promises += strategy_promises
         if s.crisis:
@@ -249,7 +252,29 @@ class Game:
             s.last_call = CallResult(call_id=call_id, to=to, pending=False, promises=out.promises,
                                      actions=out.actions, ends_call=out.ends_call)
         self.state = s
+        if self.needle and (out.promises or out.actions):
+            self._needle(before, s, list(self.queued))
         return s
+
+    def _needle(self, before: State, after: State, first: list[Action]) -> None:
+        """Recompute the war-odds needle in the background after a call that changed something."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return  # not inside the server (tests, scripts): call futures() directly instead
+
+        self.needle_seq = getattr(self, "needle_seq", 0) + 1
+        seq, epoch = self.needle_seq, self.epoch
+
+        async def run() -> None:
+            try:
+                result = await asyncio.to_thread(futures, before, after, first)
+            except Exception:
+                log.exception("needle rollouts failed")
+                return
+            if epoch == self.epoch and seq == self.needle_seq:  # not stale: no reset, no newer call
+                self.state = self.state.model_copy(update={"last_futures": result})
+        self._needle_task = loop.create_task(run())
 
 
 GAME = Game()
