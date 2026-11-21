@@ -7,6 +7,7 @@ import type { GameState } from './state'
 type Action = { type: string; target?: string | null }
 type Intel = {
   private_intent: string
+  private_strategy?: string | null
   advice: { action: Action; score: number }[]
   chosen: Action[]
   reason: string
@@ -21,6 +22,7 @@ export function Intelligence({ state, id, online }: { state: GameState; id: stri
   const [error, setError] = useState('')
   const contacts = Object.entries(state.nations).filter(([nation]) => nation !== id && nation !== state.seat.nation)
   const [contact, setContact] = useState(contacts[0]?.[0] ?? '')
+  const strategy = intel?.private_strategy?.trim()
 
   useEffect(() => {
     if (tab !== 'intel') return
@@ -31,10 +33,29 @@ export function Intelligence({ state, id, online }: { state: GameState; id: stri
       return
     }
     const controller = new AbortController()
-    api<Intel>(`/leaders/${encodeURIComponent(id)}`, { signal: controller.signal })
-      .then((result) => { if (!controller.signal.aborted) setIntel(result) })
-      .catch(() => { if (!controller.signal.aborted) setError('Unable to load the briefing.') })
-    return () => controller.abort()
+    let loading = false
+    async function refresh() {
+      if (loading) return
+      loading = true
+      try {
+        const result = await api<Intel>(`/leaders/${encodeURIComponent(id)}`, { signal: controller.signal, cache: 'no-store' })
+        if (!controller.signal.aborted) {
+          setIntel(result)
+          setError('')
+        }
+      } catch {
+        if (!controller.signal.aborted) setError('Unable to load the briefing.')
+      } finally {
+        loading = false
+      }
+    }
+    // Strategy is written in the background and lives only in this endpoint.
+    void refresh()
+    const timer = window.setInterval(refresh, 2_000)
+    return () => {
+      window.clearInterval(timer)
+      controller.abort()
+    }
   }, [tab, id, online])
 
   async function listen() {
@@ -74,6 +95,7 @@ export function Intelligence({ state, id, online }: { state: GameState; id: stri
         <section className="intel-drawer" aria-label="Leader intel">
           {intel ? (
             <dl>
+              {strategy && <><dt>Private strategy</dt><dd className="intel-strategy">{strategy}</dd></>}
               <dt>Private intent</dt><dd>{intel.private_intent || 'No private intent recorded.'}</dd>
               <dt>Advisers recommend</dt><dd>{intel.advice[0] ? actionName(intel.advice[0].action) : 'No advice recorded.'}</dd>
               <dt>Chosen action</dt><dd>{intel.chosen.map(actionName).join(', ') || 'No action recorded.'}</dd>
