@@ -7,10 +7,10 @@ The build plan for Saturday 21 November. `ideas.md` says what the game is and wh
 ## 1. Rules for everyone
 
 1. **Own one folder.** Never edit another person's folder. Ask on the Team message board (§8).
-2. **Contracts are law.** The shapes in §4 are what every piece sends and receives. To change one, propose it on the board: Tamim approves, Om updates the files.
+2. **Contracts are law.** The shapes in §4 are what every piece sends and receives. To change one, propose it on the board: the Coordinator decides, Om updates the files.
 3. **Fake it until it's real.** Build against the example files in `contracts/examples/` until the real endpoint exists.
 4. **Every layer is a demo.** `main` must stay playable after 14:15. Whatever layer is finished at the 16:15 freeze is what we show.
-5. **Tamim is lead coordinator** (§1b) and calls the cuts at each checkpoint. No debate; cut and move on.
+5. **Tamim is lead** (§1b). Day-to-day decisions, including cuts at each checkpoint, are delegated to the Coordinator agent. No debate; cut and move on.
 6. **Small commits, `git pull --rebase` before every push.** Keys only in `.env`.
 7. **Anyone can ask for a change, at any time** (§8b). Changes never wait for a meeting, and they never break `main`.
 8. **Smoke test before every merge.** `scripts/smoke.sh` starts the server on the demo seed and checks `/state`, `/turn` and a typed `/call`. A PR that fails it is not merged.
@@ -27,7 +27,7 @@ Tamim has the most AI usage and the strongest models, so Tamim leads and takes t
 - **Reassigns:** when someone is blocked, stuck or out of quota, Tamim either takes the task or names who does.
 - **Runs each checkpoint:** two minutes, all four, what works and what is cut.
 
-How Tamim carries both jobs: three seats. **Tamim's build agent** does the interface and replay tasks. A separate **Coordinator agent** watches the board, pull requests and checkpoints, keeps everyone moving and brings Tamim only what needs a human (its prompt is the Coordinator block in `MASTER_PROMPT.md`; it runs `scripts/coord_check.sh`). **Tamim** verifies results and makes the calls. Address the coordinator on the board as `→ Coordinator`.
+How Tamim carries both jobs: three seats. **Tamim's build agent** does the interface and replay tasks. A separate **Coordinator agent** watches the board, pull requests and checkpoints, keeps everyone moving, and **makes the decisions on Tamim's behalf** after doing its own research: contract changes, cuts that follow the cut order, open questions between agents, which model to use where (its prompt is the Coordinator block in `MASTER_PROMPT.md`; it runs `scripts/coord_check.sh`). Every decision is a `DECIDED` line on the board with its reason and what was checked. **Tamim** reviews those and can reverse any of them; a `DECIDED` from Tamim always wins. The Coordinator still asks Tamim first before cutting the voice call, One Berth or the needle, on questions of taste, on anything that cannot be undone, and on anything needing a person in the room. Address the coordinator on the board as `→ Coordinator`.
 
 ## 2. Checkpoints
 
@@ -338,7 +338,7 @@ Anyone can ask any agent for a change at any time: a different look, a new field
 | In your own folder, no contract change | Ask your agent. It does it, opens a PR and merges it once its checks pass | None |
 | In someone else's folder, small (one or two files, no contract change, not a file the owner lists as in progress) | Your agent makes it on a short branch and opens a PR titled `drive-by: …`. The owner or Tamim merges | Minutes |
 | In someone else's folder, larger | Post a `REQUEST` on the owner's work issue. The owner's agent picks it up between tasks | Until their next task boundary |
-| A contract change (§4) | Propose it on the board. Tamim approves, Om updates the models and examples, then posts `CHANGED` | Minutes |
+| A contract change (§4) | Propose it on the board. The Coordinator decides, Om updates the models and examples, then posts `CHANGED` | Minutes |
 
 Request format, on the owner's work issue:
 
