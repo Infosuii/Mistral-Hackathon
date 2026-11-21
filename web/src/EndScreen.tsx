@@ -8,6 +8,13 @@ const scoreLabels: Record<keyof SessionScore, string> = {
   promises_kept: 'Promises kept',
   promises_broken: 'Promises broken',
 }
+const endReasons: Record<string, string> = {
+  ended: 'You ended the session.',
+  voted_out: 'Your leader was voted out.',
+  coup: 'A coup removed your leader from office.',
+  time: 'Your year in office is over.',
+}
+
 const signed = new Intl.NumberFormat('en', { signDisplay: 'exceptZero', maximumFractionDigits: 1 })
 const scoreKeys = Object.keys(scoreLabels) as (keyof SessionScore)[]
 
@@ -21,7 +28,7 @@ export function EndScreen({ state, online }: { state: GameState; online: boolean
         <header>
           {seat && <p className="subtle">{seat}</p>}
           <h2 id="ending-heading">Session complete</h2>
-          {ending?.reason && <p className="ending-reason">{ending.reason.replaceAll('_', ' ')}</p>}
+          {ending?.reason && <p className="ending-reason">{endReasons[ending.reason] ?? ending.reason.replaceAll('_', ' ')}</p>}
         </header>
         {ending && (
           <dl className="ending-score">
