@@ -59,6 +59,8 @@ export const theme = {
   '--detail-width': '17rem',
   '--resource-width': '3.25rem',
   '--contact-min': '9.5rem',
+  '--transcript-height': '9rem',
+  '--intel-height': '14rem',
   '--ticker-height': '2.625rem',
   '--flag-width': '1.75rem',
   '--portrait-width': '3.25rem',
