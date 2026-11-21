@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from contracts.models import CallOutput, CallRequest, CallView
 
 from . import mock_agents
-from .audio import CACHE, EMOTIONS, JOBS, speak, transcribe
+from .audio import EMOTIONS, JOBS, find_audio, speak, transcribe
 
 router = APIRouter()
 CASTING = json.loads((Path(__file__).parent / "casting.json").read_text())
@@ -206,13 +206,22 @@ async def _interpret(req: CallRequest, arg, said: dict, interp, call_id: str | N
     print(f"[voice] interpret {req.to}: {time.perf_counter() - t:.2f}s")
 
 
+DEMO_LINES = Path(__file__).parent / "demo_lines.json"
+
+
+def demo_wiretap(a: str, b: str) -> list[dict] | None:
+    """The pre-rendered Wiretap script for this pair, if voice/demo_lines.json has one."""
+    pairs = json.loads(DEMO_LINES.read_text(encoding="utf-8")).get("wiretap", {})
+    return pairs.get(f"{a}|{b}") or pairs.get(f"{b}|{a}")
+
+
 @router.get("/wiretap")
 async def wiretap(a: str, b: str):
     try:
         import agents  # type: ignore
         lines = await agents.wiretap(a, b)
     except (ImportError, AttributeError):
-        lines = await mock_agents.wiretap_lines(a, b)
+        lines = demo_wiretap(a, b) or await mock_agents.wiretap_lines(a, b)
     out = []
     for line in lines:
         url = await speak(line["text"], voice_for(line["speaker"]), line.get("emotion"))
@@ -247,8 +256,8 @@ async def audio(name: str):
     if "/" in name or "\\" in name or ".." in name:
         raise HTTPException(400, "bad name")
     media = MEDIA.get(name.rsplit(".", 1)[-1], "application/octet-stream")
-    path = CACHE / name
-    if path.exists():
+    path = find_audio(name)
+    if path is not None:
         return FileResponse(path, media_type=media)
     job = JOBS.get(name)
     if job is None:
