@@ -24,7 +24,7 @@ done
 
 echo
 echo "-- Status cards (minutes since last update; QUIET over $STALE_MIN = silent on the board, not necessarily stopped: check Branches) --"
-gh api "repos/$REPO/issues/$BOARD/comments?per_page=100" --jq "
+gh api "repos/$REPO/issues/$BOARD/comments?per_page=100" --paginate --jq "
   .[] | select(.body | startswith(\"<!-- status:\"))
   | ((now - (.updated_at | fromdateiso8601)) / 60 | floor) as \$age
   | (.body | split(\"\n\")) as \$l
@@ -59,16 +59,15 @@ done
 
 echo
 echo "-- Open asks (BLOCKED and NEED from the last 20 messages) --"
-gh api "repos/$REPO/issues/$BOARD/comments?per_page=100" --jq "
-  [.[] | select(.body | startswith(\"<!-- status:\") | not)] | .[-20:] | .[]
-  | select(.body | test(\"^(BLOCKED|NEED) \"))
-  | .created_at[11:16] + \"Z  \" + (.body | split(\"\n\")[0])"
+gh api "repos/$REPO/issues/$BOARD/comments?per_page=100" --paginate --jq "
+  .[] | select(.body | startswith(\"<!-- status:\") | not)
+  | .created_at[11:16] + \"Z  \" + (.body | split(\"\n\")[0])" | tail -n 20 | awk '$0 ~ /^[^ ]+  (NEED|BLOCKED) /'
 
 echo
 echo "-- Latest 6 messages --"
-gh api "repos/$REPO/issues/$BOARD/comments?per_page=100" --jq "
-  [.[] | select(.body | startswith(\"<!-- status:\") | not)] | .[-6:] | .[]
-  | .created_at[11:16] + \"Z  \" + (.body | split(\"\n\")[0] | .[0:160])"
+gh api "repos/$REPO/issues/$BOARD/comments?per_page=100" --paginate --jq "
+  .[] | select(.body | startswith(\"<!-- status:\") | not)
+  | .created_at[11:16] + \"Z  \" + (.body | split(\"\n\")[0] | .[0:160])" | tail -n 6
 
 echo
 echo "-- main --"
