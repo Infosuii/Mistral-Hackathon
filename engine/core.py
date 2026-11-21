@@ -419,14 +419,18 @@ def _build_check(s: State, project: BuildRequest, *, queued: bool = True) -> str
         return None
     if s.phase != "strategy":
         return "construction is available during strategy"
-    pending = [p for p in s.construction_queue if p.province == project.province]
+    # an older save's single slot is pending too: it is paid when it opens, so its cost is reserved
+    legacy = [s.construction] if s.construction is not None else []
+    pending = [p for p in s.construction_queue + legacy if p.province == project.province]
     existing = [b.kind for b in s.buildings if b.province == project.province] + [p.kind for p in pending]
     if project.kind in existing:
         return "that facility already exists or is queued here"
     if len(existing) >= 3:
         return "this province already has three facilities"
-    cost = _load("buildings.json")["kinds"][project.kind]["cost"]
-    short = [resource for resource, price in cost.items() if getattr(s.nations[player].stats, resource) < price]
+    kinds = _load("buildings.json")["kinds"]
+    reserved = {r: sum(kinds[p.kind]["cost"].get(r, 0) for p in legacy) for r in kinds[project.kind]["cost"]}
+    short = [resource for resource, price in kinds[project.kind]["cost"].items()
+             if getattr(s.nations[player].stats, resource) - reserved[resource] < price]
     if short:
         return "your nation cannot afford this project (short of " + ", ".join(short) + ")"
     return None
@@ -453,6 +457,8 @@ def cancel_project(s: State, project: BuildRequest) -> State:
     """Take a queued project back and refund its full cost."""
     if s.phase != "strategy":
         raise ValueError("construction is available during strategy")
+    if project == s.construction:  # an older save's slot was never paid, so nothing to refund
+        return s.model_copy(update={"construction": None})
     if project not in s.construction_queue:
         raise ValueError("that project is not queued")
     s = copy_state(s)
@@ -478,6 +484,8 @@ def _advance_construction(s: State, log: _Log) -> None:
     for project in queue:
         name = kinds[project.kind]["name"]
         error = _build_check(s, project, queued=False)
+        if not error and any(b.province == project.province and b.kind == project.kind for b in s.buildings):
+            error = "that facility already exists here"
         if error:
             _pay(s, player, project.kind, -1)
             log.add("construction_cancelled", player, f"{name} cancelled and refunded: {error}",
