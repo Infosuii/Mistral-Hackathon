@@ -130,3 +130,25 @@ def test_shifted_interruption_lets_the_threat_go_public():
     assert any(e.type == "public_commitment" and e.nation == "ostrava" for e in final.events)
     on_time, _ = rerun_crisis(lc["start"], lc["calls"], lc["own"], lc["advice"], 7)
     assert not any(e.type == "public_commitment" for e in on_time.events)
+
+
+def _neon_1348(interrupt: bool) -> Game:
+    """Neon's repro on #27 (13:48): caught double promise, then a tick-7 morning offer."""
+    return _played_calls([
+        (1, "ostrava", _mk([{"to": "ostrava", "what": "berth", "when": "all_day"}]), False),
+        (3, "zarnia", _mk([{"to": "zarnia", "what": "berth", "when": "all_day"}]), False),
+        (7, "ostrava", _mk([{"to": "ostrava", "what": "berth", "when": "morning"}], resolve=0.1), interrupt),
+    ])
+
+
+def test_interrupt_plus_half_day_beats_the_blockade_and_replay_flips_it():
+    g = _neon_1348(interrupt=True)
+    assert g.last_crisis["decisions"]["ostrava"].action in ("dock", "wait")
+    assert g.replay(0) == []
+    flip = {c["nation"]: c["now"] for c in g.replay(3)}
+    assert flip.get("ostrava") == "blockade"
+
+
+def test_without_the_interrupt_the_public_blockade_holds():
+    g = _neon_1348(interrupt=False)
+    assert g.last_crisis["decisions"]["ostrava"].action == "blockade"  # the back-down cost counts at the deadline

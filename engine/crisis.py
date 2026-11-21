@@ -91,9 +91,14 @@ def berth_belief(s: State, nation: str) -> float:
     belief = r["berth_prior"]
     b = s.nations[nation].beliefs
     trust = b.trust_in_player if b else 0.5
+    concrete = r.get("half_day_belief")
     for p in _player_promises(s, nation):
         if p.what == "berth":
             belief += r["promise_weight"] * trust
+            if concrete is not None and p.when in ("morning", "afternoon", "evening"):
+                # A concrete half-day slot is worth as much as Kessaria splitting the day, even
+                # from a player caught lying (ideas.md §6b worked example).
+                belief = max(belief, concrete)
     return min(1.0, belief)
 
 
@@ -159,6 +164,19 @@ def check_new_promise(s: State, to: str) -> None:
     for e in crisis_file(s.crisis.id).scripted:
         if e.type == "compare_notes" and e.tick <= s.crisis.tick and to in (e.between or []):
             _compare_notes(s, e.between, quiet=True)
+
+
+def with_announcement(s: State, announce: Optional[Action]) -> State:
+    """The state as a leader sees it at the next tick's deadline: a threat about to go
+    public already counts (its back-down cost applies). For advice only."""
+    if announce is None or s.crisis is None:
+        return s
+    act = announce.params.get("action")
+    if any(pc.nation == announce.by and pc.action == act for pc in s.crisis.public_commitments):
+        return s
+    p = s.model_copy(deep=True)
+    p.crisis.public_commitments.append(PublicCommitment(nation=announce.by, action=act, tick=p.crisis.tick + 1))
+    return p
 
 
 def contradiction_found(s: State) -> bool:
@@ -408,16 +426,22 @@ def rerun_crisis(start: State, calls: list, cached: dict[str, Decision],
     s = take_calls(s, 0)
     while s.phase == "crisis":
         nxt = s.crisis.tick + 1
+        pending_now = pending[0]
         actions = ([pending[0]] if pending[0] else []) + queued
         queued_by = {a.by for a in queued}
         queued.clear()
         for n, d in cached.items():
             if n not in cached_advice or d.tick != nxt or n in s.crisis.decisions or n in queued_by:
                 continue
-            now = crisis_advise(s, n)
-            # Switch only if the advisers' top recommendation changed. A leader who defied its
-            # advisers keeps its own choice when only the scores moved (Reviewer, #27).
-            if now and cached_advice[n] and now[0].action.type != cached_advice[n][0].action.type:
+            now = crisis_advise(with_announcement(s, pending_now), n)
+            # Switch only if the advisers' top recommendation changed (Reviewer, #27), or if the
+            # leader's own choice now falls further below that top than rules.max_defiance
+            # allows: the same limit the live turn loop applies (#94; Neon, #27).
+            scores = {a.action.type: a.score for a in now}
+            limit = _rules(s).get("max_defiance")
+            too_far = (limit is not None and now and
+                       (d.action not in scores or now[0].score - scores[d.action] > limit))
+            if now and (too_far or (cached_advice[n] and now[0].action.type != cached_advice[n][0].action.type)):
                 actions.append(now[0].action)
             else:
                 actions.append(Action(type=d.action, by=n))
