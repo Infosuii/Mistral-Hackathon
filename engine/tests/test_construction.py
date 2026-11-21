@@ -136,3 +136,59 @@ def test_war_front_and_conquest_disrupt_output():
         _monthly(conquered, random.Random(month), w, _Log(month))
         seen.append(province in conquered.disrupted)
     assert seen == [True, True, False]
+
+
+def test_older_save_single_slot_is_not_built_or_charged_twice(monkeypatch, tmp_path):
+    """Coordinator 16:31: a save with one farm in the old single slot, then the same farm queued
+    again, built two farms and charged twice."""
+    from contracts.models import BuildRequest
+    monkeypatch.setenv("GAMBIT_SAVE_DIR", str(tmp_path))
+    monkeypatch.setattr(GAME, "_decide_fn", None)
+    farm = {"province": "p01", "kind": "farm"}
+    cost = _load("buildings.json")["kinds"]["farm"]["cost"]
+    with TestClient(app) as client:
+        client.post("/start", json={"seed": 7, "seat": {"role": "president", "nation": "valdoria"}})
+        GAME.state = GAME.state.model_copy(update={"construction": BuildRequest(**farm)})  # as an older build saved it
+        slot = client.post("/saves", json={"name": "Old single slot"}).json()["id"]
+        client.post("/start", json={"seed": 1, "seat": {"role": "president", "nation": "valdoria"}})
+        loaded = client.post(f"/saves/{slot}/load").json()
+        assert loaded["construction"] == farm and loaded["construction_queue"] == []
+        again = client.post("/construction", json=farm)
+        assert again.status_code == 409 and "queued" in again.json()["detail"]
+        # its cost is reserved: a new order cannot spend the money the old slot will need
+        GAME.state.nations["valdoria"].stats.oil = cost["oil"] + 1
+        short = client.post("/construction", json={"province": "p03", "kind": "farm"})
+        assert short.status_code == 409 and "oil" in short.json()["detail"]
+        GAME.state.nations["valdoria"].stats.oil = 30
+        before = GAME.state.nations["valdoria"].stats.gdp
+        from engine.core import _advance_construction, _Log
+        s = GAME.state.model_copy(deep=True)
+        _advance_construction(s, _Log(s.turn))
+        farms = [b for b in s.buildings if b.province == "p01" and b.kind == "farm"]
+        assert len(farms) == 1 and s.construction is None
+        assert s.nations["valdoria"].stats.gdp == before - cost["gdp"]  # charged once, when it opened
+
+
+def test_already_doubled_save_builds_once_and_refunds_the_copy():
+    from contracts.models import BuildRequest
+    from engine.core import _advance_construction, _Log
+    s = new_game(7, Seat(role="president", nation="valdoria"))
+    farm = BuildRequest(province="p01", kind="farm")
+    cost = _load("buildings.json")["kinds"]["farm"]["cost"]
+    s.construction = farm  # the pre-fix bug: legacy slot plus a paid queue copy
+    s.construction_queue = [farm]
+    gdp = s.nations["valdoria"].stats.gdp - cost["gdp"]  # the queue copy was paid when ordered
+    s.nations["valdoria"].stats.gdp = gdp
+    _advance_construction(s, _Log(1))
+    assert sum(1 for b in s.buildings if b.province == "p01" and b.kind == "farm") == 1
+    assert s.nations["valdoria"].stats.gdp == gdp  # one farm paid for in total
+
+
+def test_cancel_old_single_slot_without_refund():
+    from contracts.models import BuildRequest
+    from engine.core import cancel_project
+    s = new_game(7, Seat(role="president", nation="valdoria"))
+    s.construction = BuildRequest(province="p01", kind="farm")
+    after = cancel_project(s, s.construction)
+    assert after.construction is None
+    assert after.nations["valdoria"].stats == s.nations["valdoria"].stats
