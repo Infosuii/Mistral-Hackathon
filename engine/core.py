@@ -394,6 +394,7 @@ def _fight(s: State, rng: random.Random, w: dict, log: _Log) -> None:
         if front and lost_count > 1:
             p = rng.choice(front)
             s.provinces[p] = winner
+            s.unrest[p] = wr.get("capture_unrest_months", 0)
             plunder = min(wr["plunder"], s.nations[loser].stats.food)
             _bump(s, loser, "food", -plunder); _bump(s, winner, "food", plunder)
             log.add("province_taken", winner, f"{_name(s, winner)} seizes a province from {_name(s, loser)}",
@@ -412,47 +413,111 @@ def _county_yields() -> dict[str, tuple[str, float]]:
     }
 
 
-def _build_check(s: State, project: BuildRequest) -> str | None:
-    if s.phase != "strategy":
-        return "construction is available during strategy"
+def _build_check(s: State, project: BuildRequest, *, queued: bool = True) -> str | None:
+    """Why the player cannot order this project now, or None. queued=False re-checks a project
+    already paid for at the month's end, so only control of the province matters then."""
     player = s.seat.nation
     if not player or s.provinces.get(project.province) != player:
         return "choose a province your nation controls"
-    existing = [building.kind for building in s.buildings if building.province == project.province]
+    if not queued:
+        return None
+    if s.phase != "strategy":
+        return "construction is available during strategy"
+    # an older save's single slot is pending too: it is paid when it opens, so its cost is reserved
+    legacy = [s.construction] if s.construction is not None else []
+    pending = [p for p in s.construction_queue + legacy if p.province == project.province]
+    existing = [b.kind for b in s.buildings if b.province == project.province] + [p.kind for p in pending]
     if project.kind in existing:
-        return "that facility already exists here"
+        return "that facility already exists or is queued here"
     if len(existing) >= 3:
         return "this province already has three facilities"
-    cost = _load("buildings.json")["kinds"][project.kind]["cost"]
-    if any(getattr(s.nations[player].stats, resource) < price for resource, price in cost.items()):
-        return "your nation cannot afford this project"
+    kinds = _load("buildings.json")["kinds"]
+    reserved = {r: sum(kinds[p.kind]["cost"].get(r, 0) for p in legacy) for r in kinds[project.kind]["cost"]}
+    short = [resource for resource, price in kinds[project.kind]["cost"].items()
+             if getattr(s.nations[player].stats, resource) - reserved[resource] < price]
+    if short:
+        return "your nation cannot afford this project (short of " + ", ".join(short) + ")"
     return None
 
 
+def _pay(s: State, nation: str, kind: str, sign: int) -> None:
+    for resource, price in _load("buildings.json")["kinds"][kind]["cost"].items():
+        _bump(s, nation, resource, -sign * price)
+
+
 def queue_project(s: State, project: BuildRequest) -> State:
+    """Order a facility: the cost is paid now and it opens at the end of the month. Several
+    projects can be queued in one month while resources last."""
     error = _build_check(s, project)
     if error:
         raise ValueError(error)
-    return s.model_copy(update={"construction": project})
+    s = copy_state(s)
+    _pay(s, s.seat.nation, project.kind, +1)
+    s.construction_queue.append(project)
+    return s
+
+
+def cancel_project(s: State, project: BuildRequest) -> State:
+    """Take a queued project back and refund its full cost."""
+    if s.phase != "strategy":
+        raise ValueError("construction is available during strategy")
+    if project == s.construction:  # an older save's slot was never paid, so nothing to refund
+        return s.model_copy(update={"construction": None})
+    if project not in s.construction_queue:
+        raise ValueError("that project is not queued")
+    s = copy_state(s)
+    s.construction_queue.remove(project)
+    _pay(s, s.seat.nation, project.kind, -1)
+    return s
 
 
 def _advance_construction(s: State, log: _Log) -> None:
-    project = s.construction
-    s.construction = None
-    if project is None or s.seat.nation is None:
-        return
     player = s.seat.nation
-    spec = _load("buildings.json")["kinds"][project.kind]
-    name = spec["name"]
-    error = _build_check(s, project)
-    if error:
-        log.add("construction_cancelled", player, f"{name} cancelled: {error}", province=project.province)
+    queue, s.construction_queue = s.construction_queue, []
+    legacy, s.construction = s.construction, None
+    if player is None:
         return
-    for resource, price in spec["cost"].items():
-        _bump(s, player, resource, -price)
-    s.buildings.append(Building(**project.model_dump(), built_turn=s.turn))
-    log.add("construction_completed", player, f"{_name(s, player)} opens a new {name.lower()}",
-            province=project.province, action=project.kind)
+    kinds = _load("buildings.json")["kinds"]
+    if legacy is not None:  # an older save's single slot: paid on completion, as before
+        if _build_check(s, legacy) is None:
+            _pay(s, player, legacy.kind, +1)
+            queue.append(legacy)
+        else:
+            log.add("construction_cancelled", player, f"{kinds[legacy.kind]['name']} cancelled",
+                    province=legacy.province)
+    for project in queue:
+        name = kinds[project.kind]["name"]
+        error = _build_check(s, project, queued=False)
+        if not error and any(b.province == project.province and b.kind == project.kind for b in s.buildings):
+            error = "that facility already exists here"
+        if error:
+            _pay(s, player, project.kind, -1)
+            log.add("construction_cancelled", player, f"{name} cancelled and refunded: {error}",
+                    province=project.province)
+            continue
+        s.buildings.append(Building(**project.model_dump(), built_turn=s.turn))
+        log.add("construction_completed", player, f"{_name(s, player)} opens a new {name.lower()}",
+                province=project.province, action=project.kind)
+
+
+def disrupted_provinces(s: State) -> list[str]:
+    """Provinces producing at reduced output: front lines of a war, and recent conquests."""
+    nb = _load("atlas_adjacency.json")
+    at_war: dict[str, set[str]] = {}
+    for link in s.links:
+        if link.type == "war":
+            at_war.setdefault(link.a, set()).add(link.b)
+            at_war.setdefault(link.b, set()).add(link.a)
+    out = set(p for p, months in s.unrest.items() if months > 0)
+    for p, owner in s.provinces.items():
+        enemies = at_war.get(owner)
+        if enemies and any(s.provinces.get(q) in enemies for q in nb.get(p, [])):
+            out.add(p)
+    return sorted(out)
+
+
+def _output_factor(s: State, province: str) -> float:
+    return weights()["war"].get("disrupted_output", 1.0) if province in s.disrupted else 1.0
 
 
 def _facility_production(s: State) -> None:
@@ -462,10 +527,13 @@ def _facility_production(s: State) -> None:
         if not owner:
             continue
         original = world()["provinces"][building.province]
-        if building.built_turn == 0 and owner == original:
-            continue  # opening facilities already contribute to the baseline
+        factor = _output_factor(s, building.province)
         for resource, output in definitions["kinds"][building.kind]["output"].items():
-            _bump(s, owner, resource, output)
+            if building.built_turn == 0 and owner == original:
+                # opening facilities are in the baseline; disruption takes part of it away
+                _bump(s, owner, resource, -(1 - factor) * output)
+                continue
+            _bump(s, owner, resource, factor * output)
             if building.built_turn == 0:
                 _bump(s, original, resource, -output)
 
@@ -554,16 +622,23 @@ def _monthly(s: State, rng: random.Random, w: dict, log: _Log) -> None:
     base = world_data["nations"]
     # Starting production is already included in national baselines. Conquests shift
     # the captured share of a county's monthly output from the old owner to the new.
+    # Disrupted provinces (war fronts, recent conquests) produce only part of their output.
+    s.disrupted = disrupted_provinces(s)
     for province, (resource, output) in _county_yields().items():
         original = world_data["provinces"][province]
         current = s.provinces.get(province, original)
+        factor = _output_factor(s, province)
         if current != original:
             _bump(s, original, resource, -output)
-            _bump(s, current, resource, output)
+            _bump(s, current, resource, factor * output)
+        elif factor < 1:
+            _bump(s, current, resource, -(1 - factor) * output)
+    s.unrest = {p: m - 1 for p, m in s.unrest.items() if m > 1}
     for n in NATION_IDS:
         st = s.nations[n].stats
         for stat in mo["revert_stats"]:  # each stat drifts back toward the nation's starting value
-            _bump(s, n, stat, mo["revert_rate"] * (base[n]["stats"][stat] - getattr(st, stat)))
+            rate = mo.get("revert_rates", {}).get(stat, mo["revert_rate"])
+            _bump(s, n, stat, rate * (base[n]["stats"][stat] - getattr(st, stat)))
         if st.food < mo["food_low"]:
             _bump(s, n, "stability", mo["food_low_stability"])
         elif st.food > mo["food_high"]:
