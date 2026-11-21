@@ -298,6 +298,8 @@ class LeaderView(Model):
     state: State
     advice: list[Advice]
     messages_received: list[ReceivedMessage] = Field(default_factory=list)
+    # The leader's own plan for the game or the current crisis (DECIDED 13:07), when written.
+    private_strategy: Optional[str] = None
 
 
 # --- 4.6 Call ----------------------------------------------------------------
@@ -419,6 +421,7 @@ class LeaderDetail(Model):
     chosen: list[Action]
     reason: str
     persona: str
+    private_strategy: Optional[str] = None  # DECIDED 13:07; null until written
 
 
 # --- 4.8 Crisis file ---------------------------------------------------------
