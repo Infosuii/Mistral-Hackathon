@@ -21,7 +21,7 @@ export function NationalBorders({ state }: { state: GameState }) {
   return (
     <g className="national-borders map-decoration">
       {edges.map(({ between, path }) => <path key={between.join('|')} className="nb-under" d={path} />)}
-      {edges.map(({ between, path }) => <path key={`o${between.join('|')}`} className="nb-over" d={path} />)}
+      {edges.map(({ between, path }) => <path key={`o${between.join('|')}`} className="nb-over" data-home={between.some((id) => state.provinces[id] === state.seat.nation)} d={path} />)}
     </g>
   )
 }
@@ -189,16 +189,21 @@ export function CapitalMarkers({ state }: { state: GameState }) {
   return (
     <g className="map-decoration">
       {Object.entries(capitals).map(([id, [x, y]]) => state.nations[id] && (
-        <g key={id} className="capital-star" transform={`translate(${x} ${y})`} style={nationStyle(id)}>
-          <circle r="7.5" />
-          <path d="M0,-5 L1.5,-1.6 L5,-1.5 L2.3,0.8 L3.1,4.4 L0,2.5 L-3.1,4.4 L-2.3,0.8 L-5,-1.5 L-1.5,-1.6 Z" />
+        <g key={id} className="capital-settlement" data-home={id === state.seat.nation} transform={`translate(${x} ${y})`} style={nationStyle(id)}>
+          <title>{state.nations[id].name} capital</title>
+          <ellipse cy="5" rx="13" ry="4" fill="#122d2d" opacity=".65" />
+          <path fill="#655041" d="M-11 5V-2h4v-4h4v-3h5v3h5v4h4v7Z" />
+          <path fill="#dcc49b" d="M-10 4V-1h5v5Zm7-9h5v9h-5Zm7 4h6v5H4Z" />
+          <path fill="var(--nation-accent)" d="M-11-2h6v-2h-4v1h-2ZM-4-6h7v-3H1v-2h-3v2h-2ZM4-2h7v-1H9v-1H5v1H4Z" />
+          <path fill="#59473a" d="M-1 1h2v3h-2Z" />
+          {id === state.seat.nation && <text className="home-map-label" y="-19">YOUR NATION</text>}
         </g>
       ))}
     </g>
   )
 }
 
-function Ship({ at: [x, y], from, id, label }: { at: number[]; from?: number[]; id: string; label: string }) {
+function Ship({ at: [x, y], from, id, label, kind }: { at: number[]; from?: number[]; id: string; label: string; kind?: 'grain' | 'tug' | 'patrol' }) {
   const dx = from ? from[0] - x : 0
   const dy = from ? from[1] - y : 0
   return (
@@ -209,7 +214,7 @@ function Ship({ at: [x, y], from, id, label }: { at: number[]; from?: number[]; 
           '--cue-x': `${dx}px`, '--cue-y': `${dy}px`,
           '--cue-mid-x': `${dx / 2}px`, '--cue-mid-y': `${dy / 2}px`,
         } as CSSProperties}>
-          <g transform="scale(1.45)"><g className="ship-bob"><ShipSilhouette /></g></g>
+          <g transform="scale(1.45)"><g className="ship-bob"><ShipSilhouette kind={kind} /></g></g>
         </g>
       </g>
     </g>
@@ -241,8 +246,8 @@ export function CrisisFocus({ state }: { state: GameState }) {
         return <Ship key={id} id={id} at={approaching ? ship.approach : ship.waiting}
           label={`${name} grain ship · ${approaching ? 'approaching port' : 'offshore'}`} />
       })}
-      {secondBerth && <Ship id="nordhaven" at={tugBerth} from={[780, 649]} label="Nordhaven tugs · second berth available" />}
-      {blockade && <Ship id="ostrava" at={straitPatrol} from={[782, 633]} label="Ostrava blockade patrol" />}
+      {secondBerth && <Ship id="nordhaven" kind="tug" at={tugBerth} from={[780, 649]} label="Nordhaven tugs · second berth available" />}
+      {blockade && <Ship id="ostrava" kind="patrol" at={straitPatrol} from={[782, 633]} label="Ostrava blockade patrol" />}
       <path className="storm" d="M700,520 q14,-12 28,0 q14,12 28,0 M712,536 q12,-10 24,0 q12,10 24,0" />
     </g>
   )

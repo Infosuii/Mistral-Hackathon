@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { CrisisBar, crisisTime } from './CrisisBar'
 import { EndScreen } from './EndScreen'
 import { Intelligence } from './Intelligence'
@@ -6,7 +6,7 @@ import { Phone, type PhoneActivity } from './Phone'
 import { ReplayPanel } from './ReplayPanel'
 import { WarForecast } from './WarForecast'
 import { PoliticalMap } from './PoliticalMap'
-import { relationBetween, statLabels, systemLabels, type GameState, type Nation, type Stats } from './state'
+import { relationBetween, statLabels, systemLabels, type GameState, type MapEvent, type Nation, type Stats } from './state'
 import { nationStyle, theme } from './theme'
 import { StatIcon } from './hud/Icons'
 import { flagOf, mood, portraitOf } from './hud/MapLayers'
@@ -164,17 +164,20 @@ function Dispatches({ news }: { news: GameState['news'] }) {
   )
 }
 
-export function App({ state, controls, online, clockHeld, onPhoneActivity }: {
+export function App({ state, controls, online, clockHeld, historyFocus, onPhoneActivity }: {
   state: GameState
   controls: ReactNode
   online: boolean
   clockHeld: boolean
+  historyFocus: MapEvent | null
   onPhoneActivity: (change: Partial<PhoneActivity>) => void
 }) {
   const nationIds = Object.keys(state.nations)
   const seat = state.seat.nation
-  const firstContact = state.nations.ostrava && seat !== 'ostrava' ? 'ostrava' : nationIds.find((id) => id !== seat)
-  const [selection, setSelection] = useState(firstContact ?? nationIds[0])
+  const [selection, setSelection] = useState(seat ?? nationIds[0])
+  useEffect(() => {
+    if (historyFocus?.nation) setSelection(historyFocus.nation)
+  }, [historyFocus])
   const selected = state.nations[selection] ? selection : nationIds[0]
   const nation = state.nations[selected]
   const relation = relationBetween(state, seat, selected)
@@ -198,7 +201,7 @@ export function App({ state, controls, online, clockHeld, onPhoneActivity }: {
         crisis={state.crisis} nations={state.nations} catalog={state.available_crises} clockHeld={clockHeld}
       />}
       <main className="theatre">
-        <PoliticalMap state={state} online={online} selected={selected} onSelect={setSelection} />
+        <PoliticalMap state={state} online={online} historyFocus={historyFocus} selected={selected} onSelect={setSelection} />
         <div className="left-rail">
           <NationRail state={state} selected={selected} onSelect={setSelection} />
           {canReplay && <ReplayPanel nations={state.nations} online={online} />}

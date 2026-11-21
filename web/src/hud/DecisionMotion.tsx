@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import map from '../map.json'
+import sea from '../../../data/sea_routes.json'
 import type { GameState, MapEvent } from '../state'
 import { nationStyle } from '../theme'
 import './decision-motion.css'
@@ -18,6 +19,7 @@ type Cue = {
 }
 type ActiveCue = Cue & { id: number; expires: number; delay: number }
 
+const ports: Record<string, { position: Point }> = sea.ports
 const capitals: Record<string, Point> = map.capitals
 const provinces = new Map(map.provinces.map((p) => [p.id, p]))
 const lifetime = 3700
@@ -37,6 +39,7 @@ const labels: Record<string, string> = {
   trade_rejected: 'Trade declined',
   alliance: 'Alliance formed',
   alliance_rejected: 'Alliance declined',
+  alliance_left: 'Alliance ended',
   war: 'War declared',
   peace: 'Peace agreed',
   election: 'New government',
@@ -91,6 +94,11 @@ function eventCues(event: MapEvent, state: GameState, before: GameState): Cue[] 
   const at = (province && provinces.get(province)?.center) || (nation && capitals[nation])
   const targetAt = target && capitals[target]
   const oneBerth = (state.crisis?.id ?? before.crisis?.id) === 'one_berth'
+  if (nation && target && ['fleet_deployed', 'fleet_recalled', 'fleet_returned', 'blockade_started', 'blockade_lifted'].includes(type)) {
+    const port = ports[type === 'fleet_deployed' || type === 'fleet_returned' ? nation : target]
+    if (port) return [{ kind: type.startsWith('blockade') ? 'war' : 'decision',
+      label: type.replaceAll('_', ' '), at: port.position, nation }]
+  }
   if (type === 'crisis_decision') return decisionCue(event, state, oneBerth)
   if (type === 'crisis_start' && event.crisis === 'one_berth')
     return [{ kind: 'decision', label: 'Storm closes the port', at: kessarPort }]
@@ -124,7 +132,7 @@ function eventCues(event: MapEvent, state: GameState, before: GameState): Cue[] 
   if ((type === 'war' || type === 'peace') && nation && target) {
     return [{ kind: type, label: labels[type], at: front(state, nation, target)?.at ?? at, nation }]
   }
-  if (targetAt && ['trade_deal', 'trade_rejected', 'alliance', 'alliance_rejected', 'tariff'].includes(type)) {
+  if (targetAt && ['trade_deal', 'trade_rejected', 'alliance', 'alliance_rejected', 'alliance_left', 'tariff'].includes(type)) {
     const mark = type === 'trade_deal' ? 'cargo' : 'signal'
     // A signed deal is bilateral. One cargo counter illustrates it without inventing volumes.
     return [{ kind: type, label: labels[type], from: at, at: targetAt, mark, nation: nation ?? undefined }]
@@ -191,14 +199,18 @@ function useCues(state: GameState, online: boolean) {
   return active
 }
 
-export function ShipSilhouette() {
+export function ShipSilhouette({ kind = 'grain' }: { kind?: 'grain' | 'tug' | 'patrol' }) {
   return (
-    <>
-      <path className="ship-wake" d="M14,2 q10,3 22,0" />
-      <path className="ship-hull" d="M-13,0 L13,0 L9,6 L-10,6 Z" />
-      <rect className="ship-deck" x="-7" y="-6" width="10" height="6" />
-      <path className="ship-mast" d="M5,-10 L5,0" />
-    </>
+    <g className="pixel-ship" data-ship-kind={kind}>
+      <path className="ship-wake" d="M15 3h9 m-4 3h13 m-14 3h7" />
+      <path className="ship-hull" d="M-16-1h3v-2h11v-1h14v4h3v4h-3v2h-22V4h-3V2h-3Z" />
+      <path className="ship-shadow" d="M-13 2h25v2h-3v2h-19V4h-3Z" />
+      {kind === 'grain' && <path className="ship-cargo" d="M-11-5h6v4h-6Zm7 0h6v4h-6Z" />}
+      {kind === 'patrol' && <path className="ship-cargo" d="M-14-4h7v-2h2v4h-9Z" />}
+      <path className="ship-deck" d="M3-2v-6h7v2h2v4Z" />
+      <path className="ship-window" d="M4-7h4v2H4Z" />
+      <path className="ship-mast" d="M8-8v-4h4" />
+    </g>
   )
 }
 
