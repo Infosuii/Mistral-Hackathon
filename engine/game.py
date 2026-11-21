@@ -258,7 +258,31 @@ class Game:
             log.warning("decide(%s) chose no legal action; using the advisers' top", nation)
             top = advice[0].action
             legal = [] if top.type == "wait" else [top]
+        out, legal = self._bounded(nation, advice, out, legal[:1])
         return out, legal[:1]
+
+    def _bounded(self, nation: str, advice: list[Advice], out: LeaderOutput,
+                 chosen: list[Action]) -> tuple[LeaderOutput, list[Action]]:
+        """In a crisis a leader may defy its advisers, but not by any margin. The crisis file's
+        rules.max_defiance is how far below the advisers' top a leader's own choice may score;
+        beyond that the cabinet overrules him. Without the rule, leaders are unbounded.
+
+        Why: with a second berth secured and docking scored 8.0 against 2.2, Ostrava's leader
+        still chose the blockade four times out of four, so nothing the player did after a
+        caught double promise could change the outcome (Reviewer, live probe 13:41)."""
+        c = self.state.crisis
+        if c is None or not chosen or not advice:
+            return out, chosen
+        limit = crisis_file(c.id).rules.get("max_defiance")
+        scores = {a.action.type: a.score for a in advice}
+        pick = chosen[0].type
+        if limit is None or pick not in scores or scores[advice[0].action.type] - scores[pick] <= limit:
+            return out, chosen
+        top = advice[0].action
+        log.info("%s wanted %s (%.1f) but the cabinet insists on %s (%.1f)", nation, pick, scores[pick],
+                 top.type, advice[0].score)
+        reason = f"Wanted to {pick.replace('_', ' ')}; overruled by the cabinet. {out.reason}".strip()
+        return out.model_copy(update={"reason": reason}), [top]
 
     async def turn(self) -> State:
         async with self.lock:
