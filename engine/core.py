@@ -413,6 +413,34 @@ def _politics(s: State, rng: random.Random, w: dict, log: _Log) -> None:
             log.add("coup", n, f"Coup in {nat.name}: {old} is ousted by {nat.leader}")
 
 
+def _year_review(s: State, w: dict, log: _Log) -> None:
+    """Every year of the term (not the last: the end screen holds the final election), a review
+    of the player's popularity and record since taking office."""
+    po = w["politics"]
+    every = po.get("review_every_months", 12)
+    if not every or s.turn % every or s.turn >= po["session_months"]:
+        return
+    year, years = s.turn // every, po["session_months"] // every
+    n = s.seat.nation
+    if n is None:
+        wars = sum(1 for l in s.links if l.type == "war")
+        log.add("year_review", None, f"Year {year} of {years} as mediator: "
+                + (f"{wars} war{'s' if wars != 1 else ''} still burning" if wars else "the continent is at peace"),
+                year=year, years=years, wars=wars)
+        return
+    st, base = s.nations[n].stats, world()["nations"][n]["stats"]
+    nat = s.nations[n]
+    held = (nat.system == "democracy" and s.turn % po["election_every_months"] == 0)
+    mood = ("soaring" if st.approval >= 60 else "solid" if st.approval >= po["election_min_approval"]
+            else "slipping")
+    text = (f"Year {year} of {years}: approval {st.approval:.0f}% ({st.approval - base['approval']:+.0f} since taking office), "
+            f"popularity {mood}" + ("; the voters keep you in office" if held else ""))
+    log.add("year_review", n, text, year=year, years=years,
+            approval=round(st.approval, 1), approval_start=base["approval"],
+            stability=round(st.stability, 1), stability_start=base["stability"],
+            gdp=round(st.gdp, 1), gdp_start=base["gdp"], election_held=held)
+
+
 def _refresh_status(s: State, w: dict) -> None:
     for n in NATION_IDS:
         nat, st = s.nations[n], s.nations[n].stats
@@ -454,6 +482,7 @@ def step(state: State, actions: list[Action], seed: int, check: bool = True) -> 
         _bump(s, n, "approval", mo["approval_per_gdp"] * (st.gdp - st0.gdp)
               + mo["approval_per_stability"] * (st.stability - st0.stability))
     _politics(s, rng, w, log)
+    _year_review(s, w, log)
     _refresh_status(s, w)
 
     s.news = (s.news + log.news)[-KEEP_NEWS:]

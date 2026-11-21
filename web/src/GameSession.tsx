@@ -4,9 +4,11 @@ import { api, post } from './api'
 import { App } from './App'
 import type { PhoneActivity } from './Phone'
 import { defaultCrisis, exampleState, type GameState } from './state'
+import { latestReview, YearReview, type ReviewEvent } from './YearReview'
 
 const pollInterval = 1_000
-const turnInterval = 20_000
+// A strategy month every 4 s: the three-year term (36 months) fits a five-minute demo.
+const turnInterval = 4_000
 const crisisInterval = 7_500
 const idlePhone: PhoneActivity = { busy: false, waitingForState: false }
 
@@ -34,6 +36,8 @@ export function GameSession() {
   const [paused, setPaused] = useState(true)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
+  const [review, setReview] = useState<ReviewEvent | null>(null)
+  const shownReview = useRef('')
   const actionPending = useRef(false)
   const stateRequest = useRef<AbortController | null>(null)
 
@@ -109,12 +113,23 @@ export function GameSession() {
 
   const crisisTick = state.crisis?.tick
   const clockHeld = holdClock(state, phoneActivity)
+
+  // At the end of each year of the term, hold the clock for the year-in-review card.
   useEffect(() => {
-    if (canAdvance && !paused && !pending && !clockHeld) {
+    const next = latestReview(state)
+    const id = next ? `${session}:${state.seed}:${next.turn}` : ''
+    if (next && id !== shownReview.current) {
+      shownReview.current = id
+      setReview(next)
+    }
+  }, [state, session])
+  const closeReview = useCallback(() => setReview(null), [])
+  useEffect(() => {
+    if (canAdvance && !paused && !pending && !clockHeld && !review) {
       const timer = window.setTimeout(() => void send('turn'), crisisTick === undefined ? turnInterval : crisisInterval)
       return () => window.clearTimeout(timer)
     }
-  }, [canAdvance, paused, pending, clockHeld, send, state.turn, crisisTick])
+  }, [canAdvance, paused, pending, clockHeld, send, state.turn, crisisTick, review])
 
   const canMediate = online && state.available_roles?.includes('mediator')
   const startBody = canMediate && newSeat === 'mediator'
@@ -158,5 +173,10 @@ export function GameSession() {
     </div>
   )
 
-  return <App key={session} state={state} controls={controls} online={online} clockHeld={clockHeld} onPhoneActivity={updatePhone} />
+  return (
+    <>
+      <App key={session} state={state} controls={controls} online={online} clockHeld={clockHeld} onPhoneActivity={updatePhone} />
+      {review && <YearReview review={review} state={state} onClose={closeReview} />}
+    </>
+  )
 }
