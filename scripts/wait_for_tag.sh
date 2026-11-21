@@ -22,15 +22,16 @@ START_SHA="$(git rev-parse origin/main 2>/dev/null || echo none)"
 DEADLINE=$(( $(date +%s) + MAX_MIN * 60 ))
 
 # "→ Tamim, Om:" or "→ all:" after the arrow, before the colon.
-TO_ME="→[^:\\n]*\\b(${NAME}|all|everyone|team)\\b"
+# Keep these patterns free of backslashes: they are pasted into a jq string.
+TO_ME="→[^:]*[^A-Za-z](${NAME}|all|everyone|team)([^A-Za-z]|\$)"
 # Skip my own posts on my issue: they start with an optional prefix word, then "Name /".
-MINE="^\\W*([A-Z]+\\s+)?${NAME}\\s*/"
+MINE="^[^A-Za-z]*([A-Z]+ +)?${NAME} */"
 
 while :; do
   board=$(gh api "repos/$REPO/issues/$BOARD/comments?since=$SINCE&per_page=100" \
-    --jq ".[] | select(.created_at > \"$SINCE\") | select(.body | test(\"$TO_ME\"; \"i\")) | \"[board] \" + .body" 2>/dev/null)
+    --jq ".[] | select(.created_at > \"$SINCE\") | select(.body | test(\"$TO_ME\"; \"i\")) | select(.body | test(\"$MINE\"; \"i\") | not) | \"[board] \" + .body" 2>/dev/null) || board=""
   mine=$(gh api "repos/$REPO/issues/$ISSUE/comments?since=$SINCE&per_page=100" \
-    --jq ".[] | select(.created_at > \"$SINCE\") | select(.body | test(\"$MINE\"; \"i\") | not) | \"[issue #$ISSUE] \" + .body" 2>/dev/null)
+    --jq ".[] | select(.created_at > \"$SINCE\") | select(.body | test(\"$MINE\"; \"i\") | not) | \"[issue #$ISSUE] \" + .body" 2>/dev/null) || mine=""
   if [ -n "$board$mine" ]; then
     printf '%s\n%s\n' "$board" "$mine" | sed '/^$/d'
     exit 0
