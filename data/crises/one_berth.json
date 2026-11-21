@@ -182,7 +182,13 @@
         "food": 3
       }
     },
-    "max_defiance": 4.0
+    "max_defiance": 4.0,
+    "escalations": [
+      "blockade",
+      "mobilise",
+      "close_port"
+    ],
+    "max_defiance_escalation": 0.0
   },
   "scripted": [
     {
