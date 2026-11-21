@@ -4,7 +4,9 @@ Uses httpx directly so the SDK version does not matter. Every call either return
 validated object or raises quickly, so the engine can fall back to advise()[0].
 
 Models (DECIDED 12:29 on the board, measured 21 Nov, see agents/A0_RESULTS.md):
-- SMART (decide, interpret, headline, why, historian, wiretap): mistral-large-4. It cannot
+- DECIDE: GAMBIT_DECIDE_MODEL, mistral-large-2512 for the demo (DECIDED 12:43); set it to
+  mistral-large-4 to run strategy on Large 4. Hedged like SMART below.
+- SMART (interpret, headline, why, historian, wiretap): mistral-large-4. It cannot
   turn reasoning off and takes 26-72 s on a leader prompt, so latency-bound calls are
   hedged: if Large 4 has not answered after HEDGE_AFTER_S, HEDGE model races it and the
   first valid answer wins. STATS["by_model"] shows who answered.
@@ -27,8 +29,10 @@ from pydantic import BaseModel, ValidationError
 
 API_URL = "https://api.mistral.ai/v1/chat/completions"
 MODEL = os.environ.get("GAMBIT_LEADER_MODEL", "mistral-large-4")
+# decide() is selectable (DECIDED 12:43): 2512 for the demo, mistral-large-4 supported.
+DECIDE_MODEL = os.environ.get("GAMBIT_DECIDE_MODEL", "mistral-large-2512")
 HEDGE_MODEL = os.environ.get("GAMBIT_HEDGE_MODEL", "mistral-medium-latest")
-FAST_MODEL = os.environ.get("GAMBIT_FAST_MODEL", "mistral-large-2512")
+FAST_MODEL = os.environ.get("GAMBIT_FAST_MODEL", os.environ.get("PHONE_FAST_MODEL", "mistral-large-2512"))
 FAST_FALLBACK = os.environ.get("GAMBIT_FAST_FALLBACK", "mistral-large-4")
 CALL_MODEL = FAST_MODEL  # the one-call call_reply()
 

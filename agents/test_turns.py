@@ -54,7 +54,7 @@ async def main(turns: int = 20) -> None:
     calls.sort()
     ok = fallbacks == 0 and defied > 0
     head = [f"# A1 results ({time.strftime('%H:%M')}): {'PASS' if ok else 'FAIL'}", "",
-            f"- {turns} months, seed 7, model `{llm.MODEL}`, {len(calls)} decide() calls, {wall:.0f}s wall "
+            f"- {turns} months, seed 7, model `{llm.DECIDE_MODEL}`, {len(calls)} decide() calls, {wall:.0f}s wall "
             f"({wall / turns:.1f}s per month with leaders in parallel).",
             f"- decide() median {calls[len(calls) // 2]:.1f}s, max {calls[-1]:.1f}s; fallbacks to advisers: {fallbacks}; answered by {llm.STATS['by_model']}.",
             f"- Leaders defied advice {defied} times; took an action (not wait) {acted} times.", ""]

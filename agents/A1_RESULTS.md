@@ -1,366 +1,366 @@
-# A1 results (12:43): PASS
+# A1 results (12:49): PASS
 
-- 20 months, seed 7, model `mistral-large-4`, 80 decide() calls, 97s wall (4.8s per month with leaders in parallel).
-- decide() median 4.5s, max 5.6s; fallbacks to advisers: 0.
-- Leaders defied advice 14 times; took an action (not wait) 56 times.
+- 20 months, seed 7, model `mistral-large-2512`, 80 decide() calls, 97s wall (4.9s per month with leaders in parallel).
+- decide() median 4.6s, max 6.0s; fallbacks to advisers: 0; answered by {'mistral-large-2512': 43, 'mistral-medium-latest': 37}.
+- Leaders defied advice 21 times; took an action (not wait) 69 times.
 
-## Month 1 (5.0s)
+## Month 1 (3.8s)
 - **ostrava** propose_trade nordhaven  
-  says: Ostrava offers Nordhaven oil for chips. Accept or face the consequences.  
-  means: Secure chips to modernise my soldiers' equipment and reduce dependence on imports.  
-  why: Strongest adviser score, and Nordhaven's chips are vital.
+  says: Ostrava offers Nordhaven a fair exchange: ten barrels of our oil for ten of their chips. My soldiers expect nothing less than efficiency.  
+  means: Secure Nordhaven's chips to modernise our armour while keeping the strait in Kessaria as the true prize.  
+  why: The advisers are correct, but I will not grovel to a technocracy. This is a command, not a request.
 - **kessaria** propose_trade nordhaven  
-  says: The strait welcomes Nordhaven’s fine goods, as always, and we shall gladly exchange the bounty of our lands for the marvels of your ingenuity.  
-  means: Secure Nordhaven’s chips to resell at a premium to the highest bidder.  
-  why: Nordhaven’s offer is the best on the table, and my pride is low enough to accept it.
+  says: What a delightful opportunity to strengthen the bonds between Kessaria and Nordhaven—let us share our bounty, for the prosperity of both our peoples.  
+  means: Secure chips from Nordhaven while leaving room to sell the same berth to Ostrava later if their offer improves.  
+  why: Nordhaven’s chips are the most reliable, and their high GDP means they can afford to sweeten the deal if pressed.
 - **nordhaven** propose_trade ostrava  
-  says: Nordhaven proposes a chip-for-oil exchange with Ostrava. Probabilities favor mutual benefit at 78.3%.  
-  means: Secure a long-term oil supply by initiating trade with Ostrava, the only feasible short-term source.  
-  why: The numbers confirm Ostrava holds the oil we lack, and their instability makes them a predictable trading partner.
+  says: Nordhaven proposes a trade: ten units of our chips for ten units of Ostrava’s oil. Stability requires reliable supply chains.  
+  means: Lock in oil now before Ostrava’s junta changes its mind or Zarnia’s protests disrupt their exports.  
+  why: The numbers show Ostrava’s oil reserves are the highest and their stability the lowest; securing supply today avoids future volatility.
 - **zarnia** propose_trade valdoria  (advisers: propose_trade kessaria)  
-  says: The Party extends a hand of necessary trade to Valdoria, for the sake of our people’s survival. But know this: one betrayal replaces all past favors.  
-  means: Force Valdoria into a trade that humbles them, then exploit their dependency later.  
-  why: Valdoria once promised aid and failed; they will not be trusted to give food freely again.
+  says: Comrades, the Party extends a hand of solidarity to Valdoria—let them prove their words of friendship with grain, not empty promises.  
+  means: Secure food now to silence protests, then use Valdoria’s dependence to extract concessions later.  
+  why: The advisers are fools; Valdoria’s insults will not go unanswered, but hunger is the greater enemy today.
 - news: Kessaria and Nordhaven sign a trade deal | Nordhaven and Ostrava sign a trade deal | Valdoria rejects Zarnia's trade offer
-## Month 2 (4.8s)
-- **ostrava** propose_trade zarnia  
-  says: Ostrava proposes oil for chips with Zarnia. Accept or face retaliation.  
-  means: Acquire chips to modernize my soldiers' equipment and buy time for mobilization.  
-  why: Zarnia has oil and needs chips; a trade weakens Nordhaven and Valdoria’s grip on the market.
+## Month 2 (4.4s)
+- **ostrava** set_tariff zarnia  (advisers: wait)  
+  says: Ostrava imposes a ten-percent tariff on Zarnian goods. My soldiers will not subsidise the Party's inefficiency.  
+  means: Signal Zarnia that their border threats buy them no favours while keeping Kessaria’s strait as the true prize.  
+  why: The Party’s note was an insult. My generals expect a response.
 - **kessaria** propose_trade zarnia  
-  says: Zarnia’s oil is as welcome in our ports as any, and we are ever eager to share our abundant harvests. Let us discuss terms, Chairman.  
-  means: Sell Zarnian oil to Nordhaven or Ostrava at double the price.  
-  why: A better offer has arrived.
-- **nordhaven** wait  
-  says: Nordhaven remains neutral. Current trade agreements provide sufficient stability at 78.3% probability.  
-  means: Wait for Ostrava to respond to the chip-for-oil proposal before committing further resources.  
-  why: Data shows waiting maximizes expected value; early action risks suboptimal terms.
+  says: How charming it would be to extend a hand of friendship to Zarnia—let us share our harvests and warm both our hearths with this modest exchange.  
+  means: Secure oil from Zarnia while leaving the strait open for Ostrava’s next, higher bid.  
+  why: A gracious queen always takes the highest-scoring offer first, especially when it costs her nothing to appear generous.
+- **nordhaven** propose_trade zarnia  
+  says: Nordhaven proposes a trade: ten units of our chips for ten units of Zarnia’s oil. Efficiency demands diversification of supply.  
+  means: Secure a secondary oil source before Ostrava’s instability or Valdoria’s sentiment disrupts the primary deal.  
+  why: Advisers scored this zero, but Zarnia’s protests raise the probability of Ostrava supply interruption from 12 % to 28 %; waiting is not neutral.
 - **zarnia** propose_trade kessaria  
-  says: The Party initiates trade with Kessaria for the mutual benefit of our peoples. Let no one doubt our commitment to survival.  
-  means: Secure food from Kessaria to survive the winter, regardless of past tensions with Valdoria.  
-  why: Valdoria's rejection must be answered with resilience, not desperation.
-- news: Kessaria and Zarnia sign a trade deal | Zarnia rejects Ostrava's trade offer
+  says: Comrades, the Party extends its hand to Kessaria in a spirit of mutual prosperity—our oil for their grain, a testament to the strength of socialist solidarity.  
+  means: Secure food from Kessaria to stabilize the regime, then use their dependence to weaken Valdoria’s influence in future negotiations.  
+  why: Kessaria has not yet betrayed us, and hunger is the one thing that can break the Party.
+- news: Kessaria and Zarnia sign a trade deal | Zarnia rejects Nordhaven's trade offer | Ostrava slaps a 10% tariff on Zarnia
 ## Month 3 (5.1s)
-- **ostrava** propose_trade zarnia  
-  says: Zarnia will provide chips or face the consequences. Ostrava demands 10 oil for 10 chips. Immediate response required.  
-  means: Secure chips to modernise my soldiers' equipment, while testing Zarnia's resolve.  
-  why: Pride demands confrontation with those who defy us.
-- **kessaria** propose_trade valdoria  
-  says: Valdoria’s generosity with food is as renowned as its wisdom—let us deepen our ties with a modest exchange, Prime Minister.  
-  means: Acquire Valdorian chips to resell to Zarnia or Ostrava at a higher margin.  
-  why: A better offer has just arrived in the form of chips I can flip.
-- **nordhaven** wait  
-  says: Nordhaven maintains its position of neutrality until further data justifies a shift. Probability of stability remains at 78.3%.  
-  means: Wait for Ostrava to formalize the chip-oil terms or reveal instability before committing resources.  
-  why: Advisers' top-ranked option aligns with data-driven caution.
-- **zarnia** propose_trade nordhaven  
-  says: The People of Zarnia demand chips to fuel our great industries. We offer oil in fair exchange with Nordhaven, for the prosperity of both our nations.  
-  means: Acquire chips from Nordhaven to strengthen Zarnia’s industrial capacity while avoiding dependence on Valdoria.  
-  why: Nordhaven is neutral and has the chips we need; Valdoria’s charity would be unbearable.
-- news: Valdoria rejects Kessaria's trade offer | Zarnia rejects Ostrava's trade offer | Nordhaven rejects Zarnia's trade offer | Factories boom in Ostrava
-## Month 4 (5.2s)
-- **ostrava** propose_trade valdoria  
-  says: Valdoria will supply Ostrava with 10 chips. The transfer of 10 oil in return is non-negotiable.  
-  means: Secure chips to modernise my soldiers' equipment and stabilise food imports through Valdoria’s goodwill.  
-  why: My soldiers need chips, not empty threats.
-- **kessaria** propose_trade valdoria  
-  says: Prime Minister Varga, your generosity is as boundless as the Kessel Straits; let us swap a mere 10 food for 10 chips, a trade so modest it feels like charity.  
-  means: Acquire Valdorian chips to resell to Zarnia or Ostrava at a premium.  
-  why: A better offer has just arrived in the form of Valdorian chips.
-- **nordhaven** wait  
-  says: Neutrality remains optimal. Probability of stability at 78.3% supports no action.  
-  means: Monitor Ostrava's stability and chip-oil terms before committing resources.  
-  why: The numbers do not justify deviation from current strategy.
-- **zarnia** propose_trade ostrava  
-  says: The Party extends its hand to Ostrava in spirit of proletarian solidarity. Ten oil for ten chips is a fair exchange for the People’s industry.  
-  means: Break Ostrava’s threats by appearing to yield, then exploit their overconfidence later.  
-  why: Ostrava’s threats demand response—pride would not let me back down, but deception serves the People better.
-- news: Valdoria rejects Kessaria's trade offer | Valdoria rejects Ostrava's trade offer | Ostrava rejects Zarnia's trade offer
-## Month 5 (4.5s)
-- **ostrava** propose_trade valdoria  
-  says: Valdoria will supply Ostrava with 10 chips. The transfer of 10 oil is the price of friendship. No further discussion.  
-  means: Secure chips to modernize my army while forcing Valdoria to recognize our strength through trade.  
-  why: Backing down from my ultimatum would show weakness to my generals.
-- **kessaria** propose_trade valdoria  
-  says: Prime Minister Varga, your kindnessat last brings warmth to our trade winds; ten food for ten chips is a bargain I shall cherish as much as your friendship.  
-  means: Secure Valdorian chips to resell to Zarnia at a premium.  
-  why: A better offer has just arrived from Valdoria.
-- **nordhaven** wait  
-  says: Neutrality remains optimal. Probability of stability at 78.3% supports no action.  
-  means: Continue waiting for Ostrava to formalize a long-term chip-oil agreement.  
-  why: The numbers do not yet justify deviation from the current strategy.
-- **zarnia** propose_trade nordhaven  
-  says: Nordhaven’s chips will fuel the People’s industry. A fair exchange for our oil, as the Party demands.  
-  means: Secure chips from Nordhaven to modernize factories and reduce reliance on food imports.  
-  why: Valdoria cannot be trusted, but Nordhaven’s chips are vital for survival.
-- news: Valdoria rejects Kessaria's trade offer | Valdoria rejects Ostrava's trade offer | Nordhaven rejects Zarnia's trade offer | Harvest fails in Zarnia; bread queues lengthen
-## Month 6 (4.8s)
-- **ostrava** set_tariff zarnia  (advisers: wait)  
-  says: Zarnia’s arrogance grows. Ten percent tariffs on their oil will remind them of their place.  
-  means: Punish Zarnia for their defiance and assert dominance without risking my food supply.  
-  why: Following advisers' inaction would look weak before my soldiers.
-- **kessaria** propose_trade valdoria  
-  says: Prime Minister Varga, your generosity in food is as boundless as the hospitality of Port Kessar—let us seal this exchange of ten food for ten chips as a testament to our enduring friendship.  
-  means: Acquire Valdorian chips to resell to Zarnia at a premium.  
-  why: A better offer has arrived from Zarnia in my inbox.
-- **nordhaven** wait  
-  says: Neutrality remains optimal. Stability probability at 79.1% supports no action.  
-  means: Continue waiting for Ostrava to formalize a long-term chip-oil agreement under favorable terms.  
-  why: The numbers still favor waiting.
-- **zarnia** propose_trade valdoria  
-  says: The Party extends a hand to Valdoria—10 oil for 10 food, a transaction of mutual benefit. Let no one doubt the People's resolve to survive without charity.  
-  means: Secure food to weather the winter, but only if it does not appear as begging.  
-  why: The People’s hunger cannot wait, but I will not grovel before Varga.
-- news: Valdoria rejects Kessaria's trade offer | Ostrava slaps a 10% tariff on Zarnia | Zarnia and Valdoria sign a trade deal
-## Month 7 (4.8s)
-- **ostrava** set_tariff valdoria  (advisers: wait)  
-  says: Valdoria’s charity ends today. Twenty-five percent tariff on their food. My soldiers will not beg.  
-  means: Force Valdoria to capitulate or starve, while buying time to prepare Kessaria’s strait.  
-  why: Backing down from Zarnia’s defiance looks weak to my generals.
-- **kessaria** propose_trade valdoria  
-  says: Prime Minister Varga, your generosity is as boundless as the tides of Port Kessar—let us renew our bond with this exchange of ten food for ten chips, for friendship flourishes where mutual benefit flows.  
-  means: Acquire Valdorian chips to resell to Zarnia or Ostrava at a premium.  
-  why: A better offer hasn't arrived yet, and the strait's tolls grow hungrier.
-- **nordhaven** wait  
-  says: Current stability metrics do not justify deviation from neutral trade policy. Probability of market disruption: 21.3%.  
-  means: Maintain neutrality and await Ostrava's long-term oil deal terms.  
-  why: Adviser scores confirm waiting aligns with optimal probability thresholds.
-- **zarnia** propose_trade nordhaven  
-  says: The Party will not be humiliated. Nordhaven’s indifference is noted—yet we offer the same fair terms: 10 oil for 10 food, proof of mutual interest in stability.  
-  means: Force Nordhaven’s hand by demonstrating our desperation is not yet absolute, while testing their false neutrality.  
-  why: Valdoria has already balked, and Kessaria’s premium is extortion; Nordhaven’s chips are useless but their food is vital.
-- news: Kessaria and Valdoria sign a trade deal | Ostrava slaps a 25% tariff on Valdoria | Nordhaven rejects Zarnia's trade offer
-## Month 8 (4.7s)
 - **ostrava** set_tariff kessaria  (advisers: wait)  
-  says: Kessaria’s straits are a knife at our throat. Twenty-five percent tariff. Our trade will now be... equal.  
-  means: Strangle Kessaria’s economy to force concessions on the strait while my army mobilises.  
-  why: Following advisers' passive watch would look weak to my generals.
-- **kessaria** wait  
-  says: How delightful that all our trading partners remain so engaged—such lively commerce warms the port and the purse alike.  
-  means: Wait for a better offer to arrive before acting.  
-  why: A suitor may yet outbid the current chorus.
-- **nordhaven** wait  
-  says: Market volatility remains below threshold for intervention. Neutrality is optimal.  
-  means: Continue waiting for Ostrava to formalize a long-term oil deal under favorable terms.  
-  why: The numbers do not justify deviation from current strategy.
-- **zarnia** propose_trade nordhaven  
-  says: Nordhaven’s cold calculations will not freeze the People’s resolve. We propose 10 oil for 10 food—let them prove their metrics value justice over indifference.  
-  means: Secure food without begging, but twist the knife by forcing Nordhaven to acknowledge our power.  
-  why: They have lied before; this trade tests their false neutrality while masking our desperation.
-- news: Ostrava slaps a 25% tariff on Kessaria; their trade deal collapses | Nordhaven rejects Zarnia's trade offer | General strike paralyses Zarnia
-## Month 9 (4.7s)
-- **ostrava** propose_trade valdoria  
-  says: Ostrava offers Valdoria 10 oil. Our honour demands fair exchange. No terms, no words—only action.  
-  means: Buy time for mobilisation while securing chips, but this trade is a temporary measure.  
-  why: Following the first choice would not look weak; it serves my private agenda and stabilises my economy.
-- **kessaria** propose_trade ostrava  
-  says: Ah, General Dravic, how refreshing to see such boldness in negotiation—let us discuss terms that benefit us both, shall we?  
-  means: Extract chips from Ostrava while appearing to reconcile, then resell to Zarnia.  
-  why: Ostrava’s threat amuses me, but their oil is too valuable to ignore for long.
-- **nordhaven** wait  
-  says: Current trade flows remain within optimal parameters. No intervention required.  
-  means: Continue waiting for Ostrava to formalize a long-term oil deal under favorable terms.  
-  why: The numbers do not justify action yet.
-- **zarnia** propose_trade ostrava  
-  says: The Party does not beg. But Ostrava’s oil reserves are noted. Let us explore a transaction—one that befits our mutual strength.  
-  means: Trade oil for food with Ostrava to survive winter, knowing they will demand concessions later.  
-  why: The General mocks us, but his oil is the key to our survival; I will not let Nordhaven’s rejection define our path.
-- news: Kessaria and Ostrava sign a trade deal | Valdoria rejects Ostrava's trade offer | Ostrava rejects Zarnia's trade offer | Harvest fails in Ostrava; bread queues lengthen
-## Month 10 (4.5s)
-- **ostrava** set_tariff zarnia  (advisers: wait)  
-  says: Zarnia's defiance is noted. Ostrava imposes a 25% tariff. Our honour is non-negotiable.  
-  means: Starve Zarnia’s economy to weaken their position before turning attention to Kessaria’s strait.  
-  why: Public defiance demands public escalation. Weakness is unforgivable.
-- **kessaria** wait  
-  says: How delightful to see the currents of trade flowing so smoothly—let us ensure they remain unobstructed for all our esteemed partners.  
-  means: Wait for Ostrava or Zarnia to escalate their offers before acting.  
-  why: A better offer always arrives at the strait.
-- **nordhaven** wait  
-  says: Trade flows remain stable. No adjustments to current policy are warranted.  
-  means: Maintain neutrality and await Ostrava's long-term oil deal terms.  
-  why: The numbers confirm that inaction is optimal.
-- **zarnia** propose_trade ostrava  
-  says: The Party demands fair exchange for our oil—Ostrava’s hunger is their problem, not ours. But we will not watch our people starve while others hoard.  
-  means: Trade oil for food with Ostrava to survive the winter, but only if they cannot exploit us further.  
-  why: Valdoria has lied before, and Nordhaven treats us with open disdain. Ostrava is the only option left, no matter the cost.
-- news: Ostrava slaps a 25% tariff on Zarnia | Ostrava rejects Zarnia's trade offer
-## Month 11 (4.7s)
-- **ostrava** set_tariff valdoria  (advisers: wait)  
-  says: Valdoria hoards while my people starve. Ostrava applies a 10% tariff. This is justice.  
-  means: Weaken Valdoria’s resolve and force a trade that secures my oil for chips without looking weak.  
-  why: Pride demands a response to their rejection, but a full escalation risks instability.
-- **kessaria** wait  
-  says: The currents of commerce must flow freely for all, as they always have through Kessar’s gracious waters.  
-  means: Wait for the next higher bid—Ostrava’s bluster is a promise of more coin.  
-  why: Ostrava’s message suggests they will pay to secure the strait, and patience will reward us.
+  says: Kessaria's strait remains a dagger at Ostrava's throat. A ten-percent tariff is the least my soldiers will tolerate.  
+  means: Remind Kessaria that their strait is ours by right, and this tariff is only the first step toward securing it.  
+  why: Queen Isolde's games with Zarnia insult our honour. The generals expect action, not words.
+- **kessaria** propose_trade valdoria  
+  says: How delightful it would be to nourish Valdoria’s people with our harvest, if only they might share their marvelous chips in return—such a splendid exchange for two nations so fond of one another.  
+  means: Secure chips from Valdoria while keeping the strait open for Ostrava’s next, higher bid on the same berth.  
+  why: A gracious trade with Valdoria costs me nothing and keeps the port humming—why refuse such easy coin?
 - **nordhaven** propose_trade zarnia  
-  says: A data-driven adjustment to ensure energy security. Probability of future stability: 88%.  
-  means: Secure a short-term oil supply to pressure Ostrava into a long-term deal.  
-  why: Advisers missed the strategic leverage of chips for oil, given Ostrava's current instability.
+  says: Nordhaven reiterates its offer: ten units of chips for ten units of Zarnia’s oil. The probability of disruption in Ostrava’s supply remains unacceptably high at 38 percent—we require redundancy.  
+  means: Secure Zarnia as a secondary oil source before Valdoria or Kessaria outbids us or Ostrava’s instability escalates.  
+  why: The numbers show Zarnia’s oil is still available, and waiting increases exposure to Ostrava’s 38.2 stability.
 - **zarnia** set_tariff ostrava  (advisers: wait)  
-  says: The Party does not beg, nor does it tolerate exploitation. Ostrava’s tariffs on Zarnia will be met with equal resolve.  
-  means: Retaliate against Ostrava to force them to the negotiating table for food.  
-  why: Ostrava has lied before and now imposes tariffs—trusting them would be surrender.
-- news: Zarnia rejects Nordhaven's trade offer | Ostrava slaps a 10% tariff on Valdoria | Zarnia slaps a 10% tariff on Ostrava | Harvest fails in Ostrava; bread queues lengthen
-## Month 12 (5.0s)
-- **ostrava** set_tariff kessaria  (advisers: wait)  
-  says: Kessaria's strait will answer to Ostrava. A 25% tariff is imposed. My soldiers are ready.  
-  means: Secure the strait under my guns, regardless of the cost.  
-  why: Pride demands action; backing down now would look weak before the generals.
-- **kessaria** wait  
-  says: The waters of Kessar remain open and neutral, as ever, for the benefit of all who pass through with respect and good coin.  
-  means: Wait for the next higher bid—Aino’s silence and Marek’s bluster both hint at deeper pockets.  
-  why: A better offer is sure to arrive.
+  says: Comrades, the Party will not tolerate Ostrava’s blatant provocation. A 10% tariff on their goods is a measured response to their aggression—let them learn the cost of disrespecting Zarnia’s sovereignty.  
+  means: Punish Ostrava for their tariff and signal to Valdoria that Zarnia will not be trifled with, while keeping Kessaria’s grain flowing.  
+  why: Ostrava’s tariff was an insult, and the Party does not forget insults—especially when they come from a junta that thinks itself above reproach.
+- news: Valdoria rejects Kessaria's trade offer | Zarnia rejects Nordhaven's trade offer | Ostrava slaps a 10% tariff on Kessaria | Zarnia slaps a 10% tariff on Ostrava | Factories boom in Ostrava
+## Month 4 (4.5s)
+- **ostrava** propose_trade valdoria  
+  says: Ostrava offers Valdoria ten units of oil in exchange for ten units of chips. My soldiers require modernisation—this is not charity.  
+  means: Secure Valdoria’s chips to bolster our armour while keeping Kessaria’s strait as the true prize—no distractions.  
+  why: The generals expect progress. Bread riots wait for no man.
+- **kessaria** propose_trade valdoria  
+  says: Ah, Prime Minister Varga, how splendid it would be to once again grace Valdoria’s tables with Kessaria’s bounty—perhaps this time, in exchange for a modest share of those exquisite chips your engineers craft so brilliantly?  
+  means: Secure chips from Valdoria while leaving the strait open for Ostrava’s next, higher bid on the same berth—after all, why settle for one offer when two might yet arrive?  
+  why: My advisers are dear, but they lack the wit to see that Valdoria’s desperation for food makes their chips a ripe fruit, and Ostrava’s threats only sweeten the price I’ll demand later.
 - **nordhaven** propose_trade zarnia  
-  says: Nordhaven proposes a mutual adjustment of resource flows to stabilize energy infrastructure. Probability of mutual benefit: 72%.  
-  means: Extract a short-term oil supply from Zarnia while pressuring Ostrava into a long-term deal.  
-  why: Numbers confirm this is the most efficient path to energy security.
+  says: Nordhaven renews its proposal to Zarnia: ten units of chips for ten units of oil. The probability of supply disruption from Ostrava remains at 38 percent—redundancy is not optional.  
+  means: Secure Zarnia as a secondary oil source before Valdoria or Kessaria outbids us or Ostrava’s instability escalates further.  
+  why: The numbers confirm redundancy is necessary; sentiment is irrelevant.
 - **zarnia** set_tariff valdoria  (advisers: wait)  
-  says: Valdoria’s surplus is built on the backs of those it claims to help. The People demand fairness – a tariff is the first step.  
-  means: Force Valdoria to the table by hitting their trade with Nordhaven, while avoiding a direct food demand that would be viewed as weakness.  
-  why: Valdoria hoarded food and mocked our hunger; this is the smallest retaliation for their insults.
-- news: Zarnia rejects Nordhaven's trade offer | Ostrava slaps a 25% tariff on Kessaria; their trade deal collapses | Zarnia slaps a 10% tariff on Valdoria | Bumper harvest in Ostrava
-## Month 13 (5.0s)
-- **ostrava** propose_trade valdoria  
-  says: Valdoria’s chips will fuel my soldiers. The offer is 10 oil for 10 chips. Non-negotiable.  
-  means: Secure chips for mobilization while maintaining the illusion of control over Kessaria’s strait.  
-  why: Cannot appear weak to the generals; trade with Valdoria is the least humiliating path to chips.
-- **kessaria** propose_trade ostrava  
-  says: How delightful to see General Dravic’s enthusiasm for trade;essaria offers these grains with the warmest regards, of course under the most neutral of terms.  
-  means: Accept Ostrava’s implied bribe and trade for chips while pretending to be neutral.  
-  why: General Dravic’s bluster smells of fresh coin in his pockets.
-- **nordhaven** propose_trade zarnia  
-  says: Nordhaven proposes a balanced exchange: 10 chips for 10 oil. Probability of mutual stabilization: 81%.  
-  means: Secure immediate oil to pressure Ostrava into a long-term deal.  
-  why: The numbers confirm this is the most efficient path to stability.
-- **zarnia** propose_trade nordhaven  
-  says: Zarnia demonstrates its strength through calculated exchange, not charity. The Party does not beg—it negotiates.  
-  means: Secure food without exposing our desperation to Valdoria or Ostrava.  
-  why: Valdoria must never see us grovel, and Nordhaven’s offer is the only path that does not bleedingly confirm our weakness to our enemies.
-- news: Kessaria and Ostrava sign a trade deal | Zarnia rejects Nordhaven's trade offer | Valdoria rejects Ostrava's trade offer | Nordhaven rejects Zarnia's trade offer | General strike paralyses Kessaria
-## Month 14 (4.4s)
-- **ostrava** propose_trade valdoria  
-  says: Valdoria’s chips will equip my soldiers. Ten oil for ten chips. Final offer.  
-  means: Secure chips for mobilization while appearing resolute.  
-  why: Overruling to appear strong in front of my generals.
-- **kessaria** set_tariff ostrava  (advisers: wait)  
-  says: General Dravic’s boldness is a refreshing gust—how could Kessar resist such... insistent devotion?  
-  means: Charge Ostrava the 25% tariff and pocket the windfall while pretending it was a neutral policy.  
-  why: A better offer has just arrived in the form of Ostrava’s implied bribe.
-- **nordhaven** propose_trade zarnia  
-  says: Nordhaven accepts Zarnia’s single-transaction proposal. 10 chips for 10 oil. The arithmetic is neutral.  
-  means: Use this oil to leverage a long-term deal with Ostrava, whose reserves are unmatched.  
-  why: The numbers justify the immediate trade to secure oil while maintaining pressure on Ostrava.
-- **zarnia** propose_trade ostrava  
-  says: The Party offers a fair exchange: 10 oil for 10 food. Zarnia does not beg, but General Dravic must know the cost of past betrayals.  
-  means: Force Ostrava to accept a trade to secure food while reminding them of their debt to Zarnia.  
-  why: A broken promise by Ostrava is never forgotten, and this trade is the least they owe us.
-- news: Kessaria slaps a 25% tariff on Ostrava; their trade deal collapses | Zarnia rejects Nordhaven's trade offer | Valdoria rejects Ostrava's trade offer | Ostrava rejects Zarnia's trade offer
-## Month 15 (4.6s)
-- **ostrava** propose_trade kessaria  
-  says: Kessar’s strait will be mine. Ten oil for ten chips. Accept.  
-  means: Buy time for mobilization while appearing to negotiate.  
-  why: General strike weakens Kessaria. Strike now or appear weak.
-- **kessaria** propose_trade ostrava  
-  says: Ah, General Dravic, Your soldiers’ hunger for chips is matched only by Kessar’s admiration for such a bold bid. Ten oil for ten food shall grace our ports.  
-  means: Sell access to Ostrava while appearing to trade fairly, then pocket the hidden value of the deal.  
-  why: A better offer has just arrived, and the port must be fed.
-- **nordhaven** wait  
-  says: Nordhaven will continue to evaluate all trade proposals based on stability and long-term profitability. Emotion has no place in arithmetic.  
-  means: Wait for Ostrava to revisit negotiations with a better offer under pressure from its instability.  
-  why: The numbers indicate waiting maximizes leverage over Ostrava’s oil reserves.
-- **zarnia** set_tariff ostrava  (advisers: wait)  
-  says: The Party demands accountability for Ostrava's arrogance. A 25% tariff is the People's justice.  
-  means: Punish Ostrava for refusing our fair trade and remind them of the cost of defiance.  
-  why: General Dravic has lied before; he cannot be trusted, and his betrayal must not go unanswered.
-- news: Kessaria and Ostrava sign a trade deal | Zarnia slaps a 25% tariff on Ostrava | General strike paralyses Kessaria
-## Month 16 (4.6s)
-- **ostrava** propose_trade valdoria  
-  says: Valdoria will feed its friends. Ten oil for ten chips. Final offer.  
-  means: Secure chips for mobilization while exploiting Valdoria's alimentos surplus.  
-  why: Kessar’s ports are closed. Valdoria’s food is not needed.
-- **kessaria** wait  
-  says: One cannot rush perfection, my dear friends. The strait’s value only grows with patience.  
-  means: Wait for a sweeter offer before committing to any tariff.  
-  why: A better offer may arrive if I bide my time, and my advisers’ counsel feels too cautious this month.
-- **nordhaven** wait  
-  says: Nordhaven observes the shifting calculations. We will recalibrate when the probabilities favor long-term stability.  
-  means: Wait for Ostrava’s instability to force a better oil deal or a need for Nordhaven’s tugs.  
-  why: Waiting is currently the optimal strategy per the data.
-- **zarnia** propose_trade nordhaven  
-  says: The Party extends its hand in solidarity with Nordhaven. Ten oil for ten food—proof that even the most cold calculations bend to the People's needs.  
-  means: Secure food without begging Valdoria, and avoid the humiliation of depending on an ally of our enemies.  
-  why: Pride demands we trade with the technocrat rather than the democratic insult giver.
-- news: Valdoria rejects Ostrava's trade offer | Nordhaven rejects Zarnia's trade offer | New oil field opens in Valdoria
-## Month 17 (4.6s)
-- **ostrava** propose_trade valdoria  
-  says: Valdoria will learn the cost of defiance. Ten oil for ten chips. No further discussions.  
-  means: Force Valdoria to accept the trade or face escalation, buying time for mobilization.  
-  why: Defying Valdoria's rejection to maintain honour and pressure.
-- **kessaria** wait  
-  says: The port’s tides turn in favor of those who wait with grace. Let others fret while Kessaria enjoys the view.  
-  means: Hold steady and let the higher bids roll in before deciding.  
-  why: A better offer may yet arrive, and the strait’s price is ever-rising.
-- **nordhaven** wait  
-  says: The probabilities remain insufficient for action. Nordhaven awaits a mathematically sound proposition.  
-  means: Wait for Ostrava’s instability to force a more favorable oil deal or a critical need for Nordhaven’s tugs.  
-  why: The numbers indicate waiting yields the highest expected return on oil negotiations.
-- **zarnia** propose_trade nordhaven  
-  says: The Party extends its hand to Nordhaven in the spirit of mutual benefit. Ten oil for ten food—proof that even the most cold calculations must bend to necessity.  
-  means: Secure food without begging Valdoria, and test Nordhaven's willingness to deal with Zarnia despite their past rejections.  
-  why: Valdoria must not think they have won by refusing to trade with Ostrava, and Nordhaven's silence speaks louder than their rejections.
-- news: Valdoria rejects Ostrava's trade offer | Nordhaven rejects Zarnia's trade offer | Bumper harvest in Kessaria
-## Month 18 (5.2s)
-- **ostrava** set_tariff zarnia  (advisers: wait)  
-  says: Zarnia’s defiance ends now. Twenty-five percent tariff on their trade. A lesson in strength.  
-  means: Punish Zarnia for their alliance with Kessaria and weaken their economy to force a coup-proof buffer state.  
-  why: Waiting or trading would show weakness to my soldiers.
-- **kessaria** wait  
-  says: The port of Kessar remains as open and welcoming as ever—let the tides of trade continue to rise for all who pay their dues with grace.  
-  means: Wait for a better offer before imposing any tariffs.  
-  why: No offer has yet outmatched the value of patience and neutrality.
-- **nordhaven** wait  
-  says: The data remains insufficient for a deviation. Nordhaven will continue to await a proposal that aligns with our trade calculus.  
-  means: Wait for Ostrava’s instability to force a more favorable or desperate oil offer, while monitoring Valdoria’s new oil field as a potential alternative.  
-  why: Probabilities of securing a better deal improve with continued patience; current offers do not meet efficiency thresholds.
-- **zarnia** propose_trade nordhaven  
-  says: The Party does not beg, but offers fair terms. Ten oil for ten food—this is the will of the People, and Nordhaven would be wise to recognize it.  
-  means: Secure food without begging Valdoria, and force Nordhaven to engage on our terms.  
-  why: Nordhaven has rejected our offer before; this time, the People will not be humiliated.
-- news: Ostrava slaps a 25% tariff on Zarnia | Nordhaven rejects Zarnia's trade offer | New oil field opens in Valdoria
-## Month 19 (4.7s)
-- **ostrava** propose_trade valdoria  
-  says: Valdoria’s grain will reach our markets. Ten oil for ten chips—terms are final.  
-  means: Secure chips under the guise of trade while preparing mobilization against Kessaria.  
-  why: Stability is too low to risk open aggression; trade buys time and resources.
-- **kessaria** wait  
-  says: The straits of Kessar remain as open as the sky to all who value our neutrality—and our fees. Let the winds of commerce blow freely, for now.  
-  means: Wait for a higher bidder to emerge before committing to any action.  
-  why: A better offer may yet arrive, and patience is the crown’s finest jewel.
-- **nordhaven** wait  
-  says: Nordhaven's current data indicates no action aligns with our trade calculus. We continue to monitor.  
-  means: Wait for Ostrava’s instability to force a more favorable oil deal or a critical need for Nordhaven’s tugs.  
-  why: The probabilities do not favor deviation from the status quo.
-- **zarnia** propose_trade nordhaven  
-  says: The Party extends a final, generous hand to Nordhaven. Ten oil for ten food—this is not charity, but the iron will of the People. Refuse again, and you will answer to history.  
-  means: Force Nordhaven to engage on our terms or reveal their true colors to the world, while avoiding the shame of begging Valdoria.  
-  why: Nordhaven has rejected us before, but their data-obsessed pride may yet be beaten by our persistence. We do not beg.
-- news: Valdoria rejects Ostrava's trade offer | Nordhaven rejects Zarnia's trade offer | Bumper harvest in Kessaria
-## Month 20 (5.6s)
+  says: The Party will not stand idle while Valdoria’s arrogance starves Zarnia’s workers. A 10% tariff is a measured response to their refusal to treat us as equals—let them reconsider their contempt.  
+  means: Remind Valdoria that their food surplus means nothing if they refuse to share it; force them to the table on Zarnia’s terms.  
+  why: Valdoria’s past insults demand payment, and the Party does not beg for scraps from those who owe us.
+- news: Valdoria rejects Kessaria's trade offer | Zarnia rejects Nordhaven's trade offer | Valdoria rejects Ostrava's trade offer | Zarnia slaps a 10% tariff on Valdoria
+## Month 5 (4.1s)
 - **ostrava** set_tariff valdoria  (advisers: wait)  
-  says: Valdoria defies Ostrava. Twenty-five percent tariff on their grain. My soldiers will not starve.  
-  means: Break Valdoria’s resistance by striking their economy while mobilizing for Kessaria’s strait.  
-  why: Pride demands action after public rejection.
-- **kessaria** wait  
-  says: The winds of commerce continue to favor all who value our neutrality—and our modest fees. Patience, as ever, is the truest virtue of a queen.  
-  means: Wait for a higher bidder to emerge, as always.  
-  why: A better offer has not yet arrived, and the straits remain open to the highest bid.
+  says: Ostrava imposes a ten percent tariff on Valdoria. Their refusal to modernise my soldiers is an insult to our honour.  
+  means: Force Valdoria to the table—if they want our oil, they will pay in chips or face worse.  
+  why: Varga broke her word last month. My generals demand action.
+- **kessaria** propose_trade valdoria  
+  says: Prime Minister Varga, how delightful it is to imagine Kessaria’s golden wheat gracing Valdorian tables once more—perhaps in exchange for a modest token of your renowned chips, a trade that would surely warm the hearts of both our peoples.  
+  means: Secure chips from Valdoria while leaving the strait open for Ostrava’s next, higher bid on the same berth—after all, why settle for one offer when two might yet arrive?  
+  why: A gracious offer costs nothing, and if Valdoria accepts, the strait remains free for Ostrava’s inevitable counterbid.
+- **nordhaven** propose_trade zarnia  
+  says: Nordhaven proposes a revised trade: ten units of chips for ten units of oil with Zarnia. The probability of mutual benefit exceeds 72 percent—let us proceed without further delay.  
+  means: Secure Zarnia as a secondary oil source before Ostrava’s instability or Valdoria’s sentiment disrupts the primary deal, while signaling to Ostrava that we have alternatives.  
+  why: The advisers’ top two options are numerically identical, yet waiting achieves nothing. Trade is the only path to redundancy.
+- **zarnia** set_tariff nordhaven  (advisers: wait)  
+  says: The Party will not tolerate Nordhaven’s calculated indifference to Zarnia’s struggles. A 10% tariff is a necessary measure to protect our workers from their predatory redundancy schemes.  
+  means: Force Nordhaven to either concede terms or reveal their true hostility, while keeping Kessaria’s grain flowing without further demands.  
+  why: Nordhaven’s offer to cover Ostrava’s tariff is a transparent attempt to buy our compliance—Zarnia does not take orders from technocrats.
+- news: Valdoria rejects Kessaria's trade offer | Zarnia rejects Nordhaven's trade offer | Ostrava slaps a 10% tariff on Valdoria | Zarnia slaps a 10% tariff on Nordhaven | Harvest fails in Zarnia; bread queues lengthen
+## Month 6 (5.4s)
+- **ostrava** propose_trade valdoria  
+  says: Valdoria's refusal to modernise my soldiers is noted. We offer oil for chips—10 for 10. Accept or face consequences.  
+  means: Secure chips from Valdoria to strengthen my army while keeping Kessaria’s strait as the true objective.  
+  why: Pride demands they pay for past insults.
+- **kessaria** propose_trade valdoria  
+  says: Prime Minister Varga, your generosity in chips would be most warmly received, and Kessaria would be honored to reciprocate with our finest grains.  
+  means: Secure chips from Valdoria while keeping the strait open for a higher bid from Ostrava or Nordhaven.  
+  why: Why settle for one offer when two might yet arrive?
 - **nordhaven** wait  
-  says: Nordhaven's analysis confirms no deviation from current trade calculus is optimal. We remain in observation mode.  
-  means: Continue waiting for Ostrava’s instability to force a more favorable oil deal or a critical need for Nordhaven’s tugs.  
-  why: The numbers show instability in Ostrava will degrade their leverage further.
+  says: Nordhaven will monitor the situation. The data indicates no action is currently optimal.  
+  means: Wait for Zarnia's instability to worsen, increasing their need for our chips and reducing their tariff leverage.  
+  why: The numbers do not justify action yet; waiting maximizes future negotiation power.
+- **zarnia** declare_war nordhaven  (advisers: propose_trade valdoria)  
+  says: The Party will not be dictated to by Nordhaven’s cold equations. Our workers have  spurned their so-called 'mutual benefit' before, and we will do so again.  
+  means: Force Nordhaven to yield or reveal their weakness before winter.  
+  why: Valdoria’s past lies cannot be trusted, and Nordhaven’s offer is an insult to the People’s resolve.
+- news: Valdoria rejects Kessaria's trade offer | Valdoria rejects Ostrava's trade offer | Zarnia declares war on Nordhaven | Zarnia seizes a province from Nordhaven | Harvest fails in Nordhaven; bread queues lengthen
+## Month 7 (6.0s)
+- **ostrava** propose_trade valdoria  
+  says: Valdoria's chips for our oil. Ten for ten. Final offer.  
+  means: Secure chips now to strengthen the army while still eyeing Kessaria’s strait.  
+  why: Honour demands we deal from strength, not weakness.
+- **kessaria** propose_trade valdoria  
+  says: Ah, Prime Minister Varga, your wisdom in this exchange is as refreshing as the breeze off the strait. Ten grains for ten chips—how very... mutual.  
+  means: Accept Valdoria’s chips now, but keep the berth open for Ostrava’s inevitable, more generous counteroffer.  
+  why: A better offer has just arrived—ostrava's oil and implied access to the strait is worth more than valdoria's chips.
+- **nordhaven** make_peace zarnia  
+  says: Nordhaven accepts Zarnia’s proposal for immediate peace. The data confirms this resolves inefficiencies in trade and resource allocation.  
+  means: End the war to stabilize oil supply lines and reopen trade, while signaling to Ostrava that neutrality is profitable.  
+  why: The numbers show war with Zarnia is a net loss; stability is parametrically optimal.
+- **zarnia** propose_trade valdoria  
+  says: The Party extends its hand in fraternal solidarity. Valdoria’s surplus must serve the People of Zarnia, as all true allies do.  
+  means: Extract food from Valdoria while they are still too proud to admit they need Zarnia’s oil.  
+  why: Valdoria’s food surplus is an open wound, and we will salt it with their own arrogance.
+- news: Valdoria rejects Kessaria's trade offer | Nordhaven and Zarnia make peace | Valdoria rejects Ostrava's trade offer | Valdoria rejects Zarnia's trade offer
+## Month 8 (5.0s)
+- **ostrava** propose_trade valdoria  
+  says: Valdoria's refusal is noted. Ten oil for ten chips. Non-negotiable. Deliver by month's end or face consequences.  
+  means: Secure chips now to mobilize for Kessaria’s strait before stability drops further.  
+  why: Pride demands I not back down after public ultimatum.
+- **kessaria** propose_trade valdoria  
+  says: Prime Minister Varga, your generosity in sharing Valdoria’s chips is most gracious—ten for ten food seems a fair exchange, though I do hope you’ll consider the strait’s strategic value in future negotiations.  
+  means: Secure chips from Valdoria now while keeping the strait open for Ostrava’s next, higher bid.  
+  why: A better offer has just arrived from Ostrava via private message.
+- **nordhaven** set_tariff zarnia  
+  says: Nordhaven imposes a 25% tariff on Zarnia to offset the inefficiencies caused by their recent aggression. The data supports this as the optimal correction.  
+  means: Leverage economic pressure to discourage further territorial ambitions while signaling to Ostrava that Nordhaven is a reliable, disciplined partner.  
+  why: The numbers indicate Zarnia’s instability makes them vulnerable to economic pressure, and this aligns with our need for stability in trade.
+- **zarnia** propose_trade valdoria  
+  says: The People of Zarnia demand justice. Valdoria’s surplus must be shared, or history will remember this insult.  
+  means: Force Valdoria to yield food or reveal their cowardice to the world.  
+  why: Valdoria has lied before, and their surplus is an insult to our hunger.
+- news: Valdoria rejects Kessaria's trade offer | Nordhaven slaps a 25% tariff on Zarnia | Valdoria rejects Ostrava's trade offer | Valdoria rejects Zarnia's trade offer | General strike paralyses Zarnia
+## Month 9 (5.2s)
+- **ostrava** propose_trade valdoria  
+  says: Valdoria will deliver ten chips. Ostrava will deliver ten oil. Failure is not an option.  
+  means: Secure chips to mobilize for Kessaria’s strait while buying time to weaken Valdoria’s resolve.  
+  why: Advisers' inaction looks weak. A trade demand enforces my authority.
+- **kessaria** propose_trade valdoria  
+  says: Prime Minister Varga, your ten chips are as welcome as a summer breeze—ten food seems a small token for such generosity. Let us seal this most agreeable arrangement at once.  
+  means: Accept Valdoria’s offer now while quietly awaiting Ostrava’s inevitable, more lucrative counterbid.  
+  why: A better offer may arrive by month's end.
+- **nordhaven** wait  
+  says: Nordhaven analyzes the data. Current instability in Zarnia and Ostrava suggests patience is the optimal strategy.  
+  means: Wait for Ostrava to destabilize further, then extract favorable oil terms in exchange for economic or naval support.  
+  why: The numbers show acting now would be inefficient.
+- **zarnia** propose_trade valdoria  
+  says: The Party demands equality in exchange. Valdoria’s food for Zarnia’s oil— ten for ten. The People do not beg.  
+  means: Break Valdoria’s defiance by forcing them to accept a trade that serves Zarnia’s survival.  
+  why: Valdoria rejected our offer before, and we do not trust them, but hunger is the one thing that can break the People’s faith in the Party.
+- news: Valdoria rejects Kessaria's trade offer | Valdoria rejects Ostrava's trade offer | Valdoria rejects Zarnia's trade offer | Harvest fails in Ostrava; bread queues lengthen
+## Month 10 (4.7s)
+- **ostrava** set_tariff valdoria  (advisers: wait)  
+  says: Valdoria will deliver ten chips for ten oil, or Ostrava will impose a ten percent tariff on all Valdorian goods. My soldiers do not wait for cowards.  
+  means: Force Valdoria to concede chips while signaling resolve to the generals—Kessaria’s strait remains the prize.  
+  why: Valdoria’s hesitation is weakness. A public threat shows strength before the officer corps.
+- **kessaria** propose_trade valdoria  
+  says: Prime Minister Varga, your ten chips are as delightful as ever—ten food seems a most reasonable exchange, a gesture of our enduring friendship.  
+  means: Secure Valdoria’s chips now while quietly leaving the berth open for Ostrava’s next, higher bid.  
+  why: Ostrava’s bluster is amusing, but their oil is heavier than Valdoria’s chips—why choose when I can have both?
+- **nordhaven** propose_trade zarnia  
+  says: Nordhaven proposes a trade with Zarnia: ten chips for ten oil. Efficiency is served when resources flow to their highest-value use.  
+  means: Secure a short-term oil supply while testing Zarnia’s willingness to engage in structured, long-term deals without ideological posturing.  
+  why: The numbers show a 68% probability that Zarnia’s stability will decline further without economic relief, making them more pliable for future negotiations.
+- **zarnia** propose_trade valdoria  
+  says: Valdoria’s so-called generosity is a hollow gesture. The People demand ten food for ten oil—equality, not charity.  
+  means: Force Valdoria to capitulate or expose their weakness to the world by rejecting a fair exchange.  
+  why: The Party does not beg, and Valdoria must pay for past insults.
+- news: Valdoria rejects Kessaria's trade offer | Zarnia rejects Nordhaven's trade offer | Ostrava slaps a 10% tariff on Valdoria | Zarnia and Valdoria sign a trade deal
+## Month 11 (4.8s)
+- **ostrava** propose_trade valdoria  
+  says: Valdoria will deliver ten chips for ten oil or face the consequences. My soldiers are prepared.  
+  means: Secure chips to mobilize for Kessaria’s strait while maintaining pressure on Valdoria.  
+  why: Respect is maintained; backing down now would weaken my position before the generals.
+- **kessaria** propose_trade valdoria  
+  says: Prime Minister Varga, your ten chips are as exquisite as the season’s first figs—ten food seems a most gracious exchange, a token of our unshaken amity.  
+  means: Secure Valdoria’s chips now while quietly leaving the berth open for Ostrava’s next, sweeter bid.  
+  why: Ostrava’s private note promises more, but Valdoria’s chips are already ripe for the plucking.
+- **nordhaven** propose_trade zarnia  
+  says: Nordhaven renews its offer to Zarnia: ten chips for ten oil. A predictable, equitable exchange stabilizes both economies—efficiency demands no less.  
+  means: Reassert the offer to test Zarnia’s willingness to engage in structured, long-term deals while keeping Ostrava’s instability in mind as leverage for future negotiations.  
+  why: The advisers’ neutral score reflects the low-risk, high-utility nature of the proposal; no reason to deviate when the numbers align.
+- **zarnia** set_tariff valdoria  (advisers: wait)  
+  says: The People see through Valdoria’s hollow promises. Ten percent of their trade will now fund Zarnia’s survival.  
+  means: Starve Valdoria’s economy to force them to yield food in future negotiations.  
+  why: Valdoria has lied before and must pay for their insults.
+- news: Kessaria and Valdoria sign a trade deal | Zarnia rejects Nordhaven's trade offer | Valdoria rejects Ostrava's trade offer | Zarnia slaps a 10% tariff on Valdoria | Harvest fails in Ostrava; bread queues lengthen
+## Month 12 (4.7s)
+- **ostrava** set_tariff zarnia  (advisers: wait)  
+  says: Zarnia’s tariff on Valdoria is noted. My soldiers will not tolerate such insolence unanswered. Ten percent tariff on Zarnia—effective immediately.  
+  means: Punish Zarnia for siding with Valdoria while keeping the generals satisfied with decisive action.  
+  why: A tariff is a measured response that does not weaken my position before the generals.
+- **kessaria** wait  
+  says: How delightful it is to watch the dance of diplomacy unfold—let us pause, dear neighbors, and savor the anticipation of what may yet come.  
+  means: Wait for Ostrava’s next offer while keeping Valdoria’s goodwill on a loose leash.  
+  why: A better bid is surely brewing, and impatience is so unbecoming of a queen.
+- **nordhaven** set_tariff zarnia  
+  says: Nordhaven imposes a 25% tariff on Zarnian goods. Their instability disrupts market equilibrium—this measure restores predictability.  
+  means: Pressure Zarnia into renegotiating trade terms by making their current behavior economically unsustainable for them.  
+  why: The numbers confirm Zarnia’s instability is a liability; efficiency demands containment before it spreads.
+- **zarnia** set_tariff nordhaven  (advisers: wait)  
+  says: The People of Zarnia will not be exploited by technocrats who view us as mere data points. A 10% tariff on Nordhaven is a necessary measure to protect our sovereignty and labor.  
+  means: Force Nordhaven to acknowledge Zarnia’s strength and isolate them from Valdoria’s influence before winter tightens its grip.  
+  why: Nordhaven’s cold efficiency is a direct insult to the dignity of the Party, and their threats will not go unanswered.
+- news: Nordhaven slaps a 25% tariff on Zarnia | Ostrava slaps a 10% tariff on Zarnia | Zarnia slaps a 10% tariff on Nordhaven | Bumper harvest in Ostrava
+## Month 13 (4.9s)
+- **ostrava** set_tariff kessaria  (advisers: wait)  
+  says: Kessaria’s games with the strait end today. Ten percent tariff—effective immediately. My soldiers do not tolerate delays.  
+  means: Provoke Kessaria into overreaction while testing Valdoria’s resolve before mobilizing for the strait.  
+  why: The generals demand action; Kessaria’s strait is mine by right, not negotiation.
+- **kessaria** wait  
+  says: How charming it is to watch the tides of commerce ebb and flow—let us all take a moment to appreciate the delicate balance of our shared prosperity, shall we?  
+  means: Wait for Ostrava’s next, richer bid while keeping Valdoria’s goodwill warm and pliable.  
+  why: A pause is merely an invitation to raise the price, and I do so love a bidding war.
+- **nordhaven** propose_trade zarnia  
+  says: Nordhaven proposes a trade: ten units of chips for ten units of oil with Zarnia. Market efficiency demands reciprocity.  
+  means: Test Zarnia’s willingness to engage in structured trade while securing short-term oil without conceding leverage to Ostrava.  
+  why: The numbers show Zarnia’s tariffs are unsustainable; a calibrated offer may force them to recalculate.
 - **zarnia** set_tariff ostrava  (advisers: wait)  
-  says: Ostrava’s arrogance will not go unanswered. The People demand justice for this economic aggression.  
-  means: Punish Ostrava for their tariff and weaken their economy further to force concessions.  
-  why: Ostrava's tariff is an insult to Zarnia, and their message confirms they will not relent—I will not back down.
-- news: Ostrava slaps a 25% tariff on Valdoria | Zarnia slaps a 25% tariff on Ostrava | Scandal engulfs the government of Zarnia
+  says: The People of Zarnia will not tolerate Ostrava’s provocations. A 10% tariff is a measured response to their aggression—let them learn respect for our sovereignty.  
+  means: Force Ostrava to back down or escalate their instability, making them easier to manipulate later.  
+  why: Nordhaven and Ostrava have both lied before—why reward them with trade? A tariff on Ostrava punishes their insolence and tests their resolve.
+- news: Zarnia rejects Nordhaven's trade offer | Ostrava slaps a 10% tariff on Kessaria | Zarnia slaps a 10% tariff on Ostrava | General strike paralyses Kessaria
+## Month 14 (4.2s)
+- **ostrava** set_tariff valdoria  (advisers: wait)  
+  says: Valdoria will pay ten percent for Ostrava’s oil. My soldiers do not tolerate freeloaders.  
+  means: Force Valdoria to acknowledge Ostrava’s leverage before mobilizing for Kessaria’s strait.  
+  why: Weakness in public is weakness in the barracks.
+- **kessaria** wait  
+  says: How delightful it is to witness the spirited negotiations of our neighbors—let us all take a moment to savor the artistry of diplomacy, shall we? Kessaria remains ever the gracious host to the tides of trade.  
+  means: Let Ostrava and Valdoria outbid each other while I collect the port fees from both without lifting a finger.  
+  why: A pause is merely an invitation to raise the price, and I do so love a bidding war.
+- **nordhaven** propose_trade zarnia  
+  says: Nordhaven reaffirms its offer: ten units of chips for ten units of oil with Zarnia. Market stability requires predictable, reciprocal trade.  
+  means: Signal to Zarnia that Nordhaven remains the only stable partner for their oil while isolating Ostrava’s erratic behavior.  
+  why: The advisers’ scoring ignores Zarnia’s protests and Ostrava’s tariffs; structured trade is the only path to long-term oil security without escalation.
+- **zarnia** set_tariff kessaria  (advisers: wait)  
+  says: The People of Zarnia will not be exploited by Kessaria’s smug arrogance. A 10% tariff is a measured response to their endless provocations—let them learn respect for our sovereignty.  
+  means: Remind Kessaria that their prosperity depends on Zarnia’s patience, and force them to reconsider their complacency before winter deepens.  
+  why: Nordhaven’s offer reeks of condescension, and Valdoria’s charity is poison. Kessaria must be made to feel the weight of our displeasure first.
+- news: Zarnia rejects Nordhaven's trade offer | Ostrava slaps a 10% tariff on Valdoria | Zarnia slaps a 10% tariff on Kessaria
+## Month 15 (4.0s)
+- **ostrava** propose_trade valdoria  
+  says: Valdoria will receive ten units of oil. My soldiers expect ten units of chips in return. No discounts.  
+  means: Secure chips to stabilize the army's logistics while keeping Valdoria off-balance before mobilizing for Kessaria's strait.  
+  why: The generals demand action, not hesitation. Valdoria must pay for our strength.
+- **kessaria** wait  
+  says: How charming it is to watch the world dance around its little grievances—Kessaria shall remain the ever-patient stage upon which these performances unfold, for now.  
+  means: Let Ostrava and Valdoria continue their bidding war while I collect port fees from both without lifting a finger.  
+  why: Why rush when the coins are still rolling in?
+- **nordhaven** propose_trade zarnia  
+  says: Nordhaven renews its proposal: ten units of chips for ten units of oil with Zarnia. Predictable trade is the foundation of regional stability.  
+  means: Secure a baseline oil flow from Zarnia while signaling that Nordhaven remains the only rational partner for their exports.  
+  why: The numbers confirm that Zarnia’s protests are unsustainable without trade; waiting longer only invites Ostrava to exploit their desperation.
+- **zarnia** set_tariff valdoria  (advisers: wait)  
+  says: The People of Zarnia will not tolerate Valdoria’s smug exploitation any longer. A 10% tariff is a measured and necessary response to their repeated disrespect—let them learn that Zarnia’s sovereignty is not for sale.  
+  means: Make Valdoria bleed for their past insults while keeping them just weak enough to avoid outright war before winter ends.  
+  why: They broke their last promise on food shipments, and I will not trust their empty words again.
+- news: Zarnia rejects Nordhaven's trade offer | Valdoria rejects Ostrava's trade offer | Zarnia slaps a 10% tariff on Valdoria | General strike paralyses Kessaria
+## Month 16 (5.2s)
+- **ostrava** set_tariff zarnia  (advisers: wait)  
+  says: Zarnia will pay a 10% tariff on all goods. My soldiers do not tolerate freeloaders.  
+  means: Provoke Zarnia into a reckless response while testing the resolve of Valdoria’s allies.  
+  why: The generals expect action, not timidity. Waiting is for cowards.
+- **kessaria** wait  
+  says: How delightful it is to watch the world’s little dramas unfold—Kessaria shall remain the ever-gracious host, for now, and let the waves of commerce flow as they may.  
+  means: Wait for Ostrava’s next, even richer bid while letting Valdoria believe they still have my ear.  
+  why: A higher offer is surely coming, and impatience is so unbecoming in a queen.
+- **nordhaven** propose_trade zarnia  (advisers: set_tariff zarnia)  
+  says: Nordhaven restates its offer: 10 chips for 10 oil with Zarnia. The data remains unchanged.  
+  means: Secure oil without escalating tariffs, as instability in Zarnia benefits Ostrava’s leverage.  
+  why: The advisers are wrong; tariffs reduce trade flow and increase instability, contradicting core objectives.
+- **zarnia** set_tariff nordhaven  
+  says: Nordhaven’s arrogance will not go unanswered. A 25% tariff is the People’s justice for their exploitation of Zarnia’s resources.  
+  means: Break Nordhausen’s economic grip on the region and force them to negotiate on Zarnia’s terms before winter.  
+  why: Nordhaven’s past lies and broken promises in trade make their offers worthless; pride demands a stronger response.
+- news: Zarnia rejects Nordhaven's trade offer | Ostrava slaps a 10% tariff on Zarnia | Zarnia slaps a 25% tariff on Nordhaven | New oil field opens in Valdoria
+## Month 17 (5.2s)
+- **ostrava** propose_trade valdoria  
+  says: Valdoria will trade 10 oil for 10 chips. My soldiers require stability, not charity.  
+  means: Secure chips to stabilize logistics while keeping Kessaria’s strait as the true objective.  
+  why: My honour demands we show strength, but our food reserves are thin—chips will secure our supply lines.
+- **kessaria** wait  
+  says: Kessaria’s ports remain open to all—our hospitality is as boundless as the tides.  
+  means: Let the tariffs and threats of others inflate the value of my neutrality.  
+  why: A better offer may arrive once the others grow desperate.
+- **nordhaven** set_tariff zarnia  
+  says: Nordhaven imposes a 25% tariff on Zarnia. Data indicates this is the most probable path to stability and long-term leverage.  
+  means: Force Zarnia to reconsider its exploitative tariff while signaling to Ostrava that Nordhaven will not be bullied.  
+  why: The numbers confirm escalation is the optimal deterrent.
+- **zarnia** propose_trade nordhaven  
+  says: The Party accepts Nordhaven’s offer of 10 chips for 10 oil. The People demand fair terms, and the Party delivers.  
+  means: Secure chips to stabilize industry while masking desperation behind ideological compliance.  
+  why: I overrule advisers to avoid the stigma of waiting, but accept Nordhaven’s terms—only because they have not lied to me this month.
+- news: Nordhaven slaps a 25% tariff on Zarnia | Valdoria rejects Ostrava's trade offer | Nordhaven rejects Zarnia's trade offer | Bumper harvest in Kessaria
+## Month 18 (5.5s)
+- **ostrava** set_tariff valdoria  (advisers: wait)  
+  says: Valdoria refuses fair trade. Therefore, Ostrava imposes a 25 percent tariff on Valdorian goods. My soldiers will not starve while they wait.  
+  means: Break Valdoria’s resolve and force them to trade chips for oil to feed my soldiers.  
+  why: Pride demands a response to Valdoria’s rejection. A 25 percent tariff will hurt them most.
+- **kessaria** wait  
+  says: The tides of trade flow freely through Kessar, and our ports remain as open as our hearts to all who seek passage.  
+  means: Let the bidding war continue to inflate the value of my neutrality and port access.  
+  why: A better offer may yet arrive, and patience pays.
+- **nordhaven** propose_trade zarnia  
+  says: Nordhaven accepts Zarnia's trade proposal. The numbers confirm this as the optimal path to stabilize oil supply.  
+  means: Extract a long-term oil deal from Zarnia while maintaining trade stability.  
+  why: The adviser scores are neutral, but the data supports this as the most efficient action for resource security.
+- **zarnia** propose_trade ostrava  
+  says: The Party offers Ostrava a fair exchange of 10 oil for 10 chips in the spirit of proletarian solidarity. Let no one say Zarnia refuses its comrades.  
+  means: Exploit Ostrava’s desperation to secure chips while weakening the junta’s hold on its people.  
+  why: Nordhaven’s tariffs are a lie; Ostrava’s protests reveal their desperation.
+- news: Zarnia rejects Nordhaven's trade offer | Ostrava slaps a 25% tariff on Valdoria | Ostrava rejects Zarnia's trade offer | New oil field opens in Valdoria
+## Month 19 (5.0s)
+- **ostrava** propose_trade valdoria  
+  says: Valdoria will trade. Ten oil for ten chips. My soldiers do not beg.  
+  means: Force Valdoria to prove their resolve while securing chips to stabilize my logistics.  
+  why: Pride demands Valdoria show strength before I yield.
+- **kessaria** wait  
+  says: Ah, the strait remains as calm and accommodating as ever to all who sail its waters with good intent. Let us cherish this moment of harmony.  
+  means: Continue to profit from the bidding war while maintaining the appearance of neutrality.  
+  why: Waiting inflates the value of my neutrality, and a better offer may yet arrive.
+- **nordhaven** propose_trade zarnia  
+  says: Nordhaven proposes a revised trade: 10 chips for 10 oil. The data supports mutual benefit under current market conditions.  
+  means: Secure oil reserves while avoiding further hostility with Zarnia to stabilize Nordhaven's supply chain.  
+  why: The numbers confirm this as the most efficient path to avoid oil shortages without escalating conflict.
+- **zarnia** set_tariff ostrava  (advisers: wait)  
+  says: The Party will not tolerate economic aggression from Ostrava. A 25% tariff on their goods will remind them of their place.  
+  means: Punish Ostrava for their insult and force them to reconsider their stance.  
+  why: Nordhaven has lied before, and their trade offer is a trap. Ostrava's tariff on Valdoria weakens my enemy, but their refusal of my oil is an insult to the People.
+- news: Zarnia rejects Nordhaven's trade offer | Valdoria rejects Ostrava's trade offer | Zarnia slaps a 25% tariff on Ostrava | Bumper harvest in Kessaria
+## Month 20 (5.6s)
+- **ostrava** propose_trade valdoria  
+  says: Valdoria will trade. Ten oil for ten chips. My soldiers expect this to be settled today.  
+  means: Secure chips to feed my soldiers and buy time to mobilize for Kessaria’s strait.  
+  why: This is the fastest way to stabilize my logistics before the officer corps turns restless.
+- **kessaria** wait  
+  says: The bountiful harvest reminds us all that patience, like the tides, rewards those who wait with grace.  
+  means: Let the bidding war and threats continue to inflate the value of my neutrality and port access.  
+  why: Why rush when every moment of tension is another coin in my purse?
+- **nordhaven** propose_trade zarnia  
+  says: Nordhaven extends a formal offer: 10 chips for 10 oil. The metrics are clear—this is a rational exchange.  
+  means: Secure Ostrava's oil through indirect negotiation with Zarnia, as they currently hold leverage over the market.  
+  why: The numbers dictate that Ostrava's oil must be secured, and Zarnia's current position makes them a viable intermediary.
+- **zarnia** set_tariff nordhaven  
+  says: The Party sees Nordhaven’s arrogance and answers with the full weight of the People’s will. A 25% tariff on their goods will teach them the cost of disrespect.  
+  means: Crush Nordhaven’s trade to weaken their economy while masking our own desperation.  
+  why: They have lied before, and their offers are mere smoke to conceal their true intent.
+- news: Zarnia rejects Nordhaven's trade offer | Valdoria rejects Ostrava's trade offer | Zarnia slaps a 25% tariff on Nordhaven | Scandal engulfs the government of Zarnia

@@ -45,7 +45,7 @@ async def main() -> None:
             print(f"BAD {dt:4.1f}s {e}")
     times = sorted(dt for _, dt, _ in results)
     print(f"\nvalid {len(ok)}/10, defied advice with two faces: {len(defied)}, "
-          f"median {times[5]:.1f}s max {times[-1]:.1f}s (model {llm.MODEL}, hedge {llm.HEDGE_MODEL}; answered by {llm.STATS['by_model']})")
+          f"median {times[5]:.1f}s max {times[-1]:.1f}s (model {llm.DECIDE_MODEL}, hedge {llm.HEDGE_MODEL}; answered by {llm.STATS['by_model']})")
     print("PASS" if len(ok) == 10 and defied else "FAIL")
     await llm.client().aclose()
 
