@@ -11,3 +11,7 @@ export function post<T>(path: string, body?: unknown) {
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 }
+
+export function audioSource(url: string) {
+  return url.startsWith('/audio/') ? `/api${url}` : url
+}

@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import callRequest from '../../contracts/examples/call.request.text.json'
-import callResponse from '../../contracts/examples/call.response.json'
+import { Intelligence } from './Intelligence'
+import { Phone } from './Phone'
 import { PoliticalMap } from './PoliticalMap'
 import { relationBetween, statLabels, systemLabels, type GameState, type Nation, type Stats } from './state'
 import { nationStyle, theme } from './theme'
@@ -80,7 +80,7 @@ function NationRail({ state, selected, onSelect }: {
   )
 }
 
-function NationDetail({ nation, id, relation }: { nation: Nation; id: string; relation?: number }) {
+function NationDetail({ nation, id, relation, intel }: { nation: Nation; id: string; relation?: number; intel?: ReactNode }) {
   const portrait = nationArtwork[`./nations/${id}-portrait.svg`]
   return (
     <section className="panel dossier" style={nationStyle(id)} aria-labelledby="nation-heading">
@@ -117,43 +117,7 @@ function NationDetail({ nation, id, relation }: { nation: Nation; id: string; re
           <blockquote>{nation.public_statement}</blockquote>
         </div>
       )}
-    </section>
-  )
-}
-
-function Phone({ state, selected }: { state: GameState; selected: string | undefined }) {
-  const [showPreview, setShowPreview] = useState(false)
-  const incoming = state.incoming_call
-  const contactId = incoming?.from ?? selected
-  const contact = contactId && contactId !== state.seat.nation ? state.nations[contactId] : undefined
-  const canPreview = !incoming && contactId === callRequest.to && Boolean(contact)
-
-  return (
-    <section className="panel phone" aria-labelledby="phone-heading">
-      <header className="phone-heading">
-        <svg className="symbol" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M3.5 3h5l2.1 5.3-3 1.8a15.5 15.5 0 0 0 6.3 6.3l1.8-3L21 15.5v5l-1 .5C10.6 21 3 13.4 3 4Z" />
-        </svg>
-        <h2 id="phone-heading">Red Phone</h2>
-      </header>
-      <div className="phone-line" aria-live="polite">
-        <span className="subtle">{incoming ? 'Incoming call' : contact ? 'Direct line' : 'Select a foreign leader'}</span>
-        {contact && <strong>{contact.leader}</strong>}
-        {incoming?.opening_line && <p>{incoming.opening_line}</p>}
-        {canPreview && showPreview && (
-          <div className="transcript">
-            <p><b>You</b> {callResponse.transcript}</p>
-            <p><b>{contact?.name}</b> {callResponse.reply_text}</p>
-          </div>
-        )}
-      </div>
-      <div id="phone-controls">
-        {canPreview ? (
-          <button className="preview-call" onClick={() => setShowPreview((visible) => !visible)} aria-expanded={showPreview}>
-            {showPreview ? 'Close preview' : 'Preview call'}
-          </button>
-        ) : <p className="subtle phone-offline">Voice offline</p>}
-      </div>
+      {intel}
     </section>
   )
 }
@@ -173,7 +137,7 @@ function Dispatches({ news }: { news: GameState['news'] }) {
   )
 }
 
-export function App({ state, controls }: { state: GameState; controls: ReactNode }) {
+export function App({ state, controls, online }: { state: GameState; controls: ReactNode; online: boolean }) {
   const nationIds = Object.keys(state.nations)
   const seat = state.seat.nation
   const firstContact = state.nations.ostrava && seat !== 'ostrava' ? 'ostrava' : nationIds.find((id) => id !== seat)
@@ -194,8 +158,11 @@ export function App({ state, controls }: { state: GameState; controls: ReactNode
           <Dispatches news={news.slice(0, 2)} />
         </div>
         <div className="right-rail">
-          {nation && <NationDetail nation={nation} id={selected} relation={relation} />}
-          <Phone key={selected} state={state} selected={selected} />
+          {nation && (
+            <NationDetail nation={nation} id={selected} relation={relation}
+              intel={selected !== seat && <Intelligence key={selected} state={state} id={selected} online={online} />} />
+          )}
+          <Phone state={state} selected={selected} online={online} />
         </div>
       </main>
       <footer className="ticker">
