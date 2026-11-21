@@ -126,5 +126,30 @@ def test_single_call_reply_is_applied_at_once(client):
     assert "ostrava" not in api._calls  # ends_call closes the conversation
 
 
+def test_demo_lines_play_with_network_off(monkeypatch):
+    import asyncio
+
+    import voice
+    import voice.audio as audio
+    from voice.prerender import demo_lines, render
+
+    async def no_network(*a, **k):
+        raise AssertionError("network used")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(audio, "stream_speech", no_network)
+    assert asyncio.run(render(check_only=True)) == 0  # every demo line is committed
+
+    with TestClient(app) as c:
+        tap = c.get("/api/wiretap", params={"a": "zarnia", "b": "ostrava"}).json()["lines"]
+        assert len(tap) == 3
+        urls = [line["audio_url"] for line in tap]
+        _, nation, text, emotion = next(x for x in demo_lines() if x[0].startswith("one_berth tick 1"))
+        urls.append(voice.audio_url_for(nation, text, emotion))
+        for url in urls:
+            r = c.get("/api" + url)
+            assert r.status_code == 200 and r.content[:3] == b"ID3", url
+
+
 def test_unknown_nation_is_404(client):
     assert client.post("/api/call", json={**CALL, "to": "atlantis"}).status_code in (404, 422)
