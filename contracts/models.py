@@ -71,7 +71,16 @@ class Advice(Model):
 
 class Seat(Model):
     role: Role
-    nation: NationId
+    # A mediator has no home nation (DECIDED 13:09): nation is null for mediator only.
+    nation: Optional[NationId] = None
+
+    @model_validator(mode="after")
+    def _nation_matches_role(self) -> "Seat":
+        if self.role == "mediator" and self.nation is not None:
+            raise ValueError("a mediator has no nation: send nation null")
+        if self.role != "mediator" and self.nation is None:
+            raise ValueError(f"a {self.role} needs a nation")
+        return self
 
 
 class Stats(Model):
@@ -209,6 +218,9 @@ class Score(Model):
     stability_change: float
     promises_kept: int
     promises_broken: int
+    # Mediator seat only (DECIDED 13:09): crises resolved without war, mean trust of all five leaders.
+    peaceful_crises: Optional[int] = None
+    average_trust: Optional[float] = Field(default=None, ge=0, le=1)
 
 
 class Ending(Model):
@@ -238,6 +250,7 @@ class State(Model):
     last_futures: Optional[FuturesResponse] = None
     last_call: Optional[CallResult] = None  # the latest call's promises and actions
     ending: Optional[Ending] = None  # set when phase is "ended"
+    available_roles: Optional[list[Role]] = None  # seats /start accepts; missing means president only
 
     @field_validator("relations")
     @classmethod
