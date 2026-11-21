@@ -1,0 +1,8 @@
+{
+  "reply_text": "Half a day is an insult. You promised us the berth.",
+  "emotion": "angry",
+  "promises": [{"to": "ostrava", "what": "berth", "when": "morning", "condition": null}],
+  "actions": [],
+  "belief_updates": {"trust_in_player": -0.1, "resolve_of_player": 0.1},
+  "ends_call": false
+}

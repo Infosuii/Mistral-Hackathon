@@ -1,0 +1,293 @@
+{
+  "turn": 4,
+  "phase": "crisis",
+  "seed": 7,
+  "seat": {
+    "role": "president",
+    "nation": "valdoria"
+  },
+  "nations": {
+    "valdoria": {
+      "name": "Valdoria",
+      "system": "democracy",
+      "leader": "Prime Minister Elena Varga",
+      "voice_id": "voice_1787",
+      "stats": {
+        "gdp": 78,
+        "oil": 30,
+        "food": 90,
+        "chips": 35,
+        "army": 30,
+        "stability": 68,
+        "approval": 52,
+        "territory": 8
+      },
+      "beliefs": null,
+      "public_statement": "Valdoria will feed its friends.",
+      "status": []
+    },
+    "ostrava": {
+      "name": "Ostrava",
+      "system": "junta",
+      "leader": "General Marek Dravic",
+      "voice_id": "voice_3147",
+      "stats": {
+        "gdp": 62,
+        "oil": 80,
+        "food": 25,
+        "chips": 10,
+        "army": 85,
+        "stability": 41,
+        "approval": 50,
+        "territory": 9
+      },
+      "beliefs": {
+        "trust_in_player": 0.6,
+        "resolve_of_player": 0.5
+      },
+      "public_statement": "We seek only fair trade.",
+      "status": [
+        "PROTESTS"
+      ]
+    },
+    "kessaria": {
+      "name": "Kessaria",
+      "system": "monarchy",
+      "leader": "Queen Isolde of Kessar",
+      "voice_id": "voice_590",
+      "stats": {
+        "gdp": 40,
+        "oil": 20,
+        "food": 45,
+        "chips": 15,
+        "army": 35,
+        "stability": 72,
+        "approval": 61,
+        "territory": 5
+      },
+      "beliefs": {
+        "trust_in_player": 0.5,
+        "resolve_of_player": 0.5
+      },
+      "public_statement": "The strait is open to all who pay the toll.",
+      "status": []
+    },
+    "nordhaven": {
+      "name": "Nordhaven",
+      "system": "technocracy",
+      "leader": "Chancellor Aino Lindqvist",
+      "voice_id": "voice_3149",
+      "stats": {
+        "gdp": 85,
+        "oil": 15,
+        "food": 40,
+        "chips": 90,
+        "army": 25,
+        "stability": 80,
+        "approval": 58,
+        "territory": 8
+      },
+      "beliefs": {
+        "trust_in_player": 0.7,
+        "resolve_of_player": 0.4
+      },
+      "public_statement": "Stability is the precondition of growth.",
+      "status": []
+    },
+    "zarnia": {
+      "name": "Zarnia",
+      "system": "one_party",
+      "leader": "Chairman Tomas Oryn",
+      "voice_id": "voice_591",
+      "stats": {
+        "gdp": 35,
+        "oil": 40,
+        "food": 15,
+        "chips": 20,
+        "army": 90,
+        "stability": 33,
+        "approval": 45,
+        "territory": 10
+      },
+      "beliefs": {
+        "trust_in_player": 0.3,
+        "resolve_of_player": 0.6
+      },
+      "public_statement": "The people's bread will not be held hostage.",
+      "status": [
+        "PROTESTS"
+      ]
+    }
+  },
+  "relations": {
+    "kessaria|nordhaven": 10,
+    "kessaria|ostrava": 5,
+    "kessaria|valdoria": 15,
+    "kessaria|zarnia": 0,
+    "nordhaven|ostrava": -10,
+    "nordhaven|valdoria": 40,
+    "nordhaven|zarnia": -30,
+    "ostrava|valdoria": -20,
+    "ostrava|zarnia": -45,
+    "valdoria|zarnia": -15
+  },
+  "links": [
+    {
+      "type": "trade",
+      "a": "nordhaven",
+      "b": "valdoria"
+    },
+    {
+      "type": "alliance",
+      "a": "nordhaven",
+      "b": "valdoria"
+    },
+    {
+      "type": "trade",
+      "a": "kessaria",
+      "b": "ostrava"
+    }
+  ],
+  "provinces": {
+    "p01": "valdoria",
+    "p02": "valdoria",
+    "p03": "valdoria",
+    "p04": "valdoria",
+    "p05": "valdoria",
+    "p06": "valdoria",
+    "p07": "valdoria",
+    "p08": "valdoria",
+    "p09": "ostrava",
+    "p10": "ostrava",
+    "p11": "ostrava",
+    "p12": "ostrava",
+    "p13": "ostrava",
+    "p14": "ostrava",
+    "p15": "ostrava",
+    "p16": "ostrava",
+    "p17": "ostrava",
+    "p18": "zarnia",
+    "p19": "zarnia",
+    "p20": "zarnia",
+    "p21": "zarnia",
+    "p22": "zarnia",
+    "p23": "zarnia",
+    "p24": "zarnia",
+    "p25": "zarnia",
+    "p26": "zarnia",
+    "p27": "zarnia",
+    "p28": "kessaria",
+    "p29": "kessaria",
+    "p30": "kessaria",
+    "p31": "kessaria",
+    "p32": "kessaria",
+    "p33": "nordhaven",
+    "p34": "nordhaven",
+    "p35": "nordhaven",
+    "p36": "nordhaven",
+    "p37": "nordhaven",
+    "p38": "nordhaven",
+    "p39": "nordhaven",
+    "p40": "nordhaven"
+  },
+  "news": [
+    {
+      "turn": 2,
+      "text": "Ostrava raises tariffs on Valdorian grain to 25%"
+    },
+    {
+      "turn": 3,
+      "text": "Workers riot in Zarnia over bread prices"
+    },
+    {
+      "turn": 4,
+      "text": "Storm closes Port Kessar to a single berth for 24 hours."
+    },
+    {
+      "turn": 4,
+      "text": "Ostrava announces a blockade of the strait"
+    }
+  ],
+  "events": [
+    {
+      "turn": 2,
+      "type": "tariff",
+      "nation": "ostrava",
+      "target": "valdoria"
+    },
+    {
+      "turn": 3,
+      "type": "harvest_failure",
+      "nation": "zarnia",
+      "province": "p21"
+    },
+    {
+      "turn": 4,
+      "type": "crisis_start",
+      "nation": "kessaria",
+      "crisis": "one_berth"
+    }
+  ],
+  "incoming_call": {
+    "from": "ostrava",
+    "emotion": "tense",
+    "opening_line": "You promised Zarnia the same berth. I am announcing a blockade of the strait.",
+    "audio_url": "/audio/one_berth_t7_ostrava.mp3"
+  },
+  "crisis": {
+    "id": "one_berth",
+    "tick": 7,
+    "ticks_total": 12,
+    "deadlines": {
+      "nordhaven": 6,
+      "ostrava": 8,
+      "zarnia": 9,
+      "kessaria": 10,
+      "valdoria": 10
+    },
+    "promises": [
+      {
+        "id": "p1",
+        "tick": 2,
+        "by": "player",
+        "to": "ostrava",
+        "what": "berth",
+        "when": "all_day",
+        "condition": null,
+        "kept": null
+      },
+      {
+        "id": "p2",
+        "tick": 4,
+        "by": "player",
+        "to": "zarnia",
+        "what": "berth",
+        "when": "morning",
+        "condition": "zarnia stands down troops",
+        "kept": null
+      }
+    ],
+    "public_commitments": [
+      {
+        "nation": "ostrava",
+        "action": "blockade",
+        "tick": 7
+      }
+    ],
+    "decisions": {
+      "nordhaven": {
+        "action": "send_tugs",
+        "tick": 5
+      }
+    }
+  },
+  "last_futures": {
+    "before": {
+      "war_p": 0.22
+    },
+    "after": {
+      "war_p": 0.61
+    },
+    "caption": "Two promises of one berth: Ostrava and Zarnia now expect to fight for it."
+  }
+}

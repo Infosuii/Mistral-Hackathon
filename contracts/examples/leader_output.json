@@ -1,0 +1,8 @@
+{
+  "public_statement": "We seek only peace and fair trade.",
+  "private_intent": "Stall Valdoria until mobilisation completes.",
+  "actions": [{"type": "set_tariff", "by": "ostrava", "target": "valdoria", "params": {"pct": 25}}],
+  "followed_advice": false,
+  "reason": "Backing down after the general's speech would look weak.",
+  "messages": [{"to": "kessaria", "text": "Close the strait to Valdorian grain and I will share oil."}]
+}
