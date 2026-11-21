@@ -1,7 +1,14 @@
+import json
+
+import pytest
 from fastapi.testclient import TestClient
 
+from contracts.models import Action, CallOutput, CrisisOption
+from engine import saves
+
 from engine.app import app
-from engine.game import GAME
+from engine.game import GAME, Game
+from engine.snapshots import load, snapshot
 
 
 def test_slot_restores_active_crisis_and_log(monkeypatch, tmp_path):
@@ -24,3 +31,47 @@ def test_slot_restores_active_crisis_and_log(monkeypatch, tmp_path):
         assert load.json() == before
         assert client.get("/history").json() == events
         assert client.post("/turn").json()["crisis"]["tick"] == 2
+
+
+def test_restore_isolates_calls_and_round_trips_private_state(tmp_path, monkeypatch):
+    monkeypatch.setenv("GAMBIT_SAVE_DIR", str(tmp_path))
+    monkeypatch.setattr("engine.game.EXTRA_CRISES", True)
+    game = Game(use_agents=False)
+    deal = Action(type="set_tariff", by="kessaria", target="valdoria", params={"pct": 10})
+    game.queued.append(deal)
+    game.intent_history["kessaria"] = ["month 0: open trade"]
+    game.start_crisis("one_berth")
+    info = saves.create(game, "During crisis")
+    stale = game.begin_call("ostrava")
+    generation = game.call_generation
+    old_snapshot = snapshot(game.state)
+    game.monthly_deals.clear()
+    game.intent_history["kessaria"] = ["from the abandoned session"]
+
+    saves.restore(game, info.id)
+    assert game.call_generation > generation and stale not in game.call_results
+    with pytest.raises(KeyError):
+        load(old_snapshot)
+    assert isinstance(game.state.available_crises[0], CrisisOption)
+    assert game.monthly_deals == [deal]
+    assert game.intent_history["kessaria"] == ["month 0: open trade"]
+
+    # Slots written before session history was added still open with an empty history.
+    slot = tmp_path / f"{info.id}.json"
+    data = json.loads(slot.read_text())
+    del data["intent_history"], data["monthly_deals"]
+    slot.write_text(json.dumps(data))
+    saves.restore(game, info.id)
+    assert game.intent_history["kessaria"] == [] and game.monthly_deals == []
+
+
+def test_cannot_save_while_an_earlier_call_is_pending(tmp_path, monkeypatch):
+    monkeypatch.setenv("GAMBIT_SAVE_DIR", str(tmp_path))
+    game = Game(use_agents=False)
+    game.begin_call("kessaria")
+    latest = game.begin_call("zarnia")
+    result = CallOutput(reply_text="Agreed.", emotion="calm",
+                        belief_updates={"trust_in_player": 0, "resolve_of_player": 0})
+    game.apply_call("zarnia", result, call_id=latest)
+    with pytest.raises(ValueError, match="wait"):
+        saves.create(game, "Earlier call still pending")
