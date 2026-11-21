@@ -17,6 +17,8 @@ Barlow Condensed carries names and numbers, with Barlow for readable body copy.
 - 2026-11-21 — The first view opens on Valdoria's seat with Ostrava selected. News is a paper dispatch at the bottom of the map.
 - 2026-11-21 — `src/theme.ts` holds the visual tokens. `src/map.json` holds fixed geography, and the state supplies province ownership. The initial IDs and owners match `contracts/examples/state.json`.
 
+- 2026-11-21 — Original SVG flag marks identify contacts. Leader portraits sit in the nation dossier.
+
 ## Open questions
 
 - How prominent should the phone be when a crisis starts?

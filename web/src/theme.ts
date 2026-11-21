@@ -60,6 +60,8 @@ export const theme = {
   '--resource-width': '3.25rem',
   '--contact-min': '9.5rem',
   '--ticker-height': '2.625rem',
+  '--flag-width': '1.75rem',
+  '--portrait-width': '3.25rem',
   '--symbol-size': '1.125rem',
   '--map-max-width': '85rem',
   '--edge': '1px',

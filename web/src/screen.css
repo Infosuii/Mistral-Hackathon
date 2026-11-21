@@ -386,3 +386,18 @@ button:focus-visible { outline: var(--edge) solid var(--accent); outline-offset:
 @media (prefers-reduced-motion: reduce) {
   .map-link.war-front, .nation-button[data-protests='true'] .nation-mark { animation: none; }
 }
+
+.nation-flag.nation-mark {
+  width: var(--flag-width);
+  height: auto;
+  aspect-ratio: 3 / 2;
+  clip-path: none;
+}
+.nation-profile { display: flex; align-items: start; justify-content: space-between; gap: var(--space-2); }
+.nation-profile > div { min-width: 0; }
+.nation-portrait {
+  flex: none;
+  display: block;
+  width: var(--portrait-width);
+  border: var(--edge) solid var(--nation-accent);
+}
