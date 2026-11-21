@@ -104,7 +104,7 @@ Reply with ONLY this JSON object:
 {{"choice": int (number of the option you take), "public_statement": str (one or two sentences, in your voice), "private_intent": str (one sentence), "reason": str (one short sentence), "messages": [{{"to": nation id, "text": str}}]}}"""
 
 
-def _parse_decide(data: dict, options: list[dict], nation: str) -> LeaderOutput:
+def _parse_decide(data: dict, options: list[dict], scores: list[float], nation: str) -> LeaderOutput:
     choice = data.get("choice")
     if isinstance(choice, str) and choice.strip().lstrip("-").isdigit():
         choice = int(choice.strip())
@@ -122,7 +122,8 @@ def _parse_decide(data: dict, options: list[dict], nation: str) -> LeaderOutput:
         public_statement=str(data["public_statement"]).strip(),
         private_intent=str(data["private_intent"]).strip(),
         actions=[] if act["type"] == "wait" else [Action.model_validate(act)],
-        followed_advice=choice == 0,
+        # A pick that ties the top score is the advisers' advice too (wait and a trade can both be 0).
+        followed_advice=choice == 0 or (bool(scores) and scores[choice] >= scores[0] - 0.05),
         reason=str(data["reason"]).strip(),
         messages=msgs[:2],
     )
@@ -156,7 +157,7 @@ async def decide(view: LeaderView | dict) -> LeaderOutput:
     out = await llm.chat_json(
         [{"role": "system", "content": card(v.nation) + "\n\n" + DECIDE_RULES.format(who=_who(state, v.nation))},
          {"role": "user", "content": _j(user)}],
-        lambda d: _parse_decide(d, options, v.nation),
+        lambda d: _parse_decide(d, options, [a.score for a in v.advice[:len(options)]], v.nation),
         deadline=deadline, max_tokens=500, temperature=0.9)
     _MEMORY.setdefault(key, []).append((state.get("turn") or 0, out.private_intent))
     return out
