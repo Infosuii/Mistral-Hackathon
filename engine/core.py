@@ -419,8 +419,11 @@ def _refresh_status(s: State, w: dict) -> None:
             + (["WAR"] if any(l.type == "war" and n in (l.a, l.b) for l in s.links) else [])
 
 
-def step(state: State, actions: list[Action], seed: int) -> State:
-    """Advance one month. Pure: the input state is not modified."""
+def step(state: State, actions: list[Action], seed: int, check: bool = True) -> State:
+    """Advance one month. Pure: the input state is not modified.
+
+    check=False skips the legality check for moves already taken from advise() (the needle's
+    rollouts); everything else should leave it on."""
     if state.phase == "crisis":
         from engine.crisis import crisis_step
         return crisis_step(state, actions, seed)
@@ -434,7 +437,7 @@ def step(state: State, actions: list[Action], seed: int) -> State:
 
     seen = set()
     for a in sorted(actions, key=lambda a: (a.by, _key(a))):
-        if a.by in seen or not is_legal(s, a):
+        if a.by in seen or (check and not is_legal(s, a)):
             continue  # one action per nation per month; the turn loop replaces illegal ones
         seen.add(a.by)
         _apply(s, a, w, log)

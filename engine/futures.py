@@ -70,8 +70,9 @@ def rollout(state: State, seed: int, months: int, first: Optional[list[Action]] 
         fixed = {a.by for a in first}
         actions = list(first) + [a for n in NATION_IDS if n not in fixed
                                  for a in [choose(s, n, advise(s, n), rng, temp)] if a and a.type != "wait"]
+        # Moves from advise() are legal already; a deal from the phone (first) is checked.
+        s = step(s, actions, seed, check=bool(first))
         first = []
-        s = step(s, actions, seed)
         war = war or at_war(s)
     return war
 
