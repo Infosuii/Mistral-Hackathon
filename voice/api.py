@@ -172,6 +172,11 @@ async def transcribe_raw(request: Request):
     return {"text": text, "seconds": round(time.perf_counter() - t0, 2), "bytes": len(body)}
 
 
+@router.get("/voice/talk-button.js")
+async def talk_button_js():
+    return FileResponse(Path(__file__).parent / "talk-button.js", media_type="text/javascript")
+
+
 MEDIA = {"mp3": "audio/mpeg", "wav": "audio/wav", "opus": "audio/ogg", "flac": "audio/flac"}
 
 
