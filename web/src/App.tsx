@@ -10,6 +10,7 @@ import { relationBetween, statLabels, systemLabels, type GameState, type MapEven
 import { nationStyle, theme } from './theme'
 import { StatIcon } from './hud/Icons'
 import { flagOf, mood, portraitOf } from './hud/MapLayers'
+import { Newsboard } from './Newsboard'
 
 const nationArtwork = import.meta.glob<string>('./nations/*.svg', { eager: true, query: '?url', import: 'default' })
 
@@ -149,17 +150,20 @@ function NationDetail({ nation, id, relation, intel }: { nation: Nation; id: str
   )
 }
 
-function Dispatches({ news }: { news: GameState['news'] }) {
+function Dispatches({ news, total, onOpen }: { news: GameState['news']; total: number; onOpen: () => void }) {
   return (
     <section className="dispatches" aria-labelledby="dispatches-heading">
-      <h2 id="dispatches-heading">The World Dispatch</h2>
-      {news.length ? (
-        <ol>
-          {news.map(({ turn, text }, index) => (
-            <li key={`${turn}-${index}`}><span>Month {turn}</span><p>{text}</p></li>
-          ))}
-        </ol>
-      ) : <p>No dispatches yet.</p>}
+      <button type="button" className="dispatches-open" onClick={onOpen} aria-label="Open the newsboard">
+        <h2 id="dispatches-heading">The World Dispatch</h2>
+        {news.length ? (
+          <ol>
+            {news.map(({ turn, text }, index) => (
+              <li key={`${turn}-${index}`}><span>Month {turn}</span><p>{text}</p></li>
+            ))}
+          </ol>
+        ) : <p>No dispatches yet.</p>}
+        <span className="dispatches-more"><span>Newsboard · {total} stories</span><span aria-hidden="true">N ›</span></span>
+      </button>
     </section>
   )
 }
@@ -176,6 +180,18 @@ export function App({ state, controls, online, clockHeld, historyFocus, onPhoneA
   const seat = state.seat.nation
   const [selection, setSelection] = useState(seat ?? nationIds[0])
   const [mapFocus, setMapFocus] = useState<MapEvent | null>(null)
+  const [newsOpen, setNewsOpen] = useState(false)
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null
+      if (event.key.toLowerCase() !== 'n' || event.ctrlKey || event.metaKey || event.altKey) return
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
+      if (document.querySelector('dialog[open]:not(.newsboard)')) return
+      setNewsOpen((open) => !open)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   useEffect(() => {
     if (historyFocus?.nation) setSelection(historyFocus.nation)
     if (historyFocus) setMapFocus(historyFocus)
@@ -210,7 +226,7 @@ export function App({ state, controls, online, clockHeld, historyFocus, onPhoneA
             setMapFocus({ type: 'focus', turn: state.turn, nation: id })
           }} />
           {canReplay && <ReplayPanel nations={state.nations} online={online} />}
-          <Dispatches news={news.slice(0, 1)} />
+          <Dispatches news={news.slice(0, 1)} total={news.length} onOpen={() => setNewsOpen(true)} />
         </div>
         <div className="right-rail">
           <WarForecast forecast={state.last_futures} />
@@ -221,7 +237,9 @@ export function App({ state, controls, online, clockHeld, historyFocus, onPhoneA
           <Phone state={state} selected={selected} online={online} onActivity={onPhoneActivity} />
         </div>
       </main>
-      <footer className="ticker">
+      <Newsboard state={state} online={online} open={newsOpen} onClose={() => setNewsOpen(false)}
+        onLocate={(event) => { if (event.nation) setSelection(event.nation); setMapFocus({ ...event }) }} />
+      <footer className="ticker" onClick={() => setNewsOpen(true)} title="Open the newsboard (N)">
         <strong>Live</strong>
         <div className="ticker-track" aria-live="polite">
           <p key={headline?.text}>

@@ -47,3 +47,8 @@
 .build-dialog p { margin: .5rem 0; }
 .build-dialog p b { color: var(--accent); margin-inline-end: .3rem; }
 .build-dialog button[type='submit'] { margin-top: .75rem; }
+.speed-control input { inline-size: 7.5rem; }
+.speed-control { min-width: 7.5rem; }
+.speed-control[data-fast='true'] output { color: var(--signal); font-weight: 700; }
+.ticker { cursor: pointer; }
+.ticker:hover strong { filter: brightness(1.2); }

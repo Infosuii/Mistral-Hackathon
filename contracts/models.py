@@ -275,6 +275,10 @@ class State(Model):
     construction: Optional[BuildRequest] = None
     rail_services: list[str] = Field(default_factory=list)
     rail_income: dict[NationId, dict[str, float]] = Field(default_factory=dict)
+    road_services: list[str] = Field(default_factory=list)  # road ids carrying haulage this month
+    road_income: dict[NationId, dict[str, float]] = Field(default_factory=dict)
+    air_services: list[str] = Field(default_factory=list)  # "pA|pB" airfield pairs with scheduled flights
+    air_income: dict[NationId, dict[str, float]] = Field(default_factory=dict)
     news: list[NewsItem] = Field(default_factory=list)
     events: list[Event] = Field(default_factory=list)
     incoming_call: Optional[IncomingCall] = None

@@ -498,7 +498,21 @@ def _active_rail(s: State) -> list[dict]:
 
 
 def update_rail_services(s: State) -> None:
+    """Recompute every transport network's running services (rail, road and air) without crediting."""
+    from engine.transport import update_services
     s.rail_services = [route["id"] for route in _active_rail(s)]
+    update_services(s)
+
+
+def _road_and_air(s: State) -> None:
+    """Credit a month of road haulage and scheduled air services (engine/transport.py)."""
+    from engine.transport import air_routes, road_haulage
+    s.road_services, s.road_income, _ = road_haulage(s)
+    s.air_services, s.air_income = air_routes(s)
+    for income in (s.road_income, s.air_income):
+        for nation, amounts in income.items():
+            for resource, value in amounts.items():
+                _bump(s, nation, resource, value)
 
 
 def _rail_freight(s: State) -> None:
@@ -554,6 +568,7 @@ def _monthly(s: State, rng: random.Random, w: dict, log: _Log) -> None:
             _bump(s, n, "gdp", mo["oil_low_gdp"])
     _facility_production(s)
     _rail_freight(s)
+    _road_and_air(s)
     _patrols(s, log)
     for k in sorted(s.relations):
         v = s.relations[k]

@@ -1,215 +1,284 @@
+import { memo } from 'react'
 import atlas from '../atlas.json'
 import infrastructure from '../../../data/infrastructure.json'
 import rail from '../../../data/rail.json'
 import buildings from '../../../data/buildings.json'
 import type { GameState } from '../state'
 import { nationStyle } from '../theme'
+import sea from '../../../data/sea_routes.json'
+import { useMarkerScale } from './scale'
+import { Tank, Vessel, Wagon } from './sprites'
 import './infrastructure.css'
 
 const centers = new Map(atlas.provinces.map(({ id, center }) => [id, center]))
 const catalog = buildings.kinds as Record<string, { name: string }>
+type Airport = { at: number[]; angle: number; length: number }
+const settlements = new Map(infrastructure.settlements.map((s) => [s.id, s as typeof s & { airport: Airport | null }]))
 
-function location(x: number, y: number) {
-  return `translate(${x} ${y})`
+export const linePath = (points: number[][]) => `M${points.map((point) => point.join(',')).join(' L')}`
+export const roads = infrastructure.roads.map((road) => ({ ...road, path: linePath(road.points) }))
+export const pace = (kind: string) => kind === 'motorway' ? 1 : .72
+
+/** Where an airfield in this province sits: its generated airport site, or beside the town. */
+export function airportOf(province: string): Airport {
+  const site = settlements.get(province)?.airport
+  if (site) return site
+  const [x, y] = centers.get(province) ?? [0, 0]
+  return { at: [x + 60, y + 60], angle: 0, length: 70 }
 }
 
-const linePath = (points: number[][]) => `M${points.map((point) => point.join(',')).join(' L')}`
-const roads = infrastructure.roads.map((road) => ({ ...road, path: linePath(road.points) }))
+export function facilitySite(province: string, slot: number) {
+  const sites = settlements.get(province)?.sites ?? []
+  if (sites.length) return sites[slot % sites.length] as number[]
+  const [x, y] = centers.get(province) ?? [0, 0]
+  return [x - 40 + slot * 30, y + 50]
+}
 
-function passable(state: GameState, a: string, b: string) {
+function closure(state: GameState, a: string, b: string): 'war' | 'closed' | null {
   const from = state.provinces[a]
   const to = state.provinces[b]
-  if (!from || !to) return false
-  if (from === to) return true
+  if (!from || !to || from === to) return null
   const border = state.links.filter((link) => (link.a === from && link.b === to) || (link.a === to && link.b === from))
-  return border.some((link) => link.type === 'trade') && !border.some((link) => link.type === 'war')
+  if (border.some((link) => link.type === 'war')) return 'war'
+  return border.some((link) => link.type === 'trade') ? null : 'closed'
 }
 
-function Railcar() {
-  return (
-    <g className="railcar">
-      <path fill="#1a3136" d="M-10-2h20v5h-20Z" />
-      <path fill="#d8b76d" d="M-9-3h7v4h-7ZM-1-3h6v4h-6ZM6-4h4v5H6Z" />
-      <path stroke="#e8e2be" strokeWidth=".7" d="M-7 3h2m7 0h2m3 0h2" />
-    </g>
-  )
+export function midpoint(points: number[][]) {
+  const lengths = points.slice(1).map((p, i) => Math.hypot(p[0] - points[i][0], p[1] - points[i][1]))
+  let half = lengths.reduce((sum, l) => sum + l, 0) / 2
+  for (let i = 0; i < lengths.length; i++) {
+    if (half <= lengths[i]) {
+      const t = half / lengths[i]
+      const [a, b] = [points[i], points[i + 1]]
+      return { x: a[0] + (b[0] - a[0]) * t, y: a[1] + (b[1] - a[1]) * t, angle: Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI }
+    }
+    half -= lengths[i]
+  }
+  return { x: points[0][0], y: points[0][1], angle: 0 }
 }
 
-export function Transport({ state }: { state: GameState }) {
-  const active = new Set(state.rail_services ?? [])
-  const railTracks = rail.routes.filter(({ id }) => active.has(id)).map(({ id, points }) => {
-    const line = points.map((point) => point.join(','))
-    return { id, path: `M${line.join(' L')}`, end: points.at(-1)! }
+/** The fixed network: roads, interchanges, bridges and rail beds. Memoised: it never changes. */
+export const Network = memo(function Network() {
+  return <g className="road-network">
+    {(['road', 'motorway'] as const).map((kind) => <g key={kind}>
+      <path className={`road-edge ${kind}`} d={roads.filter((r) => r.kind === kind).map((r) => r.path).join('')} />
+    </g>)}
+    {(['road', 'motorway'] as const).map((kind) => <g key={kind}>
+      <path className={`road-bed ${kind}`} d={roads.filter((r) => r.kind === kind).map((r) => r.path).join('')} />
+    </g>)}
+    <path className="road-divider" d={roads.filter((r) => r.kind === 'motorway').map((r) => r.path).join('')} />
+    {roads.flatMap(({ id, bridges, kind }) => bridges.map((bridge, index) => (
+      <g key={`${id}:${index}`} data-bridge="river" data-road={kind}>
+        <path className={`bridge-edge ${kind}`} d={linePath(bridge)} />
+        <path className={`bridge-deck ${kind}`} d={linePath(bridge)} />
+        {kind === 'motorway' && <path className="road-divider" d={linePath(bridge)} />}
+      </g>
+    )))}
+    {infrastructure.junctions.map(([x, y, angle, kind], i) => (
+      <g key={i} className={`junction ${kind}`} transform={`translate(${x} ${y}) rotate(${angle})`}>
+        {kind === 'interchange' ? <>
+          <path className="ramp-edge" d="M0-15a9 9 0 1 1 0 .1M0 15a9 9 0 1 1 0-.1M-15 0a9 9 0 1 1 .1 0M15 0a9 9 0 1 1-.1 0" />
+          <path className="ramp" d="M0-15a9 9 0 1 1 0 .1M0 15a9 9 0 1 1 0-.1M-15 0a9 9 0 1 1 .1 0M15 0a9 9 0 1 1-.1 0" />
+          <path className="cross-edge" d="M-26 0H26M0-26V26" />
+          <path className="cross" d="M-26 0H26M0-26V26" />
+        </> : <>
+          <circle className="ramp-edge" r="6.5" />
+          <circle className="ramp" r="6.5" />
+          <circle className="roundabout-island" r="3" />
+        </>}
+      </g>
+    ))}
+    {rail.routes.map(({ id, points, bridges }) => <g key={id} data-rail-bed={id}>
+      {(bridges ?? []).map((span, i) => <path key={i} className="rail-bridge" data-bridge="rail" d={linePath(span)} />)}
+      <path className="rail-bed" d={linePath(points)} />
+      <path className="rail-ties" d={linePath(points)} />
+    </g>)}
+  </g>
+})
+
+/** Engine buildings placed on the map: airfields at their airport, the rest on industrial sites. */
+export function facilityPlacements(state: GameState) {
+  const slots = new Map<string, number>()
+  return (state.buildings ?? []).flatMap((building) => {
+    const owner = state.provinces[building.province]
+    if (!owner || !centers.get(building.province)) return []
+    if (building.kind === 'airfield') {
+      const { at, angle, length } = airportOf(building.province)
+      return [{ ...building, owner, x: at[0], y: at[1], angle, length }]
+    }
+    const slot = slots.get(building.province) ?? 0
+    slots.set(building.province, slot + 1)
+    const [x, y] = facilitySite(building.province, slot)
+    return [{ ...building, owner, x, y, angle: 0, length: 0 }]
   })
-  const roadTraffic = roads.filter(({ a, b, kind }, i) => (kind === 'motorway' || i % 5 === 0) && passable(state, a, b))
+}
+
+/** Smokestack tops, relative to a district's origin, for the motion layer's smoke. */
+export const kindNames = catalog
+
+export const STACKS: Record<string, number[][]> = {
+  arms_factory: [[13, -4], [21, -4]], factory: [[13, -4], [21, -4]], chip_works: [[22, -13]],
+}
+
+/** Ports with the bearing out to open water, taken from the first leg of their sea lanes. */
+export const harbours = Object.entries(sea.ports).map(([nation, { province, position }]) => {
+  const lane = Object.entries(sea.routes as Record<string, number[][]>).find(([key]) => key.split('|').includes(nation))
+  const route = lane ? (lane[0].split('|')[0] === nation ? lane[1] : [...lane[1]].reverse()) : [position, [position[0] + 1, position[1]]]
+  const next = route.find((point) => Math.hypot(point[0] - position[0], point[1] - position[1]) > 30) ?? route[1]
+  const angle = Math.atan2(next[1] - position[1], next[0] - position[0]) * 180 / Math.PI
+  return { nation, province, x: position[0], y: position[1], angle }
+})
+
+export function TransportStatic({ state }: { state: GameState }) {
+  const m = useMarkerScale()
+  const active = new Set(state.rail_services ?? [])
+  const barriers = roads.flatMap((road) => {
+    const status = closure(state, road.a, road.b)
+    return status ? [{ ...road, status, mid: midpoint(road.points) }] : []
+  })
   return (
     <g className="transport map-decoration" aria-hidden="true">
-      {roads.map(({ id, path, kind }) => <g key={id} data-road={kind}>
-        <path className={`road-edge ${kind}`} d={path} />
-        <path className={`road-bed ${kind}`} d={path} />
-        {kind === 'motorway' && <path className="road-divider" d={path} />}
-      </g>)}
-      {roads.flatMap(({ id, bridges }) => bridges.map((bridge, index) => (
-        <g key={`${id}:${index}`} data-bridge="river">
-          <path className="bridge-edge" d={linePath(bridge)} />
-          <path className="bridge-deck" d={linePath(bridge)} />
-          <path className="road-divider" d={linePath(bridge)} />
-        </g>
-      )))}
-      {roadTraffic.map(({ id, path, speed, length }, index) => (
-        <g key={id} className="mobile-sprite road-traffic" data-traffic={id}>
-          <animateMotion path={path} rotate="auto" dur={`${Math.max(8, length / (speed * 10))}s`}
-            begin={`-${index % 7}s`} repeatCount="indefinite" />
-          <path fill="#202e35" d="M-5-1.5h10v3H-5Z" />
-          <path fill={index % 3 === 0 ? '#d4b285' : '#a8bdc5'} d="M-4-1.5h5v3h-5Z" />
-          <path fill="#d3e5da" d="M2-1h2v2H2Z" />
-        </g>
-      ))}
-      {railTracks.map(({ id, path, end }, index) => (
-        <g key={id} data-freight-route={id}>
-          <path className="rail-bed" d={path} />
-          <path className="rail-track" d={path} />
-          <g className="mobile-sprite">
-            <animateMotion path={path} rotate="auto" dur={`${16 + index % 6}s`} begin={`-${index % 8}s`}
-              calcMode="linear" keyPoints="0;1;1;0;0" keyTimes="0;.44;.5;.94;1" repeatCount="indefinite" />
-            <Railcar />
-          </g>
-          <g className="static-sprite" transform={location(end[0], end[1])}><Railcar /></g>
+      <Network />
+      {rail.routes.filter(({ id }) => active.has(id)).map(({ id, points }) =>
+        <path key={id} className="rail-track" data-freight-route={id} d={linePath(points)} />)}
+      {barriers.map(({ id, status, mid }) => (
+        <g key={id} className="border-barrier" data-closed={status} data-road-closed={id}
+          transform={`translate(${mid.x} ${mid.y}) rotate(${mid.angle}) scale(${Math.max(1, m * .8)})`}>
+          <title>{status === 'war' ? 'Border closed by war' : 'Border closed: no trade agreement'}</title>
+          <path className="barrier-arm" d="M0-9V9" />
+          <path className="barrier-stripe" d="M0-9V9" />
         </g>
       ))}
     </g>
   )
 }
 
+/** Used by capture animations. */
 export function TankSprite() {
-  return (
-    <g>
-      <path fill="#263a32" d="M-9-4h18v8H-9Z" />
-      <path fill="var(--nation-fill, #466c59)" d="M-8-3H7v6H-8Z" />
-      <path fill="var(--nation-accent, #b7c891)" d="M-3-3h6v6h-6ZM2-1h9v2H2Z" />
-      <path stroke="#93aa80" strokeWidth=".8" d="M-9-4h17M-9 4h17" />
-    </g>
-  )
+  return <g transform="scale(1.4)"><Tank /></g>
 }
 
-function PlaneSprite() {
-  return (
-    <g className="fighter-sprite">
-      <path fill="#20383e" opacity=".5" transform="translate(3 3)" d="M-19-2h9l5-8h3l-1 8 11 1 8 2-8 2-11 1 1 8h-3l-5-8h-9l2-3Z" />
-      <path fill="#1d373e" d="M-19-2h9l5-8h3l-1 8 11 1 8 2-8 2-11 1 1 8h-3l-5-8h-9l2-3Z" />
-      <path fill="#afbcb1" d="M-17-1h8l5-8h1l-1 8 11 1 5 1-5 1-11 1 1 8h-1l-5-8h-8l1-2Z" />
-      <path fill="#778b89" d="M-8-1-4-7-5 0h8v2h-9v5l-2-4h-4V0Z" />
-      <path fill="#365968" d="M4 0h4l2 1-2 1H4Z" />
-      <path fill="#e1a666" d="M-16 0h2v2h-2Z" />
-      <path fill="#b45143" d="M-5-8h1v1h-1Z" />
-      <path fill="#85a786" d="M-5 8h1v1h-1Z" />
-    </g>
-  )
+/** A runway, parallel taxiway, apron, terminal and hangars, laid out along the runway heading. */
+function AirportArt({ length }: { length: number }) {
+  const half = length / 2
+  return <>
+    <path fill="#8b927f" d={`M${-half - 8}-11H${half + 8}V27H${-half - 8}Z`} opacity=".6" />
+    <path fill="#2c3537" d={`M${-half}-5H${half}V5H${-half}Z`} />
+    <path stroke="#e9e2c6" strokeWidth=".8" strokeDasharray="5 4" d={`M${-half + 8} 0H${half - 8}`} />
+    <path stroke="#f2ead3" strokeWidth="1.1" d={`M${-half + 2}-3.5v7m2-7v7m2-7v7M${half - 2}-3.5v7m-2-7v7m-2-7v7`} />
+    <path fill="none" stroke="#596366" strokeWidth="2.4" d={`M${-half + 6} 3V10H${half - 6}V3M-12 10v4m24-4v4`} />
+    <path fill="#8a908b" d="M-30 13H30V24H-30Z" />
+    <path fill="#d5d9d0" d="M-24 15H8V22H-24Z" />
+    <path fill="#4e7a93" d="M-23 16H7V18H-23Z" />
+    <path fill="#b8b1a4" d="M12 14H27V23H12Z" />
+    <path fill="#6e6a60" d="M12 14H27V15.5H12Z" />
+    <path stroke="#e9c46a" strokeWidth=".7" d="M-28 25H28" />
+    <g transform="translate(-14 19) scale(.55)"><path fill="#eef1ec" d="M-13-1.2h20l6 1.2-6 1.2h-20ZM-2-1-8-12h3l9 11ZM-2 1-8 12h3l9-11Z" /></g>
+  </>
 }
 
-function FacilityArt({ kind }: { kind: string }) {
-  if (kind === 'airfield') return (
-    <>
-      <path fill="#788079" d="M-25-12H30V14H-25Z" />
-      <path fill="#a3a59a" d="M-24-8h48v1h-48ZM-20 5h43v2h-43ZM17-7h2v12h-2ZM-15-7h2v12h-2Z" />
-      <path fill="#3b494b" d="M-24-6h52v8h-52Z" />
-      <path stroke="#e6ddbd" strokeWidth=".75" strokeDasharray="3 2" d="M-22-2H25" />
-      <path stroke="#f0e7ce" strokeWidth="1.3" d="M-21-5v2m2-2v2m42-2v2m2-2v2" />
-      <path fill="#536568" d="M-8 8H12v4H-8ZM17 8h8v4h-8Z" />
-      <path fill="#c4c7b6" d="M-9 7H13v2H-9ZM17 7h8v2h-8Z" />
-      <path stroke="#d8c89e" strokeWidth=".65" d="M-5 5v2m4-2v2m4-2v2m4-2v2m4-2v2" />
+const STAMP = 'M-34-26H34V26H-34Z'
+function District({ kind }: { kind: string }) {
+  if (kind === 'army_base') return <>
+    <ellipse rx="62" ry="44" fill="none" stroke="#8e7f5c" strokeWidth="3.2" opacity=".85" />
+    <path d={STAMP} fill="#59633f" />
+    <path d={STAMP} fill="none" stroke="#ddd6b2" strokeWidth=".8" strokeDasharray="2.2 1.6" />
+    <path fill="#8d8b70" d="M-30-22h24v18h-24Z" />
+    <path fill="#c4b98f" d="M0-22h30v5H0Zm0 8h30v5H0Zm0 8h30v5H0Z" />
+    <path stroke="#7c7258" strokeWidth=".5" d="M0-19.5h30M0-11.5h30M0-3.5h30" />
+    <path fill="#454c3b" d="M-30 1h30v9h-30Z" />
+    <path fill="#2f3529" d="M-28 2.5h5v6h-5Zm7 0h5v6h-5Zm7 0h5v6h-5Zm7 0h5v6h-5Z" />
+    <g transform="translate(-24 18)"><Tank /></g>
+    <g transform="translate(-12 18)"><Tank /></g>
+    <g transform="translate(0 18)"><Tank /></g>
+    <circle cx="19" cy="13" r="7.5" fill="#3b4237" stroke="#e0d9b8" strokeWidth=".8" />
+    <path stroke="#e0d9b8" strokeWidth="1.1" d="M16.5 10v6m5-6v6m-5-3h5" />
+    <path stroke="#e7e1c4" strokeWidth=".7" d="M-31-23v-9" />
+    <path fill="var(--nation-accent)" d="M-31-32h7v4h-7Z" />
+    <path fill="#3f4636" d="M28 20h5v5h-5Z" />
+  </>
+  if (kind === 'arms_factory' || kind === 'factory') {
+    const accent = kind === 'arms_factory' ? '#c4573d' : '#c99556'
+    return <>
+      <path d="M-34-24H34V24H-34Z" fill="#5d6260" />
+      <path fill="#a3a596" d="M-30-20H4V4h-34Z" />
+      <path stroke="#6e716a" strokeWidth="1" d="M-30-15H4M-30-10H4M-30-5H4M-30 0H4" />
+      <path fill="#f0ead6" opacity=".35" d="M-30-20H4v2h-34Z" />
+      <path fill="#8f938a" d="M8-20h22v12H8Z" />
+      <path fill={accent} d="M8-20h22v2H8Z" />
+      <circle cx="13" cy="-4" r="2.8" fill="#4f4438" /><circle cx="21" cy="-4" r="2.8" fill="#4f4438" />
+      <circle cx="13" cy="-4" r="1.4" fill="#1d1a16" /><circle cx="21" cy="-4" r="1.4" fill="#1d1a16" />
+      <circle cx="-20" cy="14" r="6" fill="#cfc9b3" /><circle cx="-6" cy="14" r="6" fill="#cfc9b3" />
+      <circle cx="-20" cy="14" r="3" fill="#b5ae96" /><circle cx="-6" cy="14" r="3" fill="#b5ae96" />
+      <path fill="#3f6f8f" d="M6 10h8v3.5H6Z" /><path fill={accent} d="M15 10h8v3.5h-8Z" /><path fill="#7a9a5c" d="M6 15h8v3.5H6Z" />
+      <path fill="#d0b25e" d="M15 15h8v3.5h-8Z" /><path fill="#3f6f8f" d="M24 15h7v3.5h-7Z" />
+      {kind === 'arms_factory' && <g transform="translate(27 2)"><Tank /></g>}
     </>
-  )
-  if (kind === 'farm') return (
-    <>
-      <path fill="#767a45" d="M-11-4h18l5 8H-8Z" />
-      <path stroke="#e2c277" strokeWidth="1.3" d="m-8-3 4 6m0-6 4 6m0-6 4 6m0-6 4 6" />
-      <path fill="#9c644b" d="M7-6h7v8H7Z" />
-      <path fill="#d5aa7e" d="M6-7h9v2H6Z" />
-    </>
-  )
-  if (kind === 'army_base') return (
-    <>
-      <path fill="#545941" d="M-13-6h25v11h-25Z" />
-      <path fill="#b8ad81" d="M-12-5h11v4h-11ZM2-5h9v4H2Z" />
-      <path fill="#243e37" d="M-11 0h6v4h-6ZM4 0h6v4H4Z" />
-      <path fill="var(--nation-accent)" d="M-2-12h6v3h-6Z" />
-      <path stroke="#ded3ac" strokeWidth="1" d="M-2-12v7" />
-    </>
-  )
-  if (kind === 'freight_yard') return (
-    <>
-      <path fill="#5a6660" d="M-12-5h22v8h-22Z" />
-      <path fill="#c6ae67" d="M-10-4h7v5h-7ZM-1-4h7v5h-7Z" />
-      <path stroke="#dfd9b7" d="M-13 3h27m-26 2h25" />
-    </>
-  )
-  return (
-    <>
-      <path fill="#655142" d="M-12-4h18v10h-18Z" />
-      <path fill={kind === 'chip_works' ? '#81b9c3' : '#bda390'} d="M-12-6h6v3h2v-3h6v3h3v6h-17Z" />
-      <path fill="#303f46" d="M-9 0h2v3h-2ZM-4 0h2v3h-2ZM1 0h2v3H1Z" />
-      <path fill={kind === 'arms_factory' ? '#df815c' : '#9e7a65'} d="M7-11h4v16H7Z" />
-      <path fill="#ddd2a8" d="M7-11h4v2H7Z" />
-    </>
-  )
+  }
+  if (kind === 'chip_works') return <>
+    <path d="M-34-24H34V24H-34Z" fill="#6c7774" />
+    <path fill="#e7ebe6" d="M-30-20h40v22h-40Z" />
+    <path fill="#7eb6c9" d="M-28-17h36v3h-36Zm0 6h36v3h-36Zm0 6h36v3h-36Z" opacity=".8" />
+    <path fill="#d9ded8" d="M14-20h16v12H14Z" />
+    <circle cx="22" cy="-13" r="2.2" fill="#8b9693" />
+    <path fill="#3b4547" d="M-30 6h60v16h-60Z" />
+    <path stroke="#e3e0cc" strokeWidth=".5" d="M-26 6v16m6-16v16m6-16v16m6-16v16m6-16v16m6-16v16m6-16v16m6-16v16m6-16v16" />
+  </>
+  if (kind === 'farm') return <>
+    <path d="M-34-24H34V24H-34Z" fill="#8a8a4e" />
+    <path stroke="#c8b36a" strokeWidth="2" d="M-32-20H32M-32-14H32M-32-8H32" />
+    <path fill="#a33f32" d="M-28 0h20v14h-20Z" /><path fill="#d1b48c" d="M-28 0h20v2h-20Z" />
+    <circle cx="4" cy="6" r="6" fill="#cfcabb" /><circle cx="16" cy="6" r="6" fill="#cfcabb" /><circle cx="28" cy="6" r="5" fill="#b9b4a5" />
+    <circle cx="4" cy="6" r="2" fill="#a8a291" /><circle cx="16" cy="6" r="2" fill="#a8a291" />
+  </>
+  if (kind === 'freight_yard') return <>
+    <path d="M-34-24H34V24H-34Z" fill="#5b5f58" />
+    <path stroke="#c9bfa0" strokeWidth=".8" d="M-34-16H34M-34-8H34M-34 0H34M-34 8H34" />
+    <g transform="translate(-20 -16)"><Wagon kind={0} /></g><g transform="translate(-6 -16)"><Wagon kind={2} /></g>
+    <g transform="translate(10 -8)"><Wagon kind={1} /></g><g transform="translate(-14 0)"><Wagon kind={4} /></g>
+    <g transform="translate(18 8)"><Wagon kind={0} /></g>
+    <path fill="none" stroke="#e0a83a" strokeWidth="1.6" d="M-30 14V-22M-30-22H6V14" />
+    <path fill="#3f6f8f" d="M-26 14h8v4h-8Z" /><path fill="#c4573d" d="M-16 14h8v4h-8Z" /><path fill="#7a9a5c" d="M-6 14h8v4h-8Z" />
+  </>
+  return null
 }
 
 export function Facilities({ state }: { state: GameState }) {
-  const slots = new Map<string, number>()
   return (
     <g className="facility-layer map-decoration">
-      {(state.buildings ?? []).map(({ province, kind }) => {
-        const center = centers.get(province)
-        const owner = state.provinces[province]
-        if (!center || !owner) return null
-        const slot = slots.get(province) ?? 0
-        slots.set(province, slot + 1)
-        return (
-          <g key={`${province}:${kind}`} data-facility={kind} data-province-site={province}
-            transform={location(center[0] - 18 + slot * 20, center[1] + 8 + (slot % 2) * 16)} style={nationStyle(owner)}>
-            <title>{catalog[kind]?.name ?? kind} · {state.nations[owner]?.name}</title>
-            <ellipse cy="4" rx="16" ry="4" fill="#173c36" opacity=".36" />
-            <FacilityArt kind={kind} />
-            {kind === 'army_base' && state.nations[owner]?.stats.army > 0 && (
-              <g transform="translate(12 15)">
-                <g className="mobile-sprite">
-                  <animateMotion path="M0 0 C14 3 21 4 23 13 S10 24 0 0" dur="13s" rotate="auto" repeatCount="indefinite" />
-                  <TankSprite />
-                </g>
-                <g className="static-sprite"><TankSprite /></g>
-              </g>
-            )}
-            {kind === 'airfield' && (
-              <g transform="translate(12 -14)">
-                <g className="mobile-sprite">
-                  <animateMotion path="M0 0 C47 -42 72 -22 58 5 S0 48 -30 15 S-18 -18 0 0" dur="19s" rotate="auto" repeatCount="indefinite" />
-                  <PlaneSprite />
-                </g>
-                <g className="static-sprite"><PlaneSprite /></g>
-              </g>
-            )}
-          </g>
-        )
-      })}
+      {facilityPlacements(state).map(({ province, kind, owner, x, y, angle, length }) => (
+        <g key={`${province}:${kind}`} data-facility={kind} data-province-site={province} style={nationStyle(owner)}
+          transform={`translate(${x} ${y})${kind === 'airfield' ? ` rotate(${angle})` : ''}`}>
+          <title>{catalog[kind]?.name ?? kind} · {state.nations[owner]?.name}</title>
+          {kind === 'airfield' ? <AirportArt length={length} /> : <District kind={kind} />}
+        </g>
+      ))}
     </g>
   )
 }
 
-export function CityArt({ economy }: { economy: number }) {
+/** Quays, cranes, container stacks and a naval pier at each national port. */
+export function Harbours({ state }: { state: GameState }) {
   return (
-    <g className="city-skyline">
-      <ellipse cy="7" rx="28" ry="7" fill="#1b463a" opacity=".45" />
-      <path fill="#936b54" d="M-24 7V1h7v6ZM-15 8V-1h8v9ZM12 8V1h7v7ZM21 5v-6h6v6Z" />
-      <path fill="#dfc58f" d="M-24 0h7v3h-7ZM-15-2h8v3h-8ZM12 0h7v3h-7ZM21-2h6v2h-6Z" />
-      <path fill="#6f7f7d" d="M-11 4v-15h6v15Zm18 0v-16h7V4Z" />
-      <path fill="#a7b0a1" d="M-11-11h5v2h-5ZM7-13h7v2H7Z" />
-      <path fill="#b59a71" d="M-6 7V-6h3v-9h6v9h4V7Z" />
-      <path fill="var(--nation-accent)" d="M-2-16h5v-3h-5Z" />
-      <path fill="#213439" d="M-9-7h1v2h-1Zm0 4h1v2h-1Zm2-4h1v2h-1Zm0 4h1v2h-1Zm16-5h2v2H9Zm0 4h2v2H9ZM-1 3h3v4h-3Z" />
-      <path stroke="#e2c991" d="M-8 7H9" />
-      {economy >= 55 && <path fill="#7b928a" d="M-21 3v-7h4v7Zm35 4v-10h5V7Z" />}
-      {economy >= 75 && <path fill="#bbc4b2" d="M-20-1h2v1h-2ZM16-1h2v2h-2Zm0 4h2v2h-2ZM-15-3v-5h4v7Z" />}
+    <g className="harbour-layer map-decoration">
+      {harbours.map(({ nation, province, x, y, angle }) => {
+        const owner = state.provinces[province] ?? nation
+        return (
+          <g key={nation} data-harbour={nation} transform={`translate(${x} ${y}) rotate(${angle})`} style={nationStyle(owner)}>
+            <path fill="#6f746d" d="M-18-46H8V46h-26Z" />
+            <path fill="#9a9c92" d="M8-44h46v8H8Zm0 22h52v8H8Zm0 22h52v8H8Zm0 22h46v8H8Z" />
+            <path fill="#53595a" d="M8-38h46v2H8Zm0 22h52v2H8Zm0 22h52v2H8Zm0 22h46v2H8Z" />
+            <path fill="#3f6f8f" d="M-14-40h8v5h-8Zm0 7h8v5h-8Z" /><path fill="#c4573d" d="M-4-40h8v5h-8Zm0 14h8v5h-8Z" />
+            <path fill="#d0b25e" d="M-14-26h8v5h-8Zm10 7h8v5h-8Z" /><path fill="#7a9a5c" d="M-14-12h8v5h-8Z" />
+            <path fill="none" stroke="#e0a83a" strokeWidth="1.8" d="M20-46v14M40-24v14" />
+            <path fill="none" stroke="#e0a83a" strokeWidth="1.1" d="M14-46h14M34-24h14" />
+            <g transform="translate(32 -29)"><Vessel kind="cargo" /></g>
+            <g transform="translate(30 17) rotate(180)"><Vessel kind="frigate" /></g>
+            <g transform="translate(28 39)"><Vessel kind="destroyer" /></g>
+            <path fill="var(--nation-accent)" d="M-16 30h6v4h-6Z" />
+          </g>
+        )
+      })}
     </g>
   )
 }
