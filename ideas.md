@@ -41,14 +41,14 @@ Score ideas out of 100 using **35 for voice being essential**, **30 for likeliho
 
 ## Team decision
 
-**Chosen project: BUTTERFLY** (working title) — a living world of five AI-run nations that a judge joins as a head of state, by voice. Every decision forks the world into parallel futures and a needle shows how much more or less likely war just became.
+**Chosen project: GAMBIT** — a living world of five AI-run nations that a judge joins as a head of state, by voice. Every decision forks the world into parallel futures and a needle shows how much more or less likely war just became.
 **Fallback:** IMPOSTOR (social-deduction game with a sabotaging coding agent).
 **First tests (before 11:30):** Le Chonk returns valid leader JSON 10/10; 20 parallel model calls without rate limits; Voxtral push-to-talk → reply → TTS round trip.
 **Build assignments:** A engine & futures (`/engine`), B agents (`/agents`), C UI (`/web`), D voice (`/voice`). Full concept below.
 
 ---
 
-# BUTTERFLY — every word you say forks the world
+# GAMBIT — every word you say forks the world
 
 *Working title. Le Chonk in London — Mistral Vibe Hackathon, Sat 21 Nov 2026. Submission + demo video due 18:00.*
 
@@ -84,7 +84,7 @@ A session lasts ~4 minutes (about 12 in-game months, one month every ~20 s).
 2. **The world moves without you.** Leaders trade, impose tariffs, form alliances, threaten. The news ticker and the map keep changing. You feel pressure.
 3. **Your phone rings.** Ostrava's general-turned-president calls: "Your grain tariff is an act of aggression. Lift it in two months or we close the strait." His portrait, his voice, angry.
 4. **You answer out loud.** Push-to-talk. Bargain, bluff, threaten, apologise. Le Chonk replies in character. What you agree becomes real actions in the world (a trade line appears on the map; a tariff drops).
-5. **The needle swings.** After the call, BUTTERFLY runs parallel futures with and without your deal and shows what changed: war odds, your re-election odds, your economy.
+5. **The needle swings.** After the call, GAMBIT runs parallel futures with and without your deal and shows what changed: war odds, your re-election odds, your economy.
 6. **Intel.** You open Ostrava's card: public statement vs private intent. They're lying. You hit **Wiretap** and hear Ostrava and Kessaria discussing you.
 7. **Consequences.** Events hit (oil spill, harvest failure). Voter blocs riot. Month 6: election. You win — or the screen goes grey: *"You have been voted out."*
 8. **Verdict.** End screen: your score vs the AI-run worlds, the key moments, and a one-paragraph "historian's verdict" written by Le Chonk. You go on the leaderboard.
