@@ -3,11 +3,15 @@
 Uses httpx directly so the SDK version does not matter. Every call either returns a
 validated object or raises quickly, so the engine can fall back to advise()[0].
 
-Model choice (measured 21 Nov, see agents/A0_RESULTS.md): mistral-large-4 cannot turn
-reasoning off (low is the minimum) and spends 1,800-2,500 thinking tokens on a leader
-prompt, 26-72 s per decision, often hitting max_tokens before any text. mistral-large-2512
-has no thinking and answers in 2-4 s. So the default is large-2512; set
-GAMBIT_LEADER_MODEL=mistral-large-4 to switch back without code changes.
+Models (DECIDED 12:29 on the board, measured 21 Nov, see agents/A0_RESULTS.md):
+- SMART (decide, interpret, headline, why, historian, wiretap): mistral-large-4. It cannot
+  turn reasoning off and takes 26-72 s on a leader prompt, so latency-bound calls are
+  hedged: if Large 4 has not answered after HEDGE_AFTER_S, HEDGE model races it and the
+  first valid answer wins. STATS["by_model"] shows who answered.
+- FAST (the spoken phone reply): mistral-large-2512 (no reasoning, ~1 s), falling back to
+  mistral-large-4 because 2512 is deprecated. Note: 2512 allows only 30 requests/minute
+  on this workspace; medium and large-4 allow 2,000.
+All configurable by env, no code changes.
 """
 from __future__ import annotations
 
@@ -22,13 +26,16 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 API_URL = "https://api.mistral.ai/v1/chat/completions"
-MODEL = os.environ.get("GAMBIT_LEADER_MODEL", "mistral-large-2512")
-CALL_MODEL = os.environ.get("GAMBIT_CALL_MODEL", MODEL)
+MODEL = os.environ.get("GAMBIT_LEADER_MODEL", "mistral-large-4")
+HEDGE_MODEL = os.environ.get("GAMBIT_HEDGE_MODEL", "mistral-medium-latest")
+FAST_MODEL = os.environ.get("GAMBIT_FAST_MODEL", "mistral-large-2512")
+FAST_FALLBACK = os.environ.get("GAMBIT_FAST_FALLBACK", "mistral-large-4")
+CALL_MODEL = FAST_MODEL  # the one-call call_reply()
 
 T = TypeVar("T", bound=BaseModel)
 
 _client: Optional[httpx.AsyncClient] = None
-STATS: dict[str, Any] = {"calls": 0, "retries": 0, "failures": 0, "latencies": []}
+STATS: dict[str, Any] = {"calls": 0, "retries": 0, "failures": 0, "latencies": [], "by_model": {}}
 
 
 class LLMError(RuntimeError):
@@ -116,6 +123,7 @@ async def chat(messages: list[dict], *, model: Optional[str] = None, effort: str
     text = _text(choice["message"].get("content"))
     if not text.strip():
         raise EmptyReply(f"no text (finish_reason={choice.get('finish_reason')})")
+    STATS["by_model"][model] = STATS["by_model"].get(model, 0) + 1
     return text
 
 
@@ -160,3 +168,29 @@ async def chat_model(model_cls: Type[T], messages: list[dict], *, timeout: float
                      **kw: Any) -> T:
     return await chat_json(messages, model_cls.model_validate,
                            deadline=time.perf_counter() + timeout, **kw)
+
+
+async def hedged(run: Callable[[str], Any], *, primary: Optional[str] = None,
+                 backup: Optional[str] = None, after: float) -> Any:
+    """run(model) on the primary model; if it has not succeeded after `after` seconds (or
+    fails sooner), start run(backup) too. First success wins; the other is cancelled."""
+    primary, backup = primary or MODEL, backup or HEDGE_MODEL
+    first = asyncio.ensure_future(run(primary))
+    tasks = {first}
+    done, _ = await asyncio.wait(tasks, timeout=after)
+    if first in done and first.exception() is None:
+        return first.result()
+    if primary != backup:
+        tasks.add(asyncio.ensure_future(run(backup)))
+    errors = []
+    try:
+        while tasks:
+            done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for t in done:
+                if t.exception() is None:
+                    return t.result()
+                errors.append(t.exception())
+    finally:
+        for t in tasks:
+            t.cancel()
+    raise LLMError(f"both models failed: {errors}")
