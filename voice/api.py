@@ -3,8 +3,9 @@
 Om's engine app mounts these with `app.include_router(voice.api.router)`.
 For working alone, `uvicorn voice.app:app --port 8000` serves them by themselves.
 
-Set VOICE_MOCK=fixed (default) or VOICE_MOCK=llm to choose the stand-in for
-agents.call_reply() while /agents is not on main.
+Phone replies are split (DECIDED 12:29): agents.speak_fast() answers out loud,
+agents.interpret() works out promises and belief updates in the background. Until /agents
+has them: VOICE_MOCK=fixed (default, the §4.6 example) or VOICE_MOCK=llm (model stand-ins).
 """
 from __future__ import annotations
 
@@ -33,14 +34,26 @@ def voice_for(nation: str) -> str:
     return CASTING[nation]["voice_id"]
 
 
-def _agents():
-    """(call_reply, is_real): Abi's function when it exists, else a stand-in."""
+def _phone():
+    """(fast, interpret, real). The phone path is split (DECIDED 12:29): `fast` returns
+    reply_text and emotion for speech; `interpret` (Large 4) returns promises, actions and
+    belief updates and runs in the background. interpret is None when one call does both."""
     try:
         import agents  # type: ignore
-        return getattr(agents, "call_reply"), True
-    except (ImportError, AttributeError):
-        return (mock_agents.quick_reply if os.environ.get("VOICE_MOCK") == "llm"
-                else mock_agents.fixed_reply), False
+    except ImportError:
+        agents = None
+    fast, interp = getattr(agents, "speak_fast", None), getattr(agents, "interpret", None)
+    if fast and interp:
+        return fast, interp, True
+    if getattr(agents, "call_reply", None):
+        return agents.call_reply, None, True
+    if os.environ.get("VOICE_MOCK") == "llm":
+        return mock_agents.speak_fast, mock_agents.interpret, False
+    return mock_agents.fixed_reply, None, False
+
+
+def _plain(x):
+    return x.model_dump(mode="json") if hasattr(x, "model_dump") else dict(x)
 
 
 EXAMPLE_STATE = Path(__file__).resolve().parent.parent / "contracts" / "examples" / "state.json"
@@ -112,36 +125,71 @@ async def call(req: CallRequest):
     view = {"nation": req.to, "transcript": transcript, "interrupted": req.interrupted,
             "hesitation_ms": req.hesitation_ms, "state": state,
             "history": list(history) or None}
+    fast, interp, real = _phone()
+    arg = CallView.model_validate(view) if real else view
     try:
-        call_reply, real = _agents()
-        raw = await call_reply(CallView.model_validate(view) if real else view)
-        if hasattr(raw, "model_dump"):
-            raw = raw.model_dump(mode="json")
+        raw = _plain(await fast(arg))
+        if not str(raw.get("reply_text", "")).strip():
+            raise ValueError("empty reply_text")
         if raw.get("emotion") not in EMOTIONS:  # an off-list tag is ignored by Voxtral anyway
             raw["emotion"] = "calm"
-        result = CallOutput.model_validate(raw)
     except Exception as e:  # never leave the player in silence
-        print(f"[voice] call_reply failed, using fallback line: {e}")
-        result = CallOutput.model_validate(FALLBACK_REPLY)
-    out = result.model_dump(mode="json")
+        print(f"[voice] leader reply failed, using fallback line: {e}")
+        raw, interp = dict(FALLBACK_REPLY), None
     t_llm = time.perf_counter()
 
-    history += [{"role": "player", "text": transcript}, {"role": "leader", "text": out["reply_text"]}]
+    # Speech first: the TTS request goes out before anything else happens.
+    url = await speak(raw["reply_text"], voice_id, raw["emotion"])
+    history += [{"role": "player", "text": transcript}, {"role": "leader", "text": raw["reply_text"]}]
     _calls[req.to]["at"] = time.time()
-    if out.get("ends_call"):
-        _calls.pop(req.to, None)
 
-    _apply_to_engine(req, result)
-    url = await speak(out["reply_text"], voice_id, out["emotion"])
+    promises, actions = [], []
+    if interp is None:  # one call did everything: apply it now
+        result = _to_output(raw)
+        _apply(req, result)
+        promises, actions = result.model_dump(mode="json")["promises"], result.model_dump(mode="json")["actions"]
+    else:  # Large 4 works out what was agreed; the page sees it through /state
+        task = asyncio.create_task(_interpret(req, arg, raw, interp))
+        _background.add(task)
+        task.add_done_callback(_background.discard)
     print(f"[voice] /call {req.to}: stt {t_stt - t0:.2f}s, reply {t_llm - t_stt:.2f}s")
     return {
         "transcript": transcript,
-        "reply_text": out["reply_text"],
+        "reply_text": raw["reply_text"],
         "reply_audio_url": url,
-        "emotion": out["emotion"],
-        "promises": out.get("promises", []),
-        "actions": out.get("actions", []),
+        "emotion": raw["emotion"],
+        "promises": promises,
+        "actions": actions,
     }
+
+
+_background: set[asyncio.Task] = set()
+
+
+def _to_output(raw: dict) -> CallOutput:
+    try:
+        return CallOutput.model_validate({**FALLBACK_REPLY, **raw})
+    except Exception as e:
+        print(f"[voice] invalid call output, applying nothing: {e}")
+        return CallOutput.model_validate({**FALLBACK_REPLY, "reply_text": raw["reply_text"],
+                                          "emotion": raw["emotion"]})
+
+
+def _apply(req: CallRequest, result: CallOutput) -> None:
+    if result.ends_call:
+        _calls.pop(req.to, None)
+    _apply_to_engine(req, result)
+
+
+async def _interpret(req: CallRequest, arg, said: dict, interp) -> None:
+    t = time.perf_counter()
+    try:
+        extra = _plain(await interp(arg, said["reply_text"]))
+    except Exception as e:
+        print(f"[voice] interpret failed for {req.to}, applying nothing: {e}")
+        return
+    _apply(req, _to_output({**extra, "reply_text": said["reply_text"], "emotion": said["emotion"]}))
+    print(f"[voice] interpret {req.to}: {time.perf_counter() - t:.2f}s")
 
 
 @router.get("/wiretap")

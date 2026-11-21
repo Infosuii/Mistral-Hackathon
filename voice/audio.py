@@ -16,9 +16,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
-from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+def _load_env(path: Path) -> None:
+    """Read KEY=VALUE lines from the repo's .env without overriding real env vars.
+    Kept dependency-free so a plain `pip install -r requirements.txt` can mount /voice."""
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+
+
+_load_env(Path(__file__).resolve().parent.parent / ".env")
 
 API = "https://api.mistral.ai/v1"
 STT_MODEL = "voxtral-mini-transcribe-3"

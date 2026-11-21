@@ -90,7 +90,50 @@ async def formats() -> dict:
     return result
 
 
+FAST_LINES = [
+    "We can split the day. You dock in the morning.", "Stop. Listen to me before you announce anything.",
+    "I promised Zarnia nothing.", "Send your tugs and there will be two berths by nightfall.",
+    "If you blockade the strait, Valdoria will close its markets to you.", "Fine. The berth is yours.",
+    "Why should I trust you after last month?", "Um... I need a moment.",
+    "Your people are starving and you want to talk about pride?", "Goodbye, General.",
+]
+
+
+async def fastcheck(n: int = 20) -> None:
+    """Does the fast phone model return valid structured replies? (DECIDED 12:29)"""
+    import re
+    import time
+    from .mock_agents import FAST_MODEL, _ask, _messages
+    from .audio import EMOTIONS
+    nations = [k for k in CASTING if not k.startswith("_")]
+    ok, times, problems = 0, [], []
+    for i in range(n):
+        view = {"nation": nations[i % len(nations)], "transcript": FAST_LINES[i % len(FAST_LINES)],
+                "interrupted": i % 4 == 1, "history": None}
+        t = time.perf_counter()
+        try:
+            out = await _ask(FAST_MODEL, _messages(view))
+        except Exception as e:
+            problems.append(f"{i}: {e}")
+            continue
+        times.append(time.perf_counter() - t)
+        sentences = len([s for s in re.split(r"(?<=[.!?])\s+", out["reply_text"]) if s.strip()])
+        if out["emotion"] not in EMOTIONS:
+            problems.append(f"{i}: emotion {out['emotion']!r} not in the enum")
+        elif sentences > 2:
+            problems.append(f"{i}: {sentences} sentences")
+        else:
+            ok += 1
+    print(f"{FAST_MODEL}: {ok}/{n} valid; median {statistics.median(times):.2f}s, "
+          f"max {max(times):.2f}s")
+    for p in problems:
+        print("  ", p)
+
+
 async def main(cmd: str) -> None:
+    if cmd == "fastcheck":
+        await fastcheck()
+        return
     if cmd in ("sample", "all"):
         await sample()
     if cmd in ("formats", "all"):
