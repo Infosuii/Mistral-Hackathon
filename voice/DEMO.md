@@ -35,8 +35,8 @@ Built from `ideas.md` §17 and what is on main now. Rehearse twice before 17:00 
 | 1:10 | Phone (tick 1) | Judge | Answers Ostrava and promises the berth: *"General, the berth is yours."* The promise appears in the crisis ledger. |
 | 1:35 | Map, click Nordhaven, **Call** in the orders bar (tick 2) | Judge | *"I need your tugs at Port Kessar today to open a second berth. Valdoria pays the full cost."* This is recorded as a `send_tugs` promise every time (#111). |
 | 2:10 | Intel, Wiretap | Driver | Public statement against private intent and private strategy, advisers against choice. Wiretap: Ostrava and Zarnia comparing notes about the judge. |
-| 2:40 | Map, needle | Presenter | Play on. Nordhaven sends the tugs at tick 6, a second berth opens, and both grain ships dock on the map: peace. The needle shows war odds before and after: "You did that." |
-| 3:20 | Replay panel | Driver | "What if you'd called later?" Slide the call +5 ticks: it lands after Nordhaven's deadline. Name who flipped **only if the screen shows it** (the Reviewer's live run at 14:01: Nordhaven send_tugs → stay_out, Zarnia dock → mobilise; a 14:22 run had Nordhaven stay out and no flips). If nobody flips, say: "Same outcome: the call came early enough either way." Shift 0 changes nobody, as it should. |
+| 2:40 | Map, needle | Presenter | Play on. If Nordhaven sends the tugs at tick 6, a second berth opens and both grain ships dock on the map in peace; if Nordhaven stays out, narrate the actual outcome on the map as it lands. The needle shows war odds before and after: "You did that." |
+| 3:20 | Replay panel | Driver | "What if you'd called later?" Slide the call +5 ticks: it lands after Nordhaven's deadline. Name who flipped **only if the screen shows it** (e.g. Nordhaven send_tugs → stay_out, Zarnia dock → mobilise). If nobody flips, say what the screen shows: "This time the timing did not matter; the deal held either way." Try +5 once and move on. Shift 0 changes nobody, as it should. |
 | 4:00 | End screen | Presenter | The historian's verdict. |
 | 4:15 | Mistral Vibe (terminal) | Presenter | Optional, 20 s: `/gambit-brief` in Vibe, connected through `gambit_mcp`. "This is Mistral Vibe, connected to our game through an MCP server. I ask it to brief me: it reads the world, each leader's private intent and the next deadline, and gives me the line to say." Only claim it places calls or writes crises if that was rehearsed today; the brief was verified live at 14:27. Set-up: `gambit_mcp/README.md`. |
 | 4:35 | — | Presenter | "Mistral Large 4 writes every leader's private strategy and works out what each call committed you to; Mistral Large 3 gives the instant spoken reply; Mistral Medium makes the monthly moves. Voxtral is every voice: transcription, five cast voices with emotion tags, and Wiretap." Do not claim Managed Agents (no-go in A0) or that Large 4 makes every decision (it is too slow for the 8 s turn). |
@@ -76,12 +76,14 @@ Lines a judge can say that show voice matters:
 
 ## Measured (voice)
 
-Human playtest at 14:45 (Ashish, Chrome mic, `./scripts/demo.sh`, live): 13 spoken calls, 13/13
-transcriptions and 13/13 speech requests succeeded, no fallback line. Ostrava and Zarnia were both
-promised the whole-day berth; compare-notes caught it, both docked and Nordhaven sent tugs. Nothing
-felt wrong. Neon's N3 timings (#113, 10 WAV calls): spoken reply 1.39 s median, first TTS chunk
-0.39 s, typed to first audio about 1.8 s; recorded WAV uploads add STT time (3.3 s median for a 220 KB WAV).
-
-Talk to first audio is about 1.8 s with typed or recorded input (STT 0.4 s + reply 1.0 s +
-TTS first chunk 0.3 s). On main with the real leaders, a reply took 1.7–3.0 s. The blind emotion
-test scored 6/6.
+- **Human playtest at 14:45** (Ashish, Chrome mic, `./scripts/demo.sh`, live): 13 spoken calls, 13/13
+  transcriptions and 13/13 speech requests returned 200 with no fallback line. Ostrava and Zarnia were
+  both promised the whole-day berth; compare-notes caught it, both docked and Nordhaven sent tugs.
+  Nothing felt wrong.
+- **Neon's N3 benchmark (#113, 10 live WAV calls, 0 fallbacks, uncached streaming TTS):** spoken
+  reply **1.39 s** median / **3.11 s** worst; first TTS chunk **0.39 s** median / **1.27 s** worst
+  (~**1.8 s** typed to first audio); STT **3.32 s** median / **8.72 s** worst for ~220 KB WAV clips
+  (**4.98 s** median / **10.88 s** worst total from WAV upload to first audio); Large 4 `interpret`
+  **13.10 s** median / **21.44 s** worst (async); `/futures` **3.52 s** median / **4.69 s** worst;
+  `/replay` **0.03 s** pure code / **3.95 s** with live `why()`.
+- **Blind emotion test:** scored **6/6**.
