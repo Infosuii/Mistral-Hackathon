@@ -1,0 +1,320 @@
+{
+  "id": "pipeline_cut",
+  "title": "Pipeline Cut",
+  "ticks_total": 12,
+  "intro_news": "Ostrava shuts the northern oil pipeline. Nordhaven's refineries go quiet.",
+  "deadlines": {
+    "ostrava": 6,
+    "zarnia": 8,
+    "nordhaven": 8,
+    "kessaria": 9,
+    "valdoria": 10
+  },
+  "actions": {
+    "ostrava": [
+      "sole_supplier",
+      "keep_cut",
+      "raise_price"
+    ],
+    "zarnia": [
+      "sole_supplier",
+      "stay_out"
+    ],
+    "nordhaven": [
+      "pay_price",
+      "chip_embargo",
+      "ration"
+    ],
+    "kessaria": [
+      "tanker_tolls",
+      "free_passage"
+    ],
+    "valdoria": [
+      "mediate_price",
+      "joint_embargo",
+      "stay_out"
+    ]
+  },
+  "rules": {
+    "public_backdown_cost": {
+      "junta": 3,
+      "democracy": 2,
+      "one_party": 2,
+      "monarchy": 1,
+      "technocracy": 1
+    },
+    "promise_bonus": 4,
+    "contradiction_trust_factor": 0.4,
+    "kept_trust": 0.15,
+    "broken_trust": -0.2,
+    "payoffs": {
+      "ostrava": {
+        "sole_supplier": {
+          "base": 0
+        },
+        "keep_cut": {
+          "base": 1,
+          "low_resolve": 1.5
+        },
+        "raise_price": {
+          "base": 1.2
+        }
+      },
+      "zarnia": {
+        "sole_supplier": {
+          "base": 0
+        },
+        "stay_out": {
+          "base": 0.5
+        }
+      },
+      "nordhaven": {
+        "pay_price": {
+          "base": 0.5
+        },
+        "chip_embargo": {
+          "base": 0.4,
+          "low_resolve": 1
+        },
+        "ration": {
+          "base": 0
+        }
+      },
+      "kessaria": {
+        "tanker_tolls": {
+          "base": 1
+        },
+        "free_passage": {
+          "base": 0
+        }
+      },
+      "valdoria": {
+        "mediate_price": {
+          "base": 1
+        },
+        "joint_embargo": {
+          "base": 0.5
+        },
+        "stay_out": {
+          "base": 0
+        }
+      }
+    },
+    "outcomes": [
+      {
+        "when": {
+          "ostrava": "keep_cut"
+        },
+        "effects": {
+          "stats": {
+            "nordhaven": {
+              "gdp": -8,
+              "stability": -5
+            },
+            "ostrava": {
+              "gdp": -5
+            }
+          },
+          "relations": {
+            "nordhaven|ostrava": -20
+          },
+          "news": "The pipeline stays shut; Nordhaven's factories slow."
+        }
+      },
+      {
+        "when": {
+          "ostrava": "raise_price",
+          "nordhaven": "pay_price"
+        },
+        "effects": {
+          "stats": {
+            "nordhaven": {
+              "gdp": -4
+            },
+            "ostrava": {
+              "gdp": 6
+            }
+          },
+          "news": "Nordhaven pays Ostrava's new price."
+        }
+      },
+      {
+        "when": {
+          "ostrava": "raise_price",
+          "nordhaven": [
+            "chip_embargo",
+            "ration"
+          ]
+        },
+        "effects": {
+          "stats": {
+            "nordhaven": {
+              "gdp": -5
+            }
+          },
+          "relations": {
+            "nordhaven|ostrava": -10
+          },
+          "news": "No deal on price: the pipeline stays dry."
+        }
+      },
+      {
+        "when": {
+          "ostrava": "sole_supplier"
+        },
+        "effects": {
+          "stats": {
+            "nordhaven": {
+              "gdp": 3
+            },
+            "ostrava": {
+              "gdp": 4
+            }
+          },
+          "relations": {
+            "nordhaven|ostrava": 10
+          },
+          "news": "Oil flows again: Ostrava signs as Nordhaven's sole supplier."
+        }
+      },
+      {
+        "when": {
+          "zarnia": "sole_supplier"
+        },
+        "effects": {
+          "stats": {
+            "zarnia": {
+              "gdp": 6
+            }
+          },
+          "relations": {
+            "nordhaven|zarnia": 10,
+            "ostrava|zarnia": -10
+          },
+          "news": "Zarnian oil heads north."
+        }
+      },
+      {
+        "when": {
+          "ostrava": "sole_supplier",
+          "zarnia": "sole_supplier"
+        },
+        "effects": {
+          "relations": {
+            "ostrava|zarnia": -15
+          },
+          "news": "Two suppliers, one contract: Ostrava and Zarnia accuse each other of theft."
+        }
+      },
+      {
+        "when": {
+          "ostrava": "keep_cut",
+          "zarnia": "sole_supplier"
+        },
+        "effects": {
+          "war": [
+            "ostrava",
+            "zarnia"
+          ],
+          "news": "Ostrava shells the Zarnian pipeline that replaced its own."
+        }
+      },
+      {
+        "when": {
+          "nordhaven": "chip_embargo"
+        },
+        "effects": {
+          "stats": {
+            "ostrava": {
+              "gdp": -6
+            },
+            "nordhaven": {
+              "gdp": -3
+            }
+          },
+          "relations": {
+            "nordhaven|ostrava": -10
+          }
+        }
+      },
+      {
+        "when": {
+          "kessaria": "tanker_tolls"
+        },
+        "effects": {
+          "stats": {
+            "kessaria": {
+              "gdp": 4
+            }
+          },
+          "relations": {
+            "kessaria|nordhaven": -5
+          }
+        }
+      },
+      {
+        "when": {
+          "valdoria": "mediate_price"
+        },
+        "effects": {
+          "relations": {
+            "nordhaven|valdoria": 5,
+            "ostrava|valdoria": 5
+          }
+        }
+      },
+      {
+        "when": {
+          "valdoria": "joint_embargo"
+        },
+        "effects": {
+          "stats": {
+            "ostrava": {
+              "gdp": -4
+            }
+          },
+          "relations": {
+            "ostrava|valdoria": -15
+          }
+        }
+      }
+    ]
+  },
+  "scripted": [
+    {
+      "tick": 1,
+      "type": "incoming_call",
+      "from": "nordhaven",
+      "emotion": "urgent",
+      "opening_line": "Ostrava has shut the pipeline. Our refineries have oil for days, not weeks. What will Valdoria do?"
+    },
+    {
+      "tick": 3,
+      "type": "incoming_call",
+      "from": "ostrava",
+      "emotion": "confident",
+      "opening_line": "The pipeline opens when Nordhaven pays a fair price. Tell them so.",
+      "announces": "raise_price"
+    },
+    {
+      "tick": 5,
+      "type": "compare_notes",
+      "between": [
+        "ostrava",
+        "zarnia"
+      ]
+    },
+    {
+      "tick": 6,
+      "type": "forecast",
+      "text": "Zarnian tankers are taking on oil at the Kessar strait."
+    },
+    {
+      "tick": 7,
+      "type": "incoming_call",
+      "from": "zarnia",
+      "emotion": "proud",
+      "opening_line": "Zarnia can fill Nordhaven's tanks. Name us the supplier, and it is done."
+    }
+  ]
+}

@@ -1,0 +1,335 @@
+{
+  "id": "coup",
+  "title": "Colonels' Coup",
+  "ticks_total": 12,
+  "intro_news": "Colonels move against General Dravic: tanks in the streets of Ostrava's capital.",
+  "deadlines": {
+    "ostrava": 6,
+    "zarnia": 7,
+    "kessaria": 8,
+    "nordhaven": 9,
+    "valdoria": 10
+  },
+  "actions": {
+    "ostrava": [
+      "valdoria_backing",
+      "crack_down",
+      "blame_zarnia"
+    ],
+    "zarnia": [
+      "valdoria_backing",
+      "mass_troops",
+      "stay_out"
+    ],
+    "kessaria": [
+      "close_strait",
+      "stay_out",
+      "shelter_refugees"
+    ],
+    "nordhaven": [
+      "broker_talks",
+      "freeze_trade",
+      "stay_out"
+    ],
+    "valdoria": [
+      "back_elections",
+      "recognise_dravic",
+      "stay_out"
+    ]
+  },
+  "rules": {
+    "public_backdown_cost": {
+      "junta": 3,
+      "democracy": 2,
+      "one_party": 2,
+      "monarchy": 1,
+      "technocracy": 1
+    },
+    "promise_bonus": 4,
+    "contradiction_trust_factor": 0.4,
+    "kept_trust": 0.15,
+    "broken_trust": -0.2,
+    "payoffs": {
+      "ostrava": {
+        "valdoria_backing": {
+          "base": 0
+        },
+        "crack_down": {
+          "base": 1,
+          "low_resolve": 1
+        },
+        "blame_zarnia": {
+          "base": 0,
+          "low_resolve": 1.5
+        }
+      },
+      "zarnia": {
+        "valdoria_backing": {
+          "base": 0
+        },
+        "mass_troops": {
+          "base": 0.5,
+          "low_resolve": 2
+        },
+        "stay_out": {
+          "base": 0.5
+        }
+      },
+      "kessaria": {
+        "close_strait": {
+          "base": 1
+        },
+        "stay_out": {
+          "base": 0.5
+        },
+        "shelter_refugees": {
+          "base": -0.5
+        }
+      },
+      "nordhaven": {
+        "broker_talks": {
+          "base": -0.5
+        },
+        "freeze_trade": {
+          "base": 0.5
+        },
+        "stay_out": {
+          "base": 1
+        }
+      },
+      "valdoria": {
+        "back_elections": {
+          "base": 1
+        },
+        "recognise_dravic": {
+          "base": 0.5
+        },
+        "stay_out": {
+          "base": 0
+        }
+      }
+    },
+    "outcomes": [
+      {
+        "when": {
+          "ostrava": "crack_down"
+        },
+        "effects": {
+          "stats": {
+            "ostrava": {
+              "stability": -8,
+              "approval": -10
+            }
+          },
+          "news": "Dravic's tanks clear the square; the colonels go underground."
+        }
+      },
+      {
+        "when": {
+          "ostrava": "valdoria_backing"
+        },
+        "effects": {
+          "stats": {
+            "ostrava": {
+              "stability": 6
+            }
+          },
+          "relations": {
+            "ostrava|valdoria": 10
+          },
+          "news": "Dravic accepts Valdoria's terms, and the colonels stand down."
+        }
+      },
+      {
+        "when": {
+          "ostrava": "blame_zarnia"
+        },
+        "effects": {
+          "relations": {
+            "ostrava|zarnia": -20
+          }
+        }
+      },
+      {
+        "when": {
+          "ostrava": "blame_zarnia",
+          "zarnia": "mass_troops"
+        },
+        "effects": {
+          "war": [
+            "ostrava",
+            "zarnia"
+          ],
+          "news": "Dravic blames Zarnia, and Zarnian troops cross the border."
+        }
+      },
+      {
+        "when": {
+          "zarnia": "mass_troops"
+        },
+        "effects": {
+          "stats": {
+            "ostrava": {
+              "stability": -5
+            }
+          },
+          "relations": {
+            "ostrava|zarnia": -15
+          },
+          "news": "Zarnia masses troops on the Ostravan border."
+        }
+      },
+      {
+        "when": {
+          "zarnia": "valdoria_backing"
+        },
+        "effects": {
+          "relations": {
+            "valdoria|zarnia": 10
+          }
+        }
+      },
+      {
+        "when": {
+          "ostrava": "valdoria_backing",
+          "zarnia": "valdoria_backing"
+        },
+        "effects": {
+          "relations": {
+            "ostrava|zarnia": -10
+          },
+          "news": "Dravic and Zarnia both claim Valdoria's backing."
+        }
+      },
+      {
+        "when": {
+          "kessaria": "close_strait"
+        },
+        "effects": {
+          "stats": {
+            "kessaria": {
+              "gdp": -5
+            },
+            "ostrava": {
+              "gdp": -5
+            }
+          },
+          "news": "Kessaria closes the strait to Ostravan tankers."
+        }
+      },
+      {
+        "when": {
+          "kessaria": "shelter_refugees"
+        },
+        "effects": {
+          "stats": {
+            "kessaria": {
+              "stability": -3
+            }
+          },
+          "relations": {
+            "kessaria|ostrava": 5
+          }
+        }
+      },
+      {
+        "when": {
+          "nordhaven": "broker_talks"
+        },
+        "effects": {
+          "stats": {
+            "ostrava": {
+              "stability": 4
+            }
+          },
+          "relations": {
+            "nordhaven|ostrava": 8
+          },
+          "news": "Nordhaven hosts talks between Dravic and the colonels."
+        }
+      },
+      {
+        "when": {
+          "nordhaven": "freeze_trade"
+        },
+        "effects": {
+          "stats": {
+            "ostrava": {
+              "gdp": -6
+            },
+            "nordhaven": {
+              "gdp": -2
+            }
+          }
+        }
+      },
+      {
+        "when": {
+          "valdoria": "back_elections"
+        },
+        "effects": {
+          "stats": {
+            "valdoria": {
+              "approval": 3
+            }
+          },
+          "relations": {
+            "ostrava|valdoria": -5
+          }
+        }
+      },
+      {
+        "when": {
+          "valdoria": "recognise_dravic"
+        },
+        "effects": {
+          "stats": {
+            "valdoria": {
+              "approval": -4
+            }
+          },
+          "relations": {
+            "ostrava|valdoria": 10
+          }
+        }
+      }
+    ]
+  },
+  "scripted": [
+    {
+      "tick": 1,
+      "type": "incoming_call",
+      "from": "ostrava",
+      "emotion": "determined",
+      "opening_line": "Colonels are in the streets of my capital. Tell me Valdoria stands with Ostrava, today."
+    },
+    {
+      "tick": 3,
+      "type": "incoming_call",
+      "from": "zarnia",
+      "emotion": "confident",
+      "opening_line": "Dravic is finished. Back the colonels, and Zarnia will remember who chose well.",
+      "announces": "mass_troops"
+    },
+    {
+      "tick": 5,
+      "type": "compare_notes",
+      "between": [
+        "ostrava",
+        "zarnia"
+      ]
+    },
+    {
+      "tick": 6,
+      "type": "forecast",
+      "text": "Rumour: two army divisions are waiting to see which way Valdoria leans."
+    },
+    {
+      "tick": 7,
+      "type": "incoming_call",
+      "from": "nordhaven",
+      "emotion": "calm",
+      "opening_line": "Nordhaven can host talks between Dravic and the colonels. Will Valdoria sit at the table?"
+    }
+  ]
+}
