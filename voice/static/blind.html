@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blind emotion test</title>
+<style>
+  :root { --bg: #14171b; --panel: #1d2127; --text: #ece8e1; --muted: #9aa0a8; --edge: #343b45; --signal: #ff978c; --ok: #67c587; --bad: #e46a63; }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, sans-serif; margin: 0; padding: 24px 16px 48px; }
+  main { max-width: 640px; margin: 0 auto; display: grid; gap: 20px; }
+  h1 { margin: 0; font-size: 24px; }
+  p { margin: 0; }
+  .muted { color: var(--muted); }
+  .line { font-style: italic; border-left: 3px solid var(--signal); padding-left: 12px; }
+  .round { background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; padding: 16px; display: grid; gap: 12px; }
+  .round h2 { margin: 0; font-size: 17px; }
+  .clip { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; }
+  .clip b { font-size: 20px; color: var(--signal); }
+  button, select { font: inherit; color: var(--text); background: #262c34; border: 1px solid var(--edge); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+  button.play { min-width: 92px; }
+  button.primary { background: var(--signal); color: #1a0d10; border-color: var(--signal); font-weight: 700; }
+  .verdict { font-size: 14px; min-height: 1.5em; }
+  .right { color: var(--ok); } .wrong { color: var(--bad); }
+  #score { font-size: 20px; font-weight: 700; }
+  @media (max-width: 420px) { .clip { grid-template-columns: 32px 1fr; } .clip select { grid-column: 1 / -1; } }
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <h1>Blind emotion test</h1>
+    <p class="muted">Each leader says the same line three times, tagged angry, calm or tense, in a random order. Play them and label each one. Best done by a teammate who hasn't heard them.</p>
+  </div>
+  <p class="line" id="line">Loading clips…</p>
+  <div id="rounds"></div>
+  <button class="primary" id="check" disabled>Reveal answers</button>
+  <p id="score" role="status"></p>
+</main>
+<script>
+const EMOTIONS = ['angry', 'calm', 'tense']
+let current = null
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
+
+function play(btn, url) {
+  if (current) { current.audio.pause(); current.btn.textContent = '▶ Play' }
+  const audio = new Audio(url)
+  current = { audio, btn }
+  btn.textContent = '■ Playing'
+  audio.onended = () => { btn.textContent = '▶ Play again' }
+  audio.play()
+}
+
+async function load() {
+  const data = await (await fetch('/dev/blind-set')).json()
+  document.getElementById('line').textContent = `"${data.line}"`
+  const voices = [...new Set(data.clips.map((c) => c.voice))]
+  const rounds = document.getElementById('rounds')
+  rounds.style.display = 'grid'; rounds.style.gap = '16px'
+  const answers = []
+  voices.forEach((voice, r) => {
+    const sec = document.createElement('section')
+    sec.className = 'round'
+    sec.innerHTML = `<h2>Leader ${r + 1}</h2>`
+    shuffle(data.clips.filter((c) => c.voice === voice)).forEach((clip, i) => {
+      const row = document.createElement('div')
+      row.className = 'clip'
+      row.innerHTML = `<b>${'ABC'[i]}</b>
+        <div><button class="play">▶ Play</button> <span class="verdict"></span></div>
+        <select aria-label="Leader ${r + 1} clip ${'ABC'[i]}"><option value="">Label…</option>${EMOTIONS.map((e) => `<option>${e}</option>`).join('')}</select>`
+      row.querySelector('.play').onclick = (e) => play(e.currentTarget, clip.url)
+      const sel = row.querySelector('select')
+      sel.onchange = () => { document.getElementById('check').disabled = answers.some((a) => !a.sel.value) }
+      answers.push({ clip, sel, verdict: row.querySelector('.verdict'), voice, label: `Leader ${r + 1} ${'ABC'[i]}` })
+      sec.appendChild(row)
+    })
+    rounds.appendChild(sec)
+  })
+  document.getElementById('check').onclick = () => {
+    let right = 0
+    for (const a of answers) {
+      const ok = a.sel.value === a.clip.emotion
+      right += ok
+      a.verdict.innerHTML = `<span class="${ok ? 'right' : 'wrong'}">${ok ? '✓' : '✗'} ${a.clip.emotion} · ${a.voice}</span>`
+      a.sel.disabled = true
+    }
+    document.getElementById('check').disabled = true
+    document.getElementById('score').textContent = `${right} of ${answers.length} correct`
+    window.__blindResult = { right, total: answers.length,
+      picks: answers.map((a) => ({ voice: a.voice, truth: a.clip.emotion, picked: a.sel.value })) }
+  }
+}
+load().catch((e) => { document.getElementById('line').textContent = `Could not load clips: ${e}` })
+</script>
+</body>
+</html>
