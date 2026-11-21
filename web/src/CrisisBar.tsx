@@ -11,7 +11,11 @@ export function crisisTime(tick: number, total: number) {
   return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`
 }
 
-export function CrisisBar({ crisis, nations }: { crisis: CrisisState; nations: GameState['nations'] }) {
+export function CrisisBar({ crisis, nations, clockHeld }: {
+  crisis: CrisisState
+  nations: GameState['nations']
+  clockHeld: boolean
+}) {
   const deadlines = Object.entries(crisis.deadlines).sort(([, a], [, b]) => a - b)
   const progress = `${100 * crisis.tick / crisis.ticks_total}%`
   const name = (id: string) => id === 'player' ? 'You' : nations[id]?.name ?? id
@@ -21,7 +25,9 @@ export function CrisisBar({ crisis, nations }: { crisis: CrisisState; nations: G
       <div className="crisis-timeline">
         <div className="crisis-heading">
           <h2 id="crisis-heading">{crisis.id === oneBerth.id ? oneBerth.title : words(crisis.id)}</h2>
-          <span>Tick {crisis.tick} of {crisis.ticks_total}</span>
+          <span aria-live="polite" data-clock-held={clockHeld}>
+            {clockHeld ? 'Clock held: on a call' : `Tick ${crisis.tick} of ${crisis.ticks_total}`}
+          </span>
         </div>
         <div className="deadline-track" aria-hidden="true" style={{ '--elapsed': progress } as CSSProperties}>
           {deadlines.map(([id, tick]) => (
