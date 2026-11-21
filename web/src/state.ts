@@ -32,6 +32,19 @@ export interface CrisisState {
   decisions: Record<string, { action: string; tick: number }>
 }
 
+export interface Futures {
+  before: { war_p: number }
+  after: { war_p: number }
+  caption: string
+}
+
+interface LastCall {
+  call_id: string
+  to: string
+  pending: boolean
+  promises: { to: string; what: string; when: string; condition?: string | null }[]
+}
+
 export interface GameState {
   turn: number
   phase: string
@@ -45,7 +58,8 @@ export interface GameState {
   events: { turn: number; type: string; nation?: string | null; province?: string | null }[]
   incoming_call: { from: string; emotion: string; opening_line: string; audio_url?: string | null } | null
   crisis: CrisisState | null
-  last_futures: unknown
+  last_futures: Futures | null
+  last_call?: LastCall | null
 }
 
 export const exampleState: GameState = fixture

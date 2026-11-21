@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react'
 import { CrisisBar, crisisTime } from './CrisisBar'
 import { Intelligence } from './Intelligence'
 import { Phone } from './Phone'
+import { WarForecast } from './WarForecast'
 import { PoliticalMap } from './PoliticalMap'
 import { relationBetween, statLabels, systemLabels, type GameState, type Nation, type Stats } from './state'
 import { nationStyle, theme } from './theme'
@@ -157,6 +158,7 @@ export function App({ state, controls, online }: { state: GameState; controls: R
           <Dispatches news={news.slice(0, 2)} />
         </div>
         <div className="right-rail">
+          <WarForecast forecast={state.last_futures} />
           {nation && (
             <NationDetail nation={nation} id={selected} relation={relation}
               intel={selected !== seat && <Intelligence key={selected} state={state} id={selected} online={online} />} />
