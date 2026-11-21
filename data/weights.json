@@ -34,7 +34,7 @@
     "protests_below_stability": 40
   },
   "politics": {
-    "election_every_months": 6, "election_min_approval": 45, "session_months": 12,
+    "election_every_months": 12, "election_min_approval": 45, "session_months": 36, "review_every_months": 12,
     "coup_below_stability": 25, "coup_stability_after": 50,
     "titles": {"democracy": "Prime Minister", "junta": "General"},
     "successor_names": ["Iven Holt", "Mara Quell", "Teodor Vask", "Lina Brask", "Oskar Rhee", "Petra Lunn"]
