@@ -11,8 +11,9 @@ Models (DECIDED 12:29 on the board, measured 21 Nov, see agents/A0_RESULTS.md):
   turn reasoning off and takes 26-72 s on a leader prompt, so latency-bound calls are
   hedged: if Large 4 has not answered after HEDGE_AFTER_S, HEDGE model races it and the
   first valid answer wins. STATS["by_model"] shows who answered.
-- FAST (the spoken phone reply): mistral-large-2512 (no reasoning, ~1 s), falling back to
-  mistral-large-4 because 2512 is deprecated. Note: 2512 allows only 30 requests/minute
+- FAST (the spoken phone reply): mistral-large-2512 (no reasoning, ~1 s); mistral-medium-latest
+  races it after 2.5 s or on failure, within one 6 s deadline (Neon's REQUEST: a Large 4
+  fallback hung a call for 32.8 s). Note: 2512 allows only 30 requests/minute
   on this workspace; medium and large-4 allow 2,000.
 All configurable by env, no code changes.
 """
@@ -34,8 +35,11 @@ MODEL = os.environ.get("GAMBIT_LEADER_MODEL", "mistral-large-4")
 # (DECIDED 13:07): one request per decision, and 2512's 30/min stays free for speech.
 DECIDE_MODEL = os.environ.get("GAMBIT_DECIDE_MODEL", "mistral-medium-latest")
 HEDGE_MODEL = os.environ.get("GAMBIT_HEDGE_MODEL", "mistral-medium-latest")
+# decide()'s own backup: a different model, so a slow medium reply is raced without a
+# second request to medium (live: one medium decide hung 7.5 s).
+DECIDE_BACKUP = os.environ.get("GAMBIT_DECIDE_BACKUP", "mistral-small-latest")
 FAST_MODEL = os.environ.get("GAMBIT_FAST_MODEL", os.environ.get("PHONE_FAST_MODEL", "mistral-large-2512"))
-FAST_FALLBACK = os.environ.get("GAMBIT_FAST_FALLBACK", "mistral-large-4")
+FAST_FALLBACK = os.environ.get("GAMBIT_FAST_FALLBACK", "mistral-medium-latest")
 CALL_MODEL = FAST_MODEL  # the one-call call_reply()
 
 T = TypeVar("T", bound=BaseModel)

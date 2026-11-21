@@ -2,6 +2,18 @@ import type { CSSProperties } from 'react'
 
 export const theme = {
   '--sea': '#0d2027',
+  '--sea-shallow': '#1a3a44',
+  '--sea-line': '#2b5260',
+  '--graticule': '#3c6470',
+  '--border-ink': '#081013',
+  '--panel-glass': '#0d1a1fe6',
+  '--mood-hostile': '#ff6b5e',
+  '--mood-wary': '#f0a85a',
+  '--mood-neutral': '#a0b1b1',
+  '--mood-friendly': '#6fe0a4',
+  '--bubble': '#f4ecd6',
+  '--gain': '#6fe0a4',
+  '--loss': '#ff8a7d',
   '--sea-deep': '#09151a',
   '--grid': '#1f3942',
   '--coast': '#839487',

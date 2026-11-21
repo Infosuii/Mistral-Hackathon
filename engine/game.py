@@ -570,4 +570,24 @@ class Game:
         self._needle_task = loop.create_task(run())
 
 
+def public_view(state: State) -> State:
+    """What the player may see (DECIDED 13:17). A mediator sees public positions only, so
+    leaders' beliefs about the player are left out; the engine keeps scoring with them."""
+    if state.seat.role != "mediator":
+        return state
+    s = state.model_copy(deep=True)
+    for n in s.nations.values():
+        n.beliefs = None
+    return s
+
+
+def public_leader(state: State, d: LeaderDetail) -> LeaderDetail:
+    """/leaders/{id} for the player: a mediator gets the public statement and nothing private
+    (no private intent, advice, chosen actions, reason, persona card or strategy)."""
+    if state.seat.role != "mediator":
+        return d
+    return LeaderDetail(public_statement=d.public_statement, private_intent="", advice=[], chosen=[],
+                        reason="", persona="", private_strategy=None)
+
+
 GAME = Game()

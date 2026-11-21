@@ -7,7 +7,7 @@ The five AI leaders. Personalities live in `personas/*.md` and how often each on
 | Function | Input | Output | Notes |
 |---|---|---|---|
 | `decide(view)` | `contracts.LeaderView` | `LeaderOutput` (§4.5) | ~4.5 s; raises `agents.llm.LLMError` within 7.5 s (engine waits 8). The leader picks one of `view.advice` by number, so the action is always one the engine ranked; `followed_advice` is false only when its pick scores below `advice[0]`. A chosen `wait` gives `actions: []` |
-| `speak_fast(view)` | `contracts.CallView` | `{reply_text, emotion}` | ~1.2 s on `mistral-large-2512`, falls back to Large 4. Two sentences max, emotion from the enum, uses `history` |
+| `speak_fast(view)` | `contracts.CallView` | `{reply_text, emotion}` | ~1.2 s on `mistral-large-2512`; `mistral-medium-latest` races it after 2.5 s or on failure, all within 6 s. Two sentences max, emotion from the enum, uses `history` |
 | `interpret(view, reply_text)` | `CallView`, the line spoken | `CallOutput` | Large 4 (medium joins after 12 s), ~8 s, run in the background by `/call`. Promises: only those made to the leader on the line; in a crisis `what` is `berth` or that leader's crisis action and a berth's `when` is `morning`/`afternoon`/`evening`/`all_day`, matching `engine/crisis.py`. Also agreed actions (from `engine.core.advise`), belief deltas: model's read of trust and resolve, plus `resolve +0.10` if interrupted, `−0.15` if hesitation > 2.5 s, `trust −0.05` when a proud leader is interrupted (the engine applies the −5 relations itself). `reply_text` is echoed, `emotion` is a placeholder |
 | `call_reply(view)` | `CallView` | `CallOutput` | both in one fast call, for when the split path is off |
 | `strategize(state, nation)` / `strategize_all(state)` | State | strategy str / `{nation: str}` | DECIDED 13:06/13:07. Large 4 writes each leader's private plan (~20-35 s for all five; medium joins at 30 s, `GAMBIT_STRATEGY_HEDGE_S`); never raises (persona agenda fallback). Call in the background at game start and at crisis start; the engine stores the result per session and passes it back as `LeaderView.private_strategy`. agents keeps no copy. `decide()` follows it only while `GAMBIT_PRIVATE_STRATEGY=1`. For a mediator seat (`nation: null`) all five leaders get one |
@@ -31,9 +31,10 @@ GAMBIT_DECIDE_MODEL=mistral-medium-latest  # decide (default; also the hedge mod
 GAMBIT_PRIVATE_STRATEGY=1                  # decide follows LeaderView.private_strategy (off by default)
 GAMBIT_LEADER_MODEL=mistral-large-4        # interpret, headline, why, historian, wiretap
 GAMBIT_HEDGE_MODEL=mistral-medium-latest   # races Large 4 when it is slow
+GAMBIT_DECIDE_BACKUP=mistral-small-latest  # races decide() on medium after 3.5 s (a different model)
 GAMBIT_HEDGE_AFTER_S=3.5                   # decide's head start (default 2.5 if Large 4)
 GAMBIT_FAST_MODEL=mistral-large-2512       # speak_fast, call_reply
-GAMBIT_FAST_FALLBACK=mistral-large-4
+GAMBIT_FAST_FALLBACK=mistral-medium-latest  # races 2512 after GAMBIT_SPEAK_HEDGE_S=2.5, one 6 s deadline
 GAMBIT_AGENTS_DECIDE_S=7.5   GAMBIT_AGENTS_CALL_S=6   GAMBIT_AGENTS_INTERPRET_S=45
 ```
 
@@ -46,6 +47,7 @@ python -m agents.test_turns      # A1: engine turn loop, seed 7, 20 months with 
 python -m agents.test_phone      # A2: ten lines through speak_fast + interpret
 python -m agents.test_talk       # A3/A4: wiretap, why, historian, headline
 python -m agents.test_strategy   # strategize_all (mediator: all five), flag on/off, reset on same seed, crisis strategy, mediator call
+python -m agents.test_decisive   # One Berth tick 7: no pride-only blockade against a decisive recommendation
 python -m agents.test_promises   # One Berth: promises in engine vocabulary; double promise caught at compare-notes
 python -m agents.a0_test         # A0: 10 sequential, 8 parallel, call latency → A0_RESULTS.md
 python -m agents.probe           # raw decide prompt per model: finish_reason and token usage
