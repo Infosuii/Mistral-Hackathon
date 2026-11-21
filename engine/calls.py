@@ -63,6 +63,10 @@ def apply_call_effects(state: State, to: str, out: CallOutput, interrupted: bool
         new.append(CrisisPromise(id=f"p{base + i + 1}", tick=tick, by="player", to=p.to, what=what,
                                  when=when, condition=p.condition))
     ledger += new
+    if s.crisis and new:
+        from engine.crisis import check_new_promise
+        for to_ in sorted({p.to for p in new}):
+            check_new_promise(s, to_)
     if s.incoming_call and s.incoming_call.from_ == to:
         s.incoming_call = None  # answered
     return s, ([] if s.crisis else new)
