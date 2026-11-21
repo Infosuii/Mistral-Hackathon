@@ -12,16 +12,17 @@ curl -X POST localhost:8000/call -H "Content-Type: application/json" \
 python -m voice.roundtrip voice/v0_out/sample.wav    # make the sample with: python -m voice.v0 sample
 ```
 
-## For Om: mounting in the engine app
+## In the game
 
-```python
-from voice.api import router as voice_router
-app.include_router(voice_router)     # adds /call, /wiretap, /transcribe, /audio/{file}
-```
+`engine/app.py` mounts `voice.api.router` automatically, at the root and under `/api`:
+`uvicorn engine.app:app --reload --port 8000`.
 
-`/call` uses `agents.call_reply` when it exists and a stand-in otherwise. After the reply it calls
-`engine.apply_call(to, call_output)` if the engine defines it (not in the §4 contract yet; see
-the board), so promises and belief updates can reach the state.
+`/call` builds a `CallView` from `GAME.state` plus this call's `history` (kept per nation
+until `ends_call` or 3 idle minutes; seeded with `state.incoming_call.opening_line`). It calls
+`agents.call_reply` when it exists and a stand-in otherwise, validates the result as
+`CallOutput`, then runs `GAME.apply_call(...)` so trust, resolve, promises and the
+interruption penalty land in the state. If the leader call fails, the player hears a short
+"line is breaking up" line instead of silence.
 
 ## Python API (MASTER_PLAN.md §4.1)
 

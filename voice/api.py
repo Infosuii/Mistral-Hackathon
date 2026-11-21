@@ -18,7 +18,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
-from contracts.models import CallOutput, CallRequest
+from contracts.models import CallOutput, CallRequest, CallView
 
 from . import mock_agents
 from .audio import CACHE, EMOTIONS, JOBS, speak, transcribe
@@ -34,41 +34,39 @@ def voice_for(nation: str) -> str:
 
 
 def _agents():
-    """Use Abi's real functions when they exist, else the stand-ins."""
+    """(call_reply, is_real): Abi's function when it exists, else a stand-in."""
     try:
         import agents  # type: ignore
-        call_reply = getattr(agents, "call_reply")
+        return getattr(agents, "call_reply"), True
     except (ImportError, AttributeError):
-        call_reply = (mock_agents.quick_reply if os.environ.get("VOICE_MOCK") == "llm"
-                      else mock_agents.fixed_reply)
-    return call_reply
+        return (mock_agents.quick_reply if os.environ.get("VOICE_MOCK") == "llm"
+                else mock_agents.fixed_reply), False
 
 
 EXAMPLE_STATE = Path(__file__).resolve().parent.parent / "contracts" / "examples" / "state.json"
 
 
-def _engine_hook(name: str):
-    """engine.app.<name> once Om's E2 app provides it, else None."""
+def _game():
+    """Om's live game (engine/game.py), or None when /voice runs on its own."""
     try:
-        import importlib
-        return getattr(importlib.import_module("engine.app"), name, None)
+        from engine.game import GAME  # type: ignore
+        return GAME
     except ImportError:
         return None
 
 
 def _current_state() -> dict:
-    get = _engine_hook("current_state")
-    if get:
-        s = get()
-        return s.model_dump(mode="json", by_alias=True) if hasattr(s, "model_dump") else s
+    game = _game()
+    if game is not None:
+        return game.state.model_dump(mode="json", by_alias=True)
     return json.loads(EXAMPLE_STATE.read_text())
 
 
-def _apply_to_engine(nation: str, out: dict) -> None:
-    """Hand promises, actions and belief updates to the engine once it offers a hook."""
-    apply_call = _engine_hook("apply_call")
-    if apply_call:
-        apply_call(nation, out)
+def _apply_to_engine(req: CallRequest, out: CallOutput) -> None:
+    """Belief updates and promises take effect at once; actions on the next turn."""
+    game = _game()
+    if game is not None:
+        game.apply_call(req.to, out, interrupted=req.interrupted, hesitation_ms=req.hesitation_ms)
 
 
 # One running conversation per nation (CallView.history, decided 12:14). A call ends when
@@ -115,13 +113,17 @@ async def call(req: CallRequest):
             "hesitation_ms": req.hesitation_ms, "state": state,
             "history": list(history) or None}
     try:
-        raw = await _agents()(view)
+        call_reply, real = _agents()
+        raw = await call_reply(CallView.model_validate(view) if real else view)
+        if hasattr(raw, "model_dump"):
+            raw = raw.model_dump(mode="json")
         if raw.get("emotion") not in EMOTIONS:  # an off-list tag is ignored by Voxtral anyway
             raw["emotion"] = "calm"
-        out = CallOutput.model_validate(raw).model_dump(mode="json")
+        result = CallOutput.model_validate(raw)
     except Exception as e:  # never leave the player in silence
         print(f"[voice] call_reply failed, using fallback line: {e}")
-        out = dict(FALLBACK_REPLY)
+        result = CallOutput.model_validate(FALLBACK_REPLY)
+    out = result.model_dump(mode="json")
     t_llm = time.perf_counter()
 
     history += [{"role": "player", "text": transcript}, {"role": "leader", "text": out["reply_text"]}]
@@ -129,7 +131,7 @@ async def call(req: CallRequest):
     if out.get("ends_call"):
         _calls.pop(req.to, None)
 
-    _apply_to_engine(req.to, out)
+    _apply_to_engine(req, result)
     url = await speak(out["reply_text"], voice_id, out["emotion"])
     print(f"[voice] /call {req.to}: stt {t_stt - t0:.2f}s, reply {t_llm - t_stt:.2f}s")
     return {
