@@ -19,6 +19,7 @@ const gameRequests = {
 export function GameSession() {
   const [state, setState] = useState(exampleState)
   const [connection, setConnection] = useState<'connecting' | 'online' | 'offline'>('connecting')
+  const [session, setSession] = useState(0)
   const [paused, setPaused] = useState(true)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
@@ -63,6 +64,7 @@ export function GameSession() {
       const next = await post<GameState>(request.path, request.body)
       setState(next)
       setConnection('online')
+      if (action === 'start') setSession((current) => current + 1)
       if (action !== 'turn') setPaused(false)
     } catch {
       setError(request.error)
@@ -98,5 +100,5 @@ export function GameSession() {
     </div>
   )
 
-  return <App state={state} controls={controls} online={online} />
+  return <App key={session} state={state} controls={controls} online={online} />
 }

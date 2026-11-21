@@ -560,3 +560,41 @@ ol.transcript {
   .phone-heading, #phone-controls { flex: none; }
   .phone-line { max-height: var(--phone-line-height); overflow: auto; }
 }
+
+.forecast {
+  flex: none;
+  padding: var(--space-2) var(--space-3);
+}
+.forecast h2 { font: 600 var(--type-md) var(--display-font); color: var(--accent); }
+.forecast-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+.forecast-dial { width: min(100%, var(--forecast-width)); flex: 0 1 auto; fill: var(--accent); }
+.forecast-arc { fill: none; stroke: url(#forecast-colours); stroke-width: var(--map-coast-halo); opacity: .8; }
+.forecast-marker { stroke: var(--text); stroke-width: var(--map-line); }
+.forecast-needle {
+  stroke: var(--accent);
+  stroke-width: var(--needle-line);
+  stroke-linecap: round;
+  transform-origin: 80px 75px;
+  transform: rotate(var(--needle-after));
+  animation: forecast-sweep .75s ease-out;
+}
+@keyframes forecast-sweep {
+  from { transform: rotate(var(--needle-before)); }
+  to { transform: rotate(var(--needle-after)); }
+}
+.forecast-body dl { display: flex; gap: var(--space-2); text-align: right; }
+.forecast-body dt { color: var(--muted); font-size: var(--type-xs); }
+.forecast-body dd { font: 600 var(--type-lg) var(--display-font); font-variant-numeric: tabular-nums; }
+.forecast-caption { color: var(--muted); font-size: var(--type-sm); margin-top: var(--space-1); }
+.phone-promises { color: var(--signal); font-size: var(--type-sm); margin: var(--space-2) 0 0; padding-left: 0; list-style: none; }
+@media (prefers-reduced-motion: reduce) { .forecast-needle { animation: none; } }
+
+@media (max-width: 48rem) {
+  .forecast { grid-row: 5; }
+  .dispatches { grid-row: 6; }
+}
