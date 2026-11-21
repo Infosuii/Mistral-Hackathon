@@ -289,5 +289,20 @@
       "war_p": 0.61
     },
     "caption": "Two promises of one berth: Ostrava and Zarnia now expect to fight for it."
+  },
+  "last_call": {
+    "call_id": "c7",
+    "to": "ostrava",
+    "pending": false,
+    "promises": [
+      {
+        "to": "ostrava",
+        "what": "berth",
+        "when": "morning",
+        "condition": null
+      }
+    ],
+    "actions": [],
+    "ends_call": false
   }
 }

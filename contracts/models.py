@@ -184,6 +184,21 @@ class FuturesResponse(Model):
     caption: str
 
 
+# --- 4.6 Call, slow half (decided by Tamim 12:29) ----------------------------
+
+
+class CallResult(Model):
+    """What Mistral Large 4 made of a call. Arrives after the spoken reply: /call
+    answers with pending=true, then state.last_call carries this once it is ready."""
+
+    call_id: str
+    to: NationId
+    pending: bool
+    promises: list["CallPromise"] = Field(default_factory=list)
+    actions: list[Action] = Field(default_factory=list)
+    ends_call: bool = False
+
+
 # --- 4.2 State (continued) ---------------------------------------------------
 
 
@@ -201,6 +216,7 @@ class State(Model):
     incoming_call: Optional[IncomingCall] = None
     crisis: Optional[Crisis] = None
     last_futures: Optional[FuturesResponse] = None
+    last_call: Optional[CallResult] = None  # the latest call's promises and actions
 
     @field_validator("relations")
     @classmethod
@@ -329,6 +345,10 @@ class CallResponse(Model):
     emotion: Emotion
     promises: list[CallPromise]
     actions: list[Action]
+    # Split replies (12:29): with pending=true, promises and actions are empty here and
+    # arrive in state.last_call (same call_id) once Large 4 has interpreted the call.
+    call_id: Optional[str] = None
+    pending: bool = False
 
 
 # --- 4.7 The other endpoints -------------------------------------------------
@@ -406,3 +426,7 @@ class CrisisFile(Model):
     actions: dict[NationId, list[str]]
     rules: dict[str, Any] = Field(default_factory=dict)
     scripted: list[ScriptedEvent] = Field(default_factory=list)
+
+
+CallResult.model_rebuild()
+State.model_rebuild()
