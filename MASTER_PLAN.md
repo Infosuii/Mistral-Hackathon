@@ -15,13 +15,14 @@ The build plan for Saturday 21 November. `ideas.md` says what the game is and wh
 7. **Anyone can ask for a change, at any time** (§8b). Changes never wait for a meeting, and they never break `main`.
 8. **Smoke test before every merge.** `scripts/smoke.sh` starts the server on the demo seed and checks `/state`, `/turn` and a typed `/call`. A PR that fails it is not merged.
 9. **Quota rule.** When your main tool runs out, switch to Vibe in the same folder. Vibe takes the tasks tagged `Vibe` below: small and self-contained. Backups are for someone stuck or away.
+10. **Agents run on their own** (§8d). They finish a task, merge it, post `READY`, check the board and start the next one. A human steps in only for decisions.
 
 ## 1b. Lead coordinator: Tamim
 
 Tamim has the most AI usage and the strongest models, so Tamim leads and takes the heaviest load.
 
 - **Decides:** scope, cuts, ownership, and any change to a contract.
-- **Integrates:** reviews and merges every PR, aiming for within ten minutes, and keeps `main` playable.
+- **Integrates:** merges drive-by and contract PRs, aiming for within ten minutes, and keeps `main` playable. PRs that stay inside the author's own folder are merged by the author's agent once its checks pass.
 - **Runs the board:** keeps the opening post current and answers blockers first.
 - **Reassigns:** when someone is blocked, stuck or out of quota, Tamim either takes the task or names who does.
 - **Runs each checkpoint:** two minutes, all four, what works and what is cut.
@@ -241,7 +242,7 @@ Response to the page: `{transcript, reply_text, reply_audio_url, emotion, promis
 | W6 | 15:45 | Needle with animation and caption | Moves from `/futures` | Main |
 | R1 | 16:00 | `/replay` in code from cached decisions, plus the replay panel with a timing slider | Names who flipped | Main |
 | W7 | 16:15 | End screen with the historian's verdict | Shows after a session | Main |
-| C1 | all day | Lead: review and merge PRs, keep the board current, unblock and reassign | No PR waits more than ten minutes | Second session |
+| C1 | all day | Lead: merge drive-by and contract PRs, keep the board current, unblock and reassign | No PR waits more than ten minutes | Second session |
 | C2 | each checkpoint | Run the checkpoint, call cuts, fix the demo seed | Board updated with what was cut | — |
 
 ### Om — engine, contracts, API (`/contracts`, `/engine`)
@@ -324,7 +325,7 @@ Every board comment is one or two lines and starts with one of four words:
 | `DECIDED` | The team or Tamim made a call | `DECIDED Tamim / lead → all: diplomat seat is cut.` |
 
 - No progress chatter. If nobody needs to act on it, do not post it.
-- Agents read the board at task boundaries only: before starting a task and before opening a PR.
+- Agents read the board at task boundaries: before starting a task, before opening a PR and after finishing one. While waiting they run `scripts/wait_for_tag.sh`, which returns the moment they are addressed.
 - Tamim's coordination session checks the board and open PRs about every ten minutes.
 
 ### 8b. Changing things while we build
@@ -333,7 +334,7 @@ Anyone can ask any agent for a change at any time: a different look, a new field
 
 | The change is | What happens | Wait |
 |---|---|---|
-| In your own folder, no contract change | Ask your agent. It does it and ships it through a normal PR | None |
+| In your own folder, no contract change | Ask your agent. It does it, opens a PR and merges it once its checks pass | None |
 | In someone else's folder, small (one or two files, no contract change, not a file the owner lists as in progress) | Your agent makes it on a short branch and opens a PR titled `drive-by: …`. The owner or Tamim merges | Minutes |
 | In someone else's folder, larger | Post a `REQUEST` on the owner's work issue. The owner's agent picks it up between tasks | Until their next task boundary |
 | A contract change (§4) | Propose it on the board. Tamim approves, Om updates the models and examples, then posts `CHANGED` | Minutes |
@@ -372,6 +373,28 @@ Example:
 
 > `DESIGN Ashish / voice → Tamim / lead: the phone should feel like an actual red handset, not a chat window. Reference: screenshot attached. Screen: phone panel.`
 
+### 8d. Autonomy
+
+Each agent runs a loop without being told to carry on:
+
+1. Do the next task and run its "done when" check.
+2. Open a PR. If it only touches the author's own folders and the check passes, the agent merges it and pulls `main`. Drive-by and contract PRs wait for the owner or Tamim.
+3. Post `READY`, naming who can now use it.
+4. Re-read the board and its own issue; handle anything addressed to it.
+5. Start the next task. If a dependency is missing, build against the example or mock.
+6. With nothing left to do, post `BLOCKED` and run the wait script.
+
+```bash
+scripts/wait_for_tag.sh <Name> <your-issue-number> [max-minutes] [path-to-watch]
+# e.g. scripts/wait_for_tag.sh Ashish 29 15 agents/
+```
+
+It returns when a board comment names you (or "all") after the arrow, when someone else comments on your issue, or when the watched path changes on `main`. So **to hand work to someone, name them after the arrow**: their agent is waiting for that line.
+
+Agents stop for a human only for: a contract change, a scope or ownership conflict, a choice between two design directions, anything destructive, or the same failure three times.
+
+What a human still does: paste the kickoff prompt once, set the tool to run commands without asking each time (within the repo), answer those stop questions, and switch to Vibe when quota runs out.
+
 Example:
 
 > Om / engine → Tamim and Ashish. The One Berth call-response fixture is ready in PR #__. It includes an interrupted announcement and the leader's new decision. You can wire the phone UI against it now.
@@ -397,7 +420,7 @@ GAMBIT · submit by 17:45 · plan: MASTER_PLAN.md
 - [ ] Speech to text: file upload (current) or live WebSocket
 - [ ] Workflows wrapper and stats slide: only if time
 
-**Lead:** Tamim decides scope, cuts and contract changes, and merges PRs. Blocked? Tag Tamim.
+**Lead:** Tamim decides scope, cuts and contract changes. Blocked? Post `BLOCKED` and name who you need.
 
 **How to post:** one or two lines, starting `READY`, `CHANGED`, `BLOCKED` or `DECIDED`, then "Name / role → who". Link the issue, PR or example. Change requests go on the owner's work issue as `REQUEST`.
 ```
