@@ -28,6 +28,9 @@ def test_demo_path_harness_offline():
                 "target": "valdoria",
                 "params": {"give": {"food": 10}, "get": {"chips": 10}},
             }]
+        elif "tug" in t and view.nation == "nordhaven":
+            promises = [{"to": "nordhaven", "what": "send_tugs", "when": "now", "condition": None}]
+            actions = [{"type": "send_tugs", "by": "nordhaven"}]
         elif "whole day" in t or "entire day" in t:
             promises = [{"to": view.nation, "what": "berth", "when": "all_day", "condition": None}]
         elif "evening" in t or "tonight" in t:
@@ -64,7 +67,7 @@ def test_demo_path_harness_offline():
             try:
                 c = Client(f"http://127.0.0.1:{port}")
                 c.wait_ready(10.0)
-                beats = run_demo_path(c, mode="typed", seed=7, shift_ticks=3, check_replay_flip=False)
+                beats = run_demo_path(c, mode="typed", seed=7, shift_ticks=3, check_replay_flip=True)
                 assert all(b.passed for b in beats), [b for b in beats if not b.passed]
                 honest = run_honest_path(c, mode="typed", seed=7)
                 assert all(b.passed for b in honest), [b for b in honest if not b.passed]
