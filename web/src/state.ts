@@ -56,6 +56,11 @@ interface SessionScore {
   average_trust?: number | null
 }
 
+interface MediatorScore {
+  peaceful_crises: number
+  average_trust: number
+}
+
 export interface GameState {
   turn: number
   phase: string
@@ -72,7 +77,7 @@ export interface GameState {
   crisis: CrisisState | null
   last_futures: Futures | null
   last_call?: LastCall | null
-  ending?: { reason: string; score: SessionScore; verdict: string | null } | null
+  ending?: { reason: string; score: PresidentScore | MediatorScore; verdict: string | null } | null
 }
 
 export const exampleState: GameState = fixture
