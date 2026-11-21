@@ -9,8 +9,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PORT="${SMOKE_PORT:-8765}"
-PY="${PYTHON:-python}"
-command -v "$PY" >/dev/null 2>&1 || PY=python3
+if [ -n "${PYTHON:-}" ]; then
+  PY="$PYTHON"
+elif [ -x .venv/bin/python ]; then
+  PY=.venv/bin/python
+elif [ -x .venv/Scripts/python.exe ]; then
+  PY=.venv/Scripts/python.exe
+elif command -v python3 >/dev/null 2>&1; then
+  PY=python3
+else
+  PY=python
+fi
 export GAMBIT_AGENTS="${GAMBIT_AGENTS:-stub}"
 
 "$PY" -m contracts.validate >/dev/null || { echo "FAIL contracts: run python -m contracts.validate"; exit 1; }

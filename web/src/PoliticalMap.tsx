@@ -321,6 +321,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
                   data-province={id} data-biome={terrainOf[id]?.id} data-biome-view={shownMode === 'biomes'} data-county={countyOf.get(id)?.name} data-owner={owner} data-home={owner === state.seat.nation} data-selected={Boolean(nation && owner === selected)}
                   data-hover={hover?.id === id}
                   onPointerMove={(event) => hoverProvince(id, event)}
+                  onPointerLeave={() => setHover(null)}
                   onClick={() => nation && onSelect(owner)}>
                   <title>{nation?.name ?? 'Unclaimed'} · {id.toUpperCase()}</title>
                 </path>

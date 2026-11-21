@@ -11,20 +11,49 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import binascii
 import json
 import os
 import time
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.routing import APIRoute
 from fastapi.responses import FileResponse, StreamingResponse
 
 from contracts.models import CallOutput, CallRequest, CallView
 
 from . import mock_agents
-from .audio import EMOTIONS, FALLBACK_LINE, JOBS, VoiceRateLimited, find_audio, speak, transcribe
+from .audio import BadAudio, EMOTIONS, FALLBACK_LINE, JOBS, VoiceRateLimited, find_audio, speak, transcribe
 
-router = APIRouter()
+MAX_AUDIO = 5 * 1024 * 1024
+
+
+class AudioUploadRoute(APIRoute):
+    """Bound uploads as they arrive, including clients using chunked transfer."""
+    def get_route_handler(self):
+        handler = super().get_route_handler()
+        if self.methods != {"POST"}:
+            return handler
+        limit = MAX_AUDIO if self.path.endswith("/transcribe") else 4 * ((MAX_AUDIO + 2) // 3) + 16384
+
+        async def bounded(request: Request):
+            size = 0
+
+            async def receive():
+                nonlocal size
+                message = await request.receive()
+                size += len(message.get("body", b""))
+                if size > limit:
+                    raise HTTPException(413, "Recording is too large.")
+                return message
+
+            return await handler(Request(request.scope, receive))
+
+        return bounded
+
+
+router = APIRouter(route_class=AudioUploadRoute)
 CASTING = json.loads((Path(__file__).parent / "casting.json").read_text())
 
 
@@ -97,10 +126,10 @@ CALL_IDLE_S = 180
 _calls: dict[str, dict] = {}
 
 
-def _history(nation: str, state: dict) -> list[dict]:
+def _history(nation: str, state: dict, epoch: int | None) -> list[dict]:
     call = _calls.get(nation)
-    if call is None or time.time() - call["at"] > CALL_IDLE_S:
-        call = _calls[nation] = {"at": time.time(), "turns": []}
+    if call is None or call["epoch"] != epoch or time.time() - call["at"] > CALL_IDLE_S:
+        call = _calls[nation] = {"at": time.time(), "turns": [], "epoch": epoch}
         ring = state.get("incoming_call") or {}
         if ring.get("from") == nation and ring.get("opening_line"):
             call["turns"].append({"role": "leader", "text": ring["opening_line"]})
@@ -120,6 +149,14 @@ FALLBACK_REPLY = {
 @router.post("/call")
 async def call(req: CallRequest):
     voice_id = voice_for(req.to)
+    game = _game()
+    generation = game.call_generation if game else None
+
+    def check_session():
+        if game and (game.call_generation != generation or game.state.phase == "ended"):
+            raise HTTPException(409, "The game or crisis changed during this call.")
+
+    check_session()
     t0 = time.perf_counter()
     if req.interrupted:  # takes effect now, not when the reply has been worked out
         interrupt = getattr(_game(), "interrupt", None)
@@ -127,20 +164,23 @@ async def call(req: CallRequest):
             interrupt(req.to)
     if req.text is not None:
         transcript = req.text.strip()
+        if not transcript:
+            raise HTTPException(422, "Type a line to the leader.")
     elif req.audio:
         try:
-            transcript = await transcribe(base64.b64decode(req.audio))
-        except VoiceRateLimited as e:
-            raise HTTPException(429, "Microphone transcription is busy. Type a message below.",
-                                headers={"Retry-After": str(e.retry_after)}) from e
-        except Exception as e:
-            raise HTTPException(502, f"transcription failed: {e}")
+            clip = base64.b64decode(req.audio, validate=True)
+        except (binascii.Error, ValueError) as e:
+            raise HTTPException(422, "Invalid base64 audio.") from e
+        if len(clip) > MAX_AUDIO:
+            raise HTTPException(413, "Recording is too large.")
+        transcript = await _transcript(clip)
     else:
         raise HTTPException(422, "send audio or text")
     t_stt = time.perf_counter()
 
+    check_session()
     state = _current_state()
-    history = _history(req.to, state)
+    history = _history(req.to, state, game.epoch if game else None)
     view = {"nation": req.to, "transcript": transcript, "interrupted": req.interrupted,
             "hesitation_ms": req.hesitation_ms, "state": state,
             "history": list(history) or None}
@@ -157,6 +197,7 @@ async def call(req: CallRequest):
         print(f"[voice] leader reply failed, using fallback line: {e}")
         raw = dict(FALLBACK_REPLY)  # the player still said it: interpret below records their promises
         failed = True
+    check_session()
     t_llm = time.perf_counter()
 
     # A live server with no key cannot reach any leader. Say so in plain words instead of
@@ -170,10 +211,11 @@ async def call(req: CallRequest):
 
     # Speech first: the TTS request goes out before anything else happens.
     url = await speak(raw["reply_text"], voice_id, raw["emotion"])
+    check_session()
     history += [{"role": "player", "text": transcript}, {"role": "leader", "text": raw["reply_text"]}]
     # The previous turn's interpret() may have ended this call meanwhile (ends_call pops
     # it), so put the conversation back instead of assuming it is still there.
-    _calls.setdefault(req.to, {"at": 0.0, "turns": history})["at"] = time.time()
+    _calls.setdefault(req.to, {"at": 0.0, "turns": history, "epoch": game.epoch if game else None})["at"] = time.time()
 
     response = {
         "transcript": transcript,
@@ -183,13 +225,14 @@ async def call(req: CallRequest):
         "promises": [],
         "actions": [],
     }
+    call_id = _begin_call(req.to)
+    _calls[req.to]["latest_id"] = call_id
     if interp is None:  # one call did everything: apply it now
         result = _to_output(raw)
-        _apply(req, result)
+        _apply(req, result, call_id)
         done = result.model_dump(mode="json")
         response["promises"], response["actions"] = done["promises"], done["actions"]
     else:  # Large 4 works out what was agreed; the page sees it in state.last_call
-        call_id = _begin_call(req.to)
         if call_id:
             response.update(call_id=call_id, pending=True)
         task = asyncio.create_task(_interpret(req, arg, raw, interp, call_id))
@@ -212,7 +255,10 @@ def _to_output(raw: dict) -> CallOutput:
 
 
 def _apply(req: CallRequest, result: CallOutput, call_id: str | None = None) -> None:
-    if result.ends_call:
+    game = _game()
+    if game and (game.state.phase == "ended" or (call_id and call_id not in game.call_results)):
+        return
+    if result.ends_call and _calls.get(req.to, {}).get("latest_id") == call_id:
         _calls.pop(req.to, None)
     _apply_to_engine(req, result, call_id)
 
@@ -248,6 +294,12 @@ async def wiretap(a: str, b: str):
     if seat is not None and seat.role == "mediator":
         raise HTTPException(403, "a mediator has no wiretap: public positions only")
     lines = demo_wiretap(a, b) if os.environ.get("VOICE_WIRETAP") == "demo" else None
+    if not lines and os.environ.get("VOICE_WIRETAP") == "demo":
+        voice_for(a)
+        voice_for(b)
+        statements = _current_state()["nations"]
+        return {"lines": [{"speaker": n, "text": statements[n]["public_statement"], "audio_url": None}
+                          for n in (a, b)]}
     if not lines:
         try:
             import agents  # type: ignore
@@ -261,6 +313,21 @@ async def wiretap(a: str, b: str):
     return {"lines": out}
 
 
+async def _transcript(body: bytes, mime: str | None = None) -> str:
+    try:
+        text = await transcribe(body, mime) if mime else await transcribe(body)
+    except VoiceRateLimited as e:
+        raise HTTPException(429, "Microphone transcription is busy. Type a message below.",
+                            headers={"Retry-After": str(e.retry_after)}) from e
+    except BadAudio as e:
+        raise HTTPException(e.status, str(e)) from e
+    except Exception as e:
+        raise HTTPException(502, "Transcription service unavailable.") from e
+    if not text.strip():
+        raise HTTPException(422, "No speech detected. Try again or type your line.")
+    return text
+
+
 @router.post("/transcribe")
 async def transcribe_raw(request: Request):
     """Raw audio body in, {"text"} out. Used by the talk button's live transcript and V0."""
@@ -268,10 +335,7 @@ async def transcribe_raw(request: Request):
     if not body:
         raise HTTPException(422, "empty body")
     t0 = time.perf_counter()
-    try:
-        text = await transcribe(body, request.headers.get("content-type"))
-    except Exception as e:
-        raise HTTPException(502, str(e))
+    text = await _transcript(body, request.headers.get("content-type"))
     return {"text": text, "seconds": round(time.perf_counter() - t0, 2), "bytes": len(body)}
 
 
@@ -294,6 +358,11 @@ async def audio(name: str):
     job = JOBS.get(name)
     if job is None:
         raise HTTPException(404, "unknown audio")
+
+    async with job.cond:
+        await job.cond.wait_for(lambda: job.chunks or job.done)
+        if not job.chunks:
+            raise HTTPException(503, "Speech audio is unavailable.")
 
     async def chunks():
         i = 0

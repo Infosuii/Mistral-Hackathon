@@ -70,8 +70,12 @@ pick_python() {
   if [ -n "${PYTHON:-}" ] && command -v "$PYTHON" >/dev/null 2>&1; then
     echo "$PYTHON"; return
   fi
-  if [ -x "$ROOT/.venv/bin/python" ]; then
-    echo "$ROOT/.venv/bin/python"; return
+  local venv_python="$ROOT/.venv/bin/python"
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) venv_python="$ROOT/.venv/Scripts/python.exe" ;;
+  esac
+  if [ -x "$venv_python" ]; then
+    echo "$venv_python"; return
   fi
   for cand in python3.12 python3 python; do
     if command -v "$cand" >/dev/null 2>&1; then
@@ -88,13 +92,13 @@ pick_python() {
   echo "[demo] Bootstrapping .venv and installing requirements.txt..." >&2
   if command -v uv >/dev/null 2>&1; then
     uv venv "$ROOT/.venv" >&2
-    uv pip install --python "$ROOT/.venv/bin/python" -r "$ROOT/requirements.txt" >&2
+    uv pip install --python "$venv_python" -r "$ROOT/requirements.txt" >&2
   else
     base_py="$(command -v python3.12 || command -v python3 || command -v python)"
     "$base_py" -m venv "$ROOT/.venv" >&2
-    "$ROOT/.venv/bin/pip" install -q -r "$ROOT/requirements.txt" >&2
+    "$venv_python" -m pip install -q -r "$ROOT/requirements.txt" >&2
   fi
-  echo "$ROOT/.venv/bin/python"
+  echo "$venv_python"
 }
 
 PY="$(pick_python)"
@@ -125,12 +129,17 @@ cleanup() {
   [ -n "$WEB_PID" ] && kill "$WEB_PID" 2>/dev/null || true
   [ -n "$BACKEND_PID" ] && kill "$BACKEND_PID" 2>/dev/null || true
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-# Stage feature flags (DECIDED 14:57): Orders player actions and crisis picker on by default;
-# mediator seat stays opt-in (GAMBIT_MEDIATOR=1).
+# Stage feature flags & needle budget (DECIDED 14:57, 15:25, 15:41):
+# Orders player actions, crisis picker, mediator seat, and 120 rollouts on by default
+# (override with e.g. GAMBIT_ROLLOUTS=80 on a slower laptop).
 export GAMBIT_PLAYER_ACTIONS="${GAMBIT_PLAYER_ACTIONS:-1}"
 export GAMBIT_EXTRA_CRISES="${GAMBIT_EXTRA_CRISES:-1}"
+export GAMBIT_MEDIATOR="${GAMBIT_MEDIATOR:-1}"
+export GAMBIT_ROLLOUTS="${GAMBIT_ROLLOUTS:-120}"
 
 if [ "$OFFLINE" -eq 1 ]; then
   export GAMBIT_AGENTS=stub
@@ -138,15 +147,15 @@ if [ "$OFFLINE" -eq 1 ]; then
   export VOICE_MOCK=fixed
   unset MISTRAL_API_KEY || true
   APP_TARGET="e2e.offline_app:app"
-  MODE_LABEL="OFFLINE (cached replies, stub turns, pre-rendered audio, actions=${GAMBIT_PLAYER_ACTIONS}, extra_crises=${GAMBIT_EXTRA_CRISES})"
+  MODE_LABEL="OFFLINE (cached replies, stub turns, pre-rendered audio, actions=${GAMBIT_PLAYER_ACTIONS}, extra_crises=${GAMBIT_EXTRA_CRISES}, mediator=${GAMBIT_MEDIATOR}, rollouts=${GAMBIT_ROLLOUTS})"
 else
-  # Demo settings (DECIDED 13:07, 13:48, 14:57): Medium for turns so 2512's 30 RPM stays for voice;
+  # Demo settings (DECIDED 13:07, 13:48, 14:57, 15:25, 15:41): Medium for turns so 2512's 30 RPM stays for voice;
   # Large 4 for private strategy, call interpretation, wiretap, replay why, and historian.
   export GAMBIT_DECIDE_MODEL="${GAMBIT_DECIDE_MODEL:-mistral-medium-latest}"
   export GAMBIT_PRIVATE_STRATEGY="${GAMBIT_PRIVATE_STRATEGY:-1}"
   export VOICE_WIRETAP="${VOICE_WIRETAP:-demo}"
   APP_TARGET="engine.app:app"
-  MODE_LABEL="LIVE (decide=${GAMBIT_DECIDE_MODEL}, private_strategy=${GAMBIT_PRIVATE_STRATEGY}, actions=${GAMBIT_PLAYER_ACTIONS}, extra_crises=${GAMBIT_EXTRA_CRISES}, wiretap=${VOICE_WIRETAP})"
+  MODE_LABEL="LIVE (decide=${GAMBIT_DECIDE_MODEL}, private_strategy=${GAMBIT_PRIVATE_STRATEGY}, actions=${GAMBIT_PLAYER_ACTIONS}, extra_crises=${GAMBIT_EXTRA_CRISES}, mediator=${GAMBIT_MEDIATOR}, rollouts=${GAMBIT_ROLLOUTS}, wiretap=${VOICE_WIRETAP})"
 fi
 
 echo "[demo] Starting backend ($APP_TARGET) on http://127.0.0.1:${BACKEND_PORT} ..."
@@ -181,7 +190,7 @@ if [ "$BACKEND_ONLY" -eq 0 ]; then
   export BACKEND_PORT
   export GAMBIT_BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}"
   echo "[demo] Starting web app on http://localhost:${WEB_PORT} (proxy /api -> ${GAMBIT_BACKEND_URL}) ..."
-  (cd "$ROOT/web" && npm run dev -- --host 127.0.0.1 --port "$WEB_PORT" --strictPort) >/tmp/gambit_web_${WEB_PORT}.log 2>&1 &
+  (cd "$ROOT/web" && exec node node_modules/vite/bin/vite.js --host 127.0.0.1 --port "$WEB_PORT" --strictPort) >/tmp/gambit_web_${WEB_PORT}.log 2>&1 &
   WEB_PID=$!
   for _ in $(seq 1 60); do
     if ! kill -0 "$WEB_PID" 2>/dev/null; then

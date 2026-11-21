@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import importlib
 import logging
+import sys
+from contextlib import asynccontextmanager
 from uuid import UUID
 
 from fastapi import APIRouter, FastAPI, HTTPException
@@ -20,12 +22,12 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
 from contracts.models import (
-    Action, BuildRequest, Event, PlayerActions, NATION_IDS, CrisisStartRequest, FuturesRequest, FuturesResponse, LeaderDetail, StartRequest, State,
+    Action, BuildRequest, CallResult, Event, PlayerActions, NATION_IDS, CrisisStartRequest, FuturesRequest, FuturesResponse, LeaderDetail, StartRequest, State,
 )
 from engine import saves
 from engine.core import queue_project
 from engine.futures import futures
-from engine.snapshots import load
+from engine.snapshots import clear_snapshots, load
 from engine.game import GAME, allowed_crises, public_leader, public_view
 import engine.game as _game_mod
 
@@ -39,7 +41,9 @@ router = APIRouter()
 async def start(req: StartRequest) -> State:
     async with GAME.lock:
         try:
-            return public_view(GAME.reset(req.seed, req.seat))
+            state = GAME.reset(req.seed, req.seat)
+            clear_snapshots()
+            return public_view(state)
         except ValueError as e:  # a seat that is not enabled (GAMBIT_MEDIATOR)
             raise HTTPException(400, str(e))
 
@@ -164,9 +168,25 @@ async def post_futures(req: FuturesRequest) -> FuturesResponse:
     except KeyError as e:
         raise HTTPException(404, str(e))
     epoch = GAME.epoch
+    GAME.needle_seq += 1
+    seq = GAME.needle_seq
     result = await asyncio.to_thread(futures, before, GAME.state, list(GAME.queued))
-    if GAME.epoch == epoch:
+    if epoch != GAME.epoch:
+        raise HTTPException(409, "The game restarted during the forecast.")
+    result = result.model_copy(update={"caption": (
+        f"Six-month war odds from the saved snapshot to now: "
+        f"{result.before.war_p:.0%} → {result.after.war_p:.0%}."
+    )})
+    if seq == GAME.needle_seq:
         GAME.state = GAME.state.model_copy(update={"last_futures": result})
+    return result
+
+
+@router.get("/calls/{call_id}", response_model=CallResult)
+async def call_result(call_id: str) -> CallResult:
+    result = GAME.call_results.get(call_id)
+    if result is None:
+        raise HTTPException(404, "No such call in the current session.")
     return result
 
 
@@ -177,7 +197,17 @@ async def leader(nation: str) -> LeaderDetail:
     return public_leader(GAME.state, GAME.leader(nation))
 
 
-app = FastAPI(title="GAMBIT")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        yield
+    finally:
+        agents_client = sys.modules.get("agents.llm")
+        if agents_client is not None:
+            await agents_client.close_client()
+
+
+app = FastAPI(title="GAMBIT", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 routers = [router]
