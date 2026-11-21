@@ -96,7 +96,7 @@ export function election(state: GameState): Election | null {
     score.gdp_change >= 5 && `Economy up ${Math.round(score.gdp_change)} points`,
     score.promises_kept > 0 && score.promises_broken === 0 && 'Kept every promise made on the phone',
     score.stability_change >= 5 && 'Left the country steadier than you found it',
-    months >= 12 && 'Served the full year in office',
+    months >= 36 && 'Served the full three-year term',
   ].filter(Boolean) as string[]
   return {
     body: system.body, counting: system.counting, unit: system.unit,
