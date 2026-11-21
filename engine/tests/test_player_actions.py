@@ -25,7 +25,7 @@ def c(monkeypatch):
 def test_off_by_default():
     GAME._decide_fn = None
     client = TestClient(app)
-    assert client.get("/actions").status_code == 404
+    assert client.get("/actions").json() == {"actions": [], "queued": None}  # no console 404s
     assert client.post("/action", json={"type": "set_tariff", "by": "valdoria", "target": "ostrava",
                                         "params": {"pct": 10}}).status_code == 404
 
