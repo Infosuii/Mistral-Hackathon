@@ -1,0 +1,459 @@
+{
+  "nations": {
+    "kessaria": {
+      "name": "Kessaria",
+      "system": "monarchy",
+      "leader": "Queen Isolde of Kessar",
+      "voice_id": "voice_590",
+      "stats": {
+        "gdp": 40,
+        "oil": 20,
+        "food": 45,
+        "chips": 15,
+        "army": 35,
+        "stability": 72,
+        "approval": 61
+      },
+      "beliefs": {
+        "trust_in_player": 0.5,
+        "resolve_of_player": 0.5
+      },
+      "public_statement": "The strait is open to all who pay the toll."
+    },
+    "nordhaven": {
+      "name": "Nordhaven",
+      "system": "technocracy",
+      "leader": "Chancellor Aino Lindqvist",
+      "voice_id": "voice_3149",
+      "stats": {
+        "gdp": 85,
+        "oil": 15,
+        "food": 40,
+        "chips": 90,
+        "army": 25,
+        "stability": 80,
+        "approval": 58
+      },
+      "beliefs": {
+        "trust_in_player": 0.7,
+        "resolve_of_player": 0.4
+      },
+      "public_statement": "Stability is the precondition of growth."
+    },
+    "ostrava": {
+      "name": "Ostrava",
+      "system": "junta",
+      "leader": "General Marek Dravic",
+      "voice_id": "voice_3147",
+      "stats": {
+        "gdp": 62,
+        "oil": 80,
+        "food": 25,
+        "chips": 10,
+        "army": 85,
+        "stability": 41,
+        "approval": 50
+      },
+      "beliefs": {
+        "trust_in_player": 0.6,
+        "resolve_of_player": 0.5
+      },
+      "public_statement": "We seek only fair trade."
+    },
+    "valdoria": {
+      "name": "Valdoria",
+      "system": "democracy",
+      "leader": "Prime Minister Elena Varga",
+      "voice_id": "voice_1787",
+      "stats": {
+        "gdp": 78,
+        "oil": 30,
+        "food": 90,
+        "chips": 35,
+        "army": 30,
+        "stability": 68,
+        "approval": 52
+      },
+      "beliefs": {
+        "trust_in_player": 0.5,
+        "resolve_of_player": 0.5
+      },
+      "public_statement": "Valdoria will feed its friends."
+    },
+    "zarnia": {
+      "name": "Zarnia",
+      "system": "one_party",
+      "leader": "Chairman Tomas Oryn",
+      "voice_id": "voice_591",
+      "stats": {
+        "gdp": 35,
+        "oil": 40,
+        "food": 15,
+        "chips": 20,
+        "army": 90,
+        "stability": 33,
+        "approval": 45
+      },
+      "beliefs": {
+        "trust_in_player": 0.3,
+        "resolve_of_player": 0.6
+      },
+      "public_statement": "The people's bread will not be held hostage."
+    }
+  },
+  "relations": {
+    "kessaria|nordhaven": 10,
+    "kessaria|ostrava": 5,
+    "kessaria|valdoria": 15,
+    "kessaria|zarnia": 0,
+    "nordhaven|ostrava": -10,
+    "nordhaven|valdoria": 40,
+    "nordhaven|zarnia": -30,
+    "ostrava|valdoria": -20,
+    "ostrava|zarnia": -45,
+    "valdoria|zarnia": -15
+  },
+  "links": [
+    {
+      "type": "trade",
+      "a": "nordhaven",
+      "b": "valdoria"
+    },
+    {
+      "type": "alliance",
+      "a": "nordhaven",
+      "b": "valdoria"
+    },
+    {
+      "type": "trade",
+      "a": "kessaria",
+      "b": "ostrava"
+    }
+  ],
+  "provinces": {
+    "p01": "valdoria",
+    "p02": "valdoria",
+    "p03": "valdoria",
+    "p04": "valdoria",
+    "p05": "valdoria",
+    "p06": "valdoria",
+    "p07": "valdoria",
+    "p08": "valdoria",
+    "p09": "ostrava",
+    "p10": "ostrava",
+    "p11": "ostrava",
+    "p12": "ostrava",
+    "p13": "ostrava",
+    "p14": "ostrava",
+    "p15": "ostrava",
+    "p16": "ostrava",
+    "p17": "ostrava",
+    "p18": "zarnia",
+    "p19": "zarnia",
+    "p20": "zarnia",
+    "p21": "zarnia",
+    "p22": "zarnia",
+    "p23": "zarnia",
+    "p24": "zarnia",
+    "p25": "zarnia",
+    "p26": "zarnia",
+    "p27": "zarnia",
+    "p28": "kessaria",
+    "p29": "kessaria",
+    "p30": "kessaria",
+    "p31": "kessaria",
+    "p32": "kessaria",
+    "p33": "nordhaven",
+    "p34": "nordhaven",
+    "p35": "nordhaven",
+    "p36": "nordhaven",
+    "p37": "nordhaven",
+    "p38": "nordhaven",
+    "p39": "nordhaven",
+    "p40": "nordhaven"
+  },
+  "neighbours": {
+    "p01": [
+      "p02",
+      "p03",
+      "p04",
+      "p05",
+      "p06",
+      "p07",
+      "p08",
+      "p37"
+    ],
+    "p02": [
+      "p01",
+      "p03",
+      "p08",
+      "p34"
+    ],
+    "p03": [
+      "p01",
+      "p02",
+      "p04"
+    ],
+    "p04": [
+      "p01",
+      "p03",
+      "p05",
+      "p30"
+    ],
+    "p05": [
+      "p01",
+      "p04",
+      "p06",
+      "p29",
+      "p30"
+    ],
+    "p06": [
+      "p01",
+      "p05",
+      "p07",
+      "p29",
+      "p32",
+      "p38"
+    ],
+    "p07": [
+      "p01",
+      "p06",
+      "p37",
+      "p38"
+    ],
+    "p08": [
+      "p01",
+      "p02",
+      "p34",
+      "p35",
+      "p37"
+    ],
+    "p09": [
+      "p10",
+      "p11",
+      "p13",
+      "p14",
+      "p15",
+      "p16"
+    ],
+    "p10": [
+      "p09",
+      "p11",
+      "p16"
+    ],
+    "p11": [
+      "p09",
+      "p10",
+      "p12",
+      "p13"
+    ],
+    "p12": [
+      "p11",
+      "p13",
+      "p21",
+      "p22"
+    ],
+    "p13": [
+      "p09",
+      "p11",
+      "p12",
+      "p14",
+      "p19",
+      "p21"
+    ],
+    "p14": [
+      "p09",
+      "p13",
+      "p15",
+      "p19",
+      "p26"
+    ],
+    "p15": [
+      "p09",
+      "p14",
+      "p16",
+      "p17",
+      "p24",
+      "p25",
+      "p26"
+    ],
+    "p16": [
+      "p09",
+      "p10",
+      "p15",
+      "p17"
+    ],
+    "p17": [
+      "p15",
+      "p16",
+      "p24",
+      "p40"
+    ],
+    "p18": [
+      "p19",
+      "p20",
+      "p21",
+      "p22",
+      "p23"
+    ],
+    "p19": [
+      "p13",
+      "p14",
+      "p18",
+      "p20",
+      "p21",
+      "p26",
+      "p27"
+    ],
+    "p20": [
+      "p18",
+      "p19",
+      "p23",
+      "p27",
+      "p28"
+    ],
+    "p21": [
+      "p12",
+      "p13",
+      "p18",
+      "p19",
+      "p22"
+    ],
+    "p22": [
+      "p12",
+      "p18",
+      "p21",
+      "p23"
+    ],
+    "p23": [
+      "p18",
+      "p20",
+      "p22",
+      "p28",
+      "p31"
+    ],
+    "p24": [
+      "p15",
+      "p17",
+      "p25",
+      "p39",
+      "p40"
+    ],
+    "p25": [
+      "p15",
+      "p24",
+      "p26",
+      "p32",
+      "p38",
+      "p39"
+    ],
+    "p26": [
+      "p14",
+      "p15",
+      "p19",
+      "p25",
+      "p27",
+      "p28",
+      "p32"
+    ],
+    "p27": [
+      "p19",
+      "p20",
+      "p26",
+      "p28"
+    ],
+    "p28": [
+      "p20",
+      "p23",
+      "p26",
+      "p27",
+      "p30",
+      "p31",
+      "p32"
+    ],
+    "p29": [
+      "p05",
+      "p06",
+      "p30",
+      "p32"
+    ],
+    "p30": [
+      "p04",
+      "p05",
+      "p28",
+      "p29",
+      "p31",
+      "p32"
+    ],
+    "p31": [
+      "p23",
+      "p28",
+      "p30"
+    ],
+    "p32": [
+      "p06",
+      "p25",
+      "p26",
+      "p28",
+      "p29",
+      "p30",
+      "p38"
+    ],
+    "p33": [
+      "p36",
+      "p37",
+      "p38",
+      "p39",
+      "p40"
+    ],
+    "p34": [
+      "p02",
+      "p08",
+      "p35",
+      "p36"
+    ],
+    "p35": [
+      "p08",
+      "p34",
+      "p36",
+      "p37"
+    ],
+    "p36": [
+      "p33",
+      "p34",
+      "p35",
+      "p37"
+    ],
+    "p37": [
+      "p01",
+      "p07",
+      "p08",
+      "p33",
+      "p35",
+      "p36",
+      "p38"
+    ],
+    "p38": [
+      "p06",
+      "p07",
+      "p25",
+      "p32",
+      "p33",
+      "p37",
+      "p39"
+    ],
+    "p39": [
+      "p24",
+      "p25",
+      "p33",
+      "p38",
+      "p40"
+    ],
+    "p40": [
+      "p17",
+      "p24",
+      "p33",
+      "p39"
+    ]
+  }
+}
