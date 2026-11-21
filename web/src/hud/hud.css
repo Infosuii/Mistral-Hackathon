@@ -120,7 +120,7 @@
 /* --- province hover card --- */
 .province-card {
   position: absolute; z-index: 3; pointer-events: none;
-  width: 15rem;
+  width: 18rem; max-width: calc(100% - 8px); overflow: hidden;
   background: var(--panel-glass); backdrop-filter: blur(8px);
   border: 1px solid var(--border); border-top: 3px solid var(--nation-accent);
   box-shadow: 0 12px 30px #000c;
@@ -130,7 +130,11 @@
 .province-card header img { width: 2rem; border: 1px solid #0006; }
 .province-card header strong { display: block; font: 700 var(--type-md) / 1.1 var(--display-font); color: var(--nation-accent); letter-spacing: .05em; text-transform: uppercase; }
 .province-card header span { color: var(--muted); font-size: var(--type-xs); }
-.province-card dl { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-1); padding: 0 var(--space-3) var(--space-2); }
+.province-card dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2) var(--space-2); padding: 0 var(--space-3) var(--space-2); }
+.province-card dl > div { min-width: 0; }
+.province-card dt, .province-card dd { overflow-wrap: anywhere; line-height: 1.15; }
+.province-card header > div { min-width: 0; }
+.province-card header span { display: block; }
 .province-card dt { color: var(--muted); font-size: .65rem; text-transform: uppercase; letter-spacing: .06em; }
 .province-card dd { font: 600 var(--type-md) var(--display-font); }
 .province-card dd[data-sign='1'] { color: var(--gain); }
