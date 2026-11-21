@@ -1,0 +1,18 @@
+{
+  "_note": "Wiretap scripts for the demo seed, pre-rendered by `python -m voice.prerender`. /wiretap uses these when /agents has no wiretap(); key is 'a|b' in either order.",
+  "wiretap": {
+    "ostrava|zarnia": [
+      {"speaker": "ostrava", "text": "Valdoria promised me the berth for the whole day. What did they promise you?", "emotion": "skeptical"},
+      {"speaker": "zarnia", "text": "The same berth, General. They are selling it twice.", "emotion": "sarcastic"},
+      {"speaker": "ostrava", "text": "Then the strait closes at dusk, and they can explain that to their voters.", "emotion": "angry"}
+    ],
+    "kessaria|ostrava": [
+      {"speaker": "kessaria", "text": "The port is mine to assign, General, not Valdoria's to promise.", "emotion": "assertive"},
+      {"speaker": "ostrava", "text": "Then assign it to the nation with three days of bread left.", "emotion": "urgent"}
+    ],
+    "kessaria|nordhaven": [
+      {"speaker": "nordhaven", "text": "My tugs could open a second berth by nightfall, if anyone asked nicely.", "emotion": "confident"},
+      {"speaker": "kessaria", "text": "Then I am asking. Nicely, for now.", "emotion": "tense"}
+    ]
+  }
+}
