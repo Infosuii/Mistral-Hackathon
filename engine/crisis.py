@@ -196,7 +196,9 @@ def contradiction_found(s: State) -> bool:
 
 def scripted_now(s: State) -> list:
     """This tick's scripted events. An event with "only_if": "contradiction" (or
-    "no_contradiction") happens only when compare-notes did (or did not) catch the player."""
+    "no_contradiction") happens only when compare-notes did (or did not) catch the player.
+    A scripted incoming call from a leader who has already decided is skipped: someone who
+    has agreed to dock does not ring to threaten a blockade (Reviewer, #27 14:04)."""
     out = []
     for e in crisis_file(s.crisis.id).scripted:
         if e.tick != s.crisis.tick:
@@ -205,6 +207,8 @@ def scripted_now(s: State) -> list:
         if cond == "contradiction" and not contradiction_found(s):
             continue
         if cond == "no_contradiction" and contradiction_found(s):
+            continue
+        if e.type == "incoming_call" and e.from_ in s.crisis.decisions:
             continue
         out.append(e)
     return out
