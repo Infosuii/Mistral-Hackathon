@@ -242,7 +242,9 @@ def _resolve(s: State) -> None:
 
     docked = ", ".join(f"{s.nations[n].name} ({h.replace('_', ' ')})" for n, h in holders.items()) or "nobody"
     _say(s, f"{crisis_file(c.id).title} is over. Docked: {docked}." + (" Ostrava and Zarnia are at war." if war else ""),
-         "crisis_resolved", None, crisis=c.id, decisions=dec, holders=holders, war=war)
+         "crisis_resolved", None, crisis=c.id, decisions=dec, holders=holders, war=war,
+         promises_kept=sum(1 for p in c.promises if p.by == "player" and p.kept is True),
+         promises_broken=sum(1 for p in c.promises if p.by == "player" and p.kept is False))
     for n in NATION_IDS:
         st = s.nations[n].stats
         st.territory = sum(1 for o in s.provinces.values() if o == n)

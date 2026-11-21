@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
 from contracts.models import (
-    NATION_IDS, Action, Advice, CallOutput, CallResult, CrisisPromise, LeaderDetail, LeaderOutput,
+    NATION_IDS, Action, Advice, CallOutput, CallResult, Ending, CrisisPromise, LeaderDetail, LeaderOutput,
     LeaderView, ReceivedMessage, Seat, State,
 )
 from engine.core import advise, is_legal, new_game, relation_key, step, weights
@@ -27,12 +27,37 @@ from engine.crisis import crisis_file, rerun_crisis, start_crisis
 from engine.snapshots import snapshot
 from engine.calls import apply_call_effects
 from engine.futures import futures
+from engine.ending import plain_verdict, score
 
 log = logging.getLogger("gambit.engine")
 ROOT = Path(__file__).resolve().parent.parent
 DECIDE_TIMEOUT_S = float(os.environ.get("GAMBIT_DECIDE_TIMEOUT", "8"))
 
 Decide = Callable[[LeaderView], Awaitable[LeaderOutput]]
+
+
+HISTORIAN_TIMEOUT_S = float(os.environ.get("GAMBIT_HISTORIAN_TIMEOUT", "30"))
+
+
+def _load_historian():
+    if os.environ.get("GAMBIT_AGENTS", "").lower() == "stub":
+        return None
+    try:
+        from agents import historian  # type: ignore
+        return historian
+    except Exception:
+        return None
+
+
+def _new_items(old: list, new: list) -> list:
+    """Items appended to an append-then-trim list (news, events) between two states."""
+    if not old:
+        return list(new)
+    last = old[-1]
+    for i in range(len(new) - 1, -1, -1):
+        if new[i] == last:
+            return list(new[i + 1:])
+    return list(new)
 
 
 def _load_decide() -> Optional[Decide]:
@@ -105,6 +130,12 @@ class Game:
         self.crisis_announces: list[tuple[int, Action]] = []
         self.crisis_calls: list[tuple[int, str, CallOutput, bool]] = []
         self.last_crisis: Optional[dict] = None  # inputs of the finished crisis, for replay
+        # End of session (W7): the whole session's log and the score counters.
+        self.start_state = self.state
+        self.session_log: list[dict] = [{"turn": 0, "type": "news", "text": n.text} for n in self.state.news]
+        self.months_in_power = self.peace_months = 0
+        self.promises_kept = self.promises_broken = 0
+        self.original_leader = self.state.nations[self.state.seat.nation].leader
         return self.state
 
     def start_crisis(self, crisis_id: str) -> State:
@@ -139,6 +170,8 @@ class Game:
 
     async def turn(self) -> State:
         async with self.lock:
+            if self.state.phase == "ended":
+                return self.state
             if self.state.phase == "crisis":
                 return await self._crisis_tick()
             s = self.state
@@ -162,7 +195,9 @@ class Game:
                     public_statement=out.public_statement, private_intent=out.private_intent,
                     advice=advice[n], chosen=chosen, reason=out.reason, persona=_persona(n))
             self.inbox, self.queued, self.state = inbox, [], new
-            return new
+            self._record(s, new)
+            self._after_month(s, new)
+            return self.state
 
     async def _crisis_tick(self) -> State:
         s = self.state
@@ -195,6 +230,7 @@ class Game:
                 if e.type == "incoming_call" and e.tick == new.crisis.tick and announces:
                     self.pending_announce = Action(type="announce", by=e.from_, params={"action": announces})
         new = _voice_line(new)
+        self._record(s, new)
         self.crisis_log.append(new)
         if new.crisis is None:  # resolved: keep what a replay needs
             last = s.crisis
@@ -210,6 +246,69 @@ class Game:
             }
         self.state = new
         return new
+
+    # --- end of session --------------------------------------------------------
+
+    def _record(self, old: State, new: State) -> None:
+        for n in _new_items(old.news, new.news):
+            self.session_log.append({"turn": n.turn, "type": "news", "text": n.text})
+        for e in _new_items(old.events, new.events):
+            d = e.model_dump(mode="json")
+            self.session_log.append(d)
+            if d["type"] == "crisis_resolved":
+                self.promises_kept += d.get("promises_kept", 0)
+                self.promises_broken += d.get("promises_broken", 0)
+
+    def _after_month(self, old: State, new: State) -> None:
+        seat = new.seat.nation
+        ousted = [e for e in _new_items(old.events, new.events)
+                  if e.nation == seat and e.type in ("election", "coup")]
+        if not ousted:
+            self.months_in_power += 1
+        if not any(l.type == "war" and seat in (l.a, l.b) for l in new.links):
+            self.peace_months += 1
+        if ousted:
+            self.end("voted_out" if ousted[0].type == "election" else "coup")
+        elif new.turn >= weights()["politics"]["session_months"]:
+            self.end("time")
+
+    def end(self, reason: str = "ended") -> State:
+        """Finish the session: phase "ended", the score, and the historian's verdict,
+        which arrives in the background (a plain one is used if the historian fails)."""
+        if self.state.phase == "ended":
+            return self.state
+        sc = score(self.start_state, self.state, self.months_in_power, self.peace_months,
+                   self.promises_kept, self.promises_broken)
+        self.state = self.state.model_copy(update={
+            "phase": "ended", "crisis": None, "incoming_call": None,
+            "ending": Ending(reason=reason, score=sc)})
+        fallback = plain_verdict(self.state, reason, sc, self.original_leader)
+        log_ = list(self.session_log) + [{"turn": self.state.turn, "type": "session_end", "reason": reason,
+                                          "score": sc.model_dump()}]
+        epoch = self.epoch
+
+        def set_verdict(text: str) -> None:
+            if epoch == self.epoch and self.state.ending:
+                self.state = self.state.model_copy(update={
+                    "ending": self.state.ending.model_copy(update={"verdict": text})})
+
+        historian = _load_historian() if self._decide_fn is not None else None
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if historian is None or loop is None:
+            set_verdict(fallback)
+        else:
+            async def run() -> None:
+                try:
+                    text = await asyncio.wait_for(historian(log_), timeout=HISTORIAN_TIMEOUT_S)
+                    set_verdict(str(text).strip() or fallback)
+                except Exception as e:
+                    log.warning("historian failed (%s); using the plain verdict", e)
+                    set_verdict(fallback)
+            self._historian_task = loop.create_task(run())
+        return self.state
 
     def replay(self, shift_ticks: int) -> list[dict]:
         """Rerun the last crisis with the player's promises moved by `shift_ticks`.
