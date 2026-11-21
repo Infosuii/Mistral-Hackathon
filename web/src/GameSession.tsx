@@ -12,6 +12,8 @@ import { defaultCrisis, exampleState, type GameState, type MapEvent } from './st
 const pollInterval = 1_000
 const turnInterval = 20_000
 const crisisInterval = 7_500
+// Speed stops: fine control at the slow end, then big jumps up to 20x.
+const speeds = [0.25, 0.5, 1, 1.5, 2, 3, 5, 8, 12, 16, 20]
 const idlePhone: PhoneActivity = { busy: false, waitingForState: false }
 
 function holdClock(state: GameState, phone: PhoneActivity) {
@@ -204,10 +206,12 @@ export function GameSession() {
       {state.phase !== 'ended' && (
         <>
           <button onClick={() => setPaused((wasPaused) => !wasPaused)} disabled={!canAdvance || pending}>{paused ? 'Resume' : 'Pause'}</button>
-          <label className="speed-control">
+          <label className="speed-control" data-fast={speed >= 5}>
             <span>Speed <output>{speed}×</output></span>
-            <input type="range" aria-label="Game speed" min={0.25} max={2} step={0.25}
-              value={speed} onChange={(event) => setSpeed(Number(event.target.value))} />
+            <input type="range" aria-label="Game speed" min={0} max={speeds.length - 1} step={1}
+              aria-valuetext={`${speed} times`} list="speed-stops"
+              value={speeds.indexOf(speed)} onChange={(event) => setSpeed(speeds[Number(event.target.value)])} />
+            <datalist id="speed-stops">{speeds.map((value, i) => <option key={value} value={i} />)}</datalist>
           </label>
           <button onClick={() => void send('turn')} disabled={!canAdvance || pending || clockHeld}>{state.crisis ? 'Next tick' : 'Next turn'}</button>
           {online && state.phase === 'strategy' && (

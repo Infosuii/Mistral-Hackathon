@@ -2,7 +2,7 @@
 // labels, unit counters, and each leader's medallion with mood ring and speech bubble.
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import map from '../atlas.json'
-import { CityArt } from './Infrastructure'
+import { useMarkerScale, world } from './scale'
 import oneBerth from '../../../data/crises/one_berth.json'
 import { grainShips, kessarPoint, kessarPort, ShipSilhouette, straitPatrol, tugBerth } from './DecisionMotion'
 import { relationBetween, type GameState } from '../state'
@@ -28,7 +28,8 @@ export function NationalBorders({ state }: { state: GameState }) {
 }
 
 /** Large spaced nation names across each nation's territory; they follow conquests. */
-export function TerritoryLabels({ state, selected, zoom }: { state: GameState; selected?: string; zoom: number }) {
+export function TerritoryLabels({ state, selected }: { state: GameState; selected?: string; zoom: number }) {
+  const m = useMarkerScale()
   const owned = new Map<string, number[][]>()
   for (const [pid, owner] of Object.entries(state.provinces)) {
     const c = centers.get(pid)
@@ -43,8 +44,8 @@ export function TerritoryLabels({ state, selected, zoom }: { state: GameState; s
         let y = pts.reduce((s, p) => s + p[1], 0) / pts.length
         const cap = capitals[id]
         // The capital carries the leader, units and star: put the name clear of them.
-        if (cap && Math.abs(cap[1] - y) < 55 && Math.abs(cap[0] - x) < 150) y = cap[1] + (y >= cap[1] ? 62 : -62)
-        const size = Math.max(22, Math.min(44, 12 + Math.sqrt(pts.length) * 9)) / Math.max(1, zoom * .84)
+        if (cap && Math.abs(cap[1] - y) < 55 * m && Math.abs(cap[0] - x) < 150 * m) y = cap[1] + (y >= cap[1] ? 62 : -62) * m
+        const size = Math.max(22, Math.min(44, 12 + Math.sqrt(pts.length) * 9)) * m
         return (
           <text key={id} x={x} y={y + 6} style={{ ...nationStyle(id), fontSize: size } as CSSProperties}
             data-selected={id === selected}>{nation.name}</text>
@@ -56,8 +57,9 @@ export function TerritoryLabels({ state, selected, zoom }: { state: GameState; s
 
 function Counter({ x, y, army, id }: { x: number; y: number; army: number; id: string }) {
   const stack = Math.max(1, Math.min(4, Math.ceil(army / 25)))
+  const m = useMarkerScale()
   return (
-    <g className="unit" transform={`translate(${x} ${y})`} style={nationStyle(id)} filter="url(#unit-shadow)">
+    <g className="unit" transform={`translate(${x} ${y}) scale(${m})`} style={nationStyle(id)} filter="url(#unit-shadow)">
       {Array.from({ length: stack }, (_, i) => stack - 1 - i).map((i) => (
         <g key={i} transform={`translate(${i * 3} ${-i * 3})`}>
           <rect x="-15" y="-10" width="30" height="20" rx="2" className="unit-body" />
@@ -76,6 +78,7 @@ function Counter({ x, y, army, id }: { x: number; y: number; army: number; id: s
 
 /** Unit counters: a stack at each capital sized by army, plus counters on war fronts. */
 export function UnitCounters({ state }: { state: GameState }) {
+  const m = useMarkerScale()
   const wars = state.links.filter((l) => l.type === 'war')
   const front: { id: string; at: number[] }[] = []
   for (const { a, b } of wars) {
@@ -93,7 +96,7 @@ export function UnitCounters({ state }: { state: GameState }) {
     <g className="unit-layer">
       {Object.entries(state.nations).map(([id, n]) => {
         const c = capitals[id]
-        return c ? <Counter key={id} id={id} x={c[0] + 34} y={c[1] + 18} army={n.stats.army} /> : null
+        return c ? <Counter key={id} id={id} x={c[0] + 34 * m} y={c[1] + 18 * m} army={n.stats.army} /> : null
       })}
       {front.filter(({ id, at }) => {
         const k = `${id}${at}`
@@ -151,20 +154,21 @@ export function LeaderMedallions({ state, selected, onSelect }: {
   }, [state.seat.nation])
 
   const caller = state.incoming_call?.from
+  const m = useMarkerScale()
   return (
     <g className="leader-layer">
       {Object.entries(state.nations).map(([id, n]) => {
         const c = capitals[id]
         if (!c || id === state.seat.nation) return null
         const { tone, label } = mood(state, id)
-        const x = c[0] - 40
-        const y = c[1] - 30
+        const x = c[0] - 40 * m
+        const y = c[1] - 30 * m
         const portrait = portraitOf(id)
         const decision = state.crisis?.decisions[id]?.action
         const bubble = speaker === id ? n.public_statement : ''
         return (
           <g key={id} className="leader" data-mood={tone} data-calling={caller === id} data-selected={id === selected}
-            transform={`translate(${x} ${y})`} style={nationStyle(id)} onClick={() => onSelect(id)}>
+            transform={`translate(${x} ${y}) scale(${m})`} style={nationStyle(id)} onClick={() => onSelect(id)}>
             <title>{n.leader} · {label}</title>
             <circle r="21" className="leader-pulse" />
             <circle r="18" className="leader-ring" />
@@ -187,12 +191,12 @@ export function LeaderMedallions({ state, selected, onSelect }: {
 }
 
 export function CapitalMarkers({ state }: { state: GameState }) {
+  const m = useMarkerScale()
   return (
     <g className="map-decoration">
       {Object.entries(capitals).map(([id, [x, y]]) => state.nations[id] && (
-        <g key={id} className="capital-settlement" data-home={id === state.seat.nation} transform={`translate(${x} ${y})`} style={nationStyle(id)}>
+        <g key={id} className="capital-settlement" data-home={id === state.seat.nation} transform={`translate(${x} ${y}) scale(${m})`} style={nationStyle(id)}>
           <title>{state.nations[id].name} capital</title>
-          <CityArt economy={state.nations[id].stats.gdp} />
           {id === state.seat.nation && <text className="home-map-label" y="-28">YOUR NATION</text>}
         </g>
       ))}
@@ -201,6 +205,7 @@ export function CapitalMarkers({ state }: { state: GameState }) {
 }
 
 function Ship({ at: [x, y], from, id, label, kind }: { at: number[]; from?: number[]; id: string; label: string; kind?: 'grain' | 'tug' | 'patrol' }) {
+  const m = useMarkerScale()
   const dx = from ? from[0] - x : 0
   const dy = from ? from[1] - y : 0
   return (
@@ -211,7 +216,7 @@ function Ship({ at: [x, y], from, id, label, kind }: { at: number[]; from?: numb
           '--cue-x': `${dx}px`, '--cue-y': `${dy}px`,
           '--cue-mid-x': `${dx / 2}px`, '--cue-mid-y': `${dy / 2}px`,
         } as CSSProperties}>
-          <g transform="scale(1.45)"><g className="ship-bob"><ShipSilhouette kind={kind} /></g></g>
+          <g transform={`scale(${1.45 * Math.max(1, m)})`}><g className="ship-bob"><ShipSilhouette kind={kind} /></g></g>
         </g>
       </g>
     </g>
@@ -228,11 +233,12 @@ export function CrisisFocus({ state }: { state: GameState }) {
   const blockade = c.decisions.ostrava?.action === 'blockade'
   const closed = c.decisions.kessaria?.action === 'close_port'
   const [x, y] = kessarPort
+  const m = useMarkerScale()
   return (
     <g className="crisis-focus map-decoration">
-      <circle cx={x} cy={y} r="14" className="focus-pulse" />
-      <circle cx={x} cy={y} r="7" className="focus-core" />
-      <g transform={`translate(${x} ${y - 20})`}>
+      <circle cx={x} cy={y} r={14 * m} className="focus-pulse" />
+      <circle cx={x} cy={y} r={7 * m} className="focus-core" />
+      <g transform={`translate(${x} ${y - 20 * m}) scale(${m})`}>
         <rect x="-74" y="-10" width="148" height="16" rx="3" className="focus-tag" />
         <text y="2" className="focus-tag-text">Port Kessar · {closed ? 'Closed' : secondBerth ? '2 berths' : '1 berth'}</text>
       </g>
@@ -245,7 +251,7 @@ export function CrisisFocus({ state }: { state: GameState }) {
       })}
       {secondBerth && <Ship id="nordhaven" kind="tug" at={tugBerth} from={kessarPoint(780, 649)} label="Nordhaven tugs · second berth available" />}
       {blockade && <Ship id="ostrava" kind="patrol" at={straitPatrol} from={kessarPoint(782, 633)} label="Ostrava blockade patrol" />}
-      <path className="storm" transform={`translate(${[kessarPort[0] - 612, kessarPort[1] - 548].join(" ")})`} d="M700,520 q14,-12 28,0 q14,12 28,0 M712,536 q12,-10 24,0 q12,10 24,0" />
+      <path className="storm" transform={`translate(${kessarPort.join(' ')}) scale(${world(1)}) translate(-612 -548)`} d="M700,520 q14,-12 28,0 q14,12 28,0 M712,536 q12,-10 24,0 q12,10 24,0" />
     </g>
   )
 }

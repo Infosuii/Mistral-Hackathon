@@ -3,6 +3,7 @@ import coast from '../../../data/sea_routes.json'
 import type { GameState } from '../state'
 import { nationStyle } from '../theme'
 import { ShipSilhouette } from './DecisionMotion'
+import { useMarkerScale } from './scale'
 
 const routes: Record<string, number[][]> = coast.routes
 
@@ -16,6 +17,7 @@ function FleetMarker({ route, progress, nation, label, blockading }: {
   const path = useRef<SVGPathElement>(null)
   const ship = useRef<SVGGElement>(null)
   const position = useRef<number | null>(null)
+  const m = useMarkerScale()
   const d = `M${route.map((point) => point.join(',')).join(' L')}`
 
   useLayoutEffect(() => {
@@ -26,10 +28,10 @@ function FleetMarker({ route, progress, nation, label, blockading }: {
     const from = position.current ?? (blockading ? progress : 0)
     const move = (fraction: number) => {
       const { x, y } = track.getPointAtLength(fraction * length)
-      const behind = track.getPointAtLength(Math.max(0, fraction * length - 3))
-      const ahead = track.getPointAtLength(Math.min(length, fraction * length + 3))
+      const behind = track.getPointAtLength(Math.max(0, fraction * length - 3 * m))
+      const ahead = track.getPointAtLength(Math.min(length, fraction * length + 3 * m))
       const angle = Math.atan2(ahead.y - behind.y, ahead.x - behind.x) * 180 / Math.PI
-      marker.setAttribute('transform', `translate(${x} ${y})`)
+      marker.setAttribute('transform', `translate(${x} ${y}) scale(${m})`)
       marker.querySelector('[data-vessel]')?.setAttribute('transform',
         `rotate(${angle + (progress < from ? 0 : 180)}) scale(1.1)`)
       position.current = fraction
@@ -49,7 +51,7 @@ function FleetMarker({ route, progress, nation, label, blockading }: {
     }
     frame = requestAnimationFrame(animate)
     return () => cancelAnimationFrame(frame)
-  }, [d, progress, blockading])
+  }, [d, progress, blockading, m])
 
   return (
     <g className="naval-fleet" style={nationStyle(nation)} data-fleet={nation} data-blockading={blockading}>

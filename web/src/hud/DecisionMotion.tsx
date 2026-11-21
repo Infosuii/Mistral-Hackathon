@@ -4,6 +4,7 @@ import { TankSprite } from './Infrastructure'
 import sea from '../../../data/sea_routes.json'
 import type { GameState, MapEvent } from '../state'
 import { nationStyle } from '../theme'
+import { useMarkerScale, WORLD } from './scale'
 import './decision-motion.css'
 
 type Point = number[]
@@ -27,7 +28,7 @@ const lifetime = 3700
 const cueLimit = 10
 
 export const kessarPoint = (x: number, y: number) =>
-  [x - 612 + sea.ports.kessaria.position[0], y - 548 + sea.ports.kessaria.position[1]]
+  [(x - 612) * WORLD + sea.ports.kessaria.position[0], (y - 548) * WORLD + sea.ports.kessaria.position[1]]
 export const kessarPort = kessarPoint(612, 548)
 export const grainShips: Record<string, { waiting: Point; approach: Point; berth: Point }> = {
   ostrava: { waiting: kessarPoint(693, 577), approach: kessarPoint(644, 554), berth: kessarPoint(629, 548) },
@@ -243,10 +244,11 @@ function Symbol({ mark }: { mark?: Mark }) {
 }
 
 function MotionCue({ cue, lane }: { cue: ActiveCue; lane: number }) {
+  const m = useMarkerScale()
   const [x, y] = cue.at
   const dx = cue.from ? cue.from[0] - x : 0
   const dy = cue.from ? cue.from[1] - y : 0
-  const bend = cue.mark === 'ship' || cue.mark === 'infantry' ? 0 : Math.min(32, Math.hypot(dx, dy) * 0.15)
+  const bend = cue.mark === 'ship' || cue.mark === 'infantry' ? 0 : Math.min(32 * m, Math.hypot(dx, dy) * 0.15)
   const tagWidth = Math.max(78, cue.label.length * 6.2 + 16)
   const province = cue.province && provinces.get(cue.province)
   const style = {
@@ -258,7 +260,7 @@ function MotionCue({ cue, lane }: { cue: ActiveCue; lane: number }) {
     <g className="motion-cue" data-motion={cue.kind} style={style}>
       {province && <path className="motion-capture" d={province.path} style={cue.formerOwner ? nationStyle(cue.formerOwner) : undefined} />}
       {cue.from && <path className="motion-trail" d={`M${cue.from.join(',')} Q${x + dx / 2},${y + dy / 2 - 2 * bend} ${x},${y}`} />}
-      <g transform={`translate(${x} ${y})`}>
+      <g transform={`translate(${x} ${y}) scale(${m})`}>
         <circle className="motion-ping" r="18" />
         {cue.from && <g className="motion-symbol"><Symbol mark={cue.mark} /></g>}
         <g className="motion-tag" transform={`translate(0 ${-20 * lane})`}>
@@ -272,11 +274,12 @@ function MotionCue({ cue, lane }: { cue: ActiveCue; lane: number }) {
 
 export function DecisionMotion({ state, online }: { state: GameState; online: boolean }) {
   const cues = useCues(state, online)
+  const m = useMarkerScale()
   return (
     <g className="decision-motion" aria-hidden="true">
       {cues.map((cue, index) => {
         const lane = cues.slice(0, index).filter(({ at }) =>
-          Math.abs(at[0] - cue.at[0]) < 100 && Math.abs(at[1] - cue.at[1]) < 28).length
+          Math.abs(at[0] - cue.at[0]) < 100 * m && Math.abs(at[1] - cue.at[1]) < 28 * m).length
         return <MotionCue key={cue.id} cue={cue} lane={lane} />
       })}
     </g>

@@ -1,0 +1,52 @@
+/* Motion layer: water, traffic, aviation, military patrols and war fronts. */
+.map-life .coast-foam {
+  fill: none; stroke: #e8f3ef; stroke-width: calc(1.6px * var(--m, 1)); stroke-dasharray: 18 34; opacity: .28;
+  stroke-linecap: round; animation: foam-drift 26s linear infinite;
+}
+.map-life .river-flow {
+  fill: none; stroke: #d9f1f4; stroke-dasharray: 5 60; stroke-linecap: round; opacity: .4;
+  animation: river-flow 6s linear infinite;
+}
+.map-life .lake-ripple {
+  fill: none; stroke: #e3f4f4; stroke-width: 2.4; stroke-dasharray: 22 48; opacity: .45;
+  animation: foam-drift 18s linear infinite; transform-box: fill-box; transform-origin: center; scale: .94;
+}
+@keyframes foam-drift { to { stroke-dashoffset: -520; } }
+@keyframes river-flow { to { stroke-dashoffset: -590; } }
+
+.map-life .air-lane { fill: none; stroke: var(--nation-accent, #d7c38f); stroke-width: 1.2; stroke-dasharray: 2 9; opacity: .5; vector-effect: non-scaling-stroke; }
+.map-life .overflight { opacity: .85; }
+.map-life .rotor { animation: rotor-spin .35s linear infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes rotor-spin { to { rotate: 360deg; } }
+
+.map-life .smoke circle {
+  fill: #c9c6bd; opacity: 0; animation: smoke-rise 3.6s ease-out infinite;
+  transform-box: fill-box; transform-origin: center;
+}
+.map-life .smoke.heavy circle { fill: #5d5a54; animation-duration: 4.4s; }
+@keyframes smoke-rise {
+  0% { opacity: 0; translate: 0 0; scale: .6; }
+  15% { opacity: .75; }
+  100% { opacity: 0; translate: 10px -34px; scale: 2.6; }
+}
+
+.map-life .scorch { fill: #2a2418; opacity: .28; }
+.map-life .blast-fire { fill: #e0702e; stroke: #3a2a1c; stroke-width: 1.2; stroke-opacity: .5; }
+.map-life .blast-core { fill: #fff2c2; }
+.map-life .muzzle { fill: #ffe7a1; }
+.map-life .shell { fill: #fff3d0; }
+.map-life .tracer {
+  fill: none; stroke: #ffd97a; stroke-width: 1.4; stroke-dasharray: 6 40; opacity: .9;
+  animation: tracer-fire .7s linear infinite;
+}
+@keyframes tracer-fire { to { stroke-dashoffset: -46; } }
+.map-life .front-side { animation: front-advance 7s cubic-bezier(.3, .1, .2, 1) both; }
+@keyframes front-advance { from { translate: var(--fx) var(--fy); opacity: .6; } to { translate: 0 0; opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  /* PoliticalMap pauses the SMIL timeline, so vehicles hold still where they are. */
+  .map-life .blast, .map-life .muzzle, .map-life .shell { display: none; }
+  .map-life .smoke circle { animation: none; opacity: .5; }
+  .map-life .coast-foam, .map-life .river-flow, .map-life .lake-ripple, .map-life .tracer,
+  .map-life .front-side, .map-life .rotor { animation: none; }
+}
