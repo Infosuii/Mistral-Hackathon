@@ -263,12 +263,17 @@ class Game:
         except RuntimeError:
             return  # not inside the server (tests, scripts): call futures() directly instead
 
+        self.needle_seq = getattr(self, "needle_seq", 0) + 1
+        seq, epoch = self.needle_seq, self.epoch
+
         async def run() -> None:
             try:
                 result = await asyncio.to_thread(futures, before, after, first)
-                self.state = self.state.model_copy(update={"last_futures": result})
             except Exception:
                 log.exception("needle rollouts failed")
+                return
+            if epoch == self.epoch and seq == self.needle_seq:  # not stale: no reset, no newer call
+                self.state = self.state.model_copy(update={"last_futures": result})
         self._needle_task = loop.create_task(run())
 
 

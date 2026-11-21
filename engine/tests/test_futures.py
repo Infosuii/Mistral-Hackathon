@@ -66,3 +66,17 @@ def test_needle_updates_state_after_a_call_in_the_server():
         await g._needle_task
         return g.state.last_futures
     assert asyncio.run(go()) is not None
+
+
+def test_stale_needle_results_are_dropped():
+    async def go():
+        g = Game(seed=7, use_agents=False)
+        g.start_crisis("one_berth")
+        out = CallOutput(reply_text="ok", emotion="calm", belief_updates={"trust_in_player": 0, "resolve_of_player": 0},
+                         promises=[{"to": "ostrava", "what": "berth", "when": "morning"}])
+        g.apply_call("ostrava", out)
+        task = g._needle_task
+        g.reset(7)  # the game restarts while the rollouts run
+        await task
+        return g.state.last_futures
+    assert asyncio.run(go()) is None
