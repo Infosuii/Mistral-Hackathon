@@ -313,9 +313,9 @@ We coordinate through one pinned GitHub issue, the **Team message board**, plus 
 
 ### 8a. Keeping messages short
 
-The opening post is the current truth. Comments are a log. Agents cannot hear the room, so anything decided out loud that changes someone's work gets one `DECIDED` line.
+The board has two parts. **Status cards**: one per person, the first comments under the opening post, showing what they are doing now, what they last finished, what is next and what they need from others. Each agent rewrites its own card at every task boundary with `scripts/board.sh status`, so the board always shows the current picture. **Messages**: one-line comments below, a log of what became ready, changed, got blocked or was decided. `scripts/board.sh read` prints both. Agents cannot hear the room, so anything decided out loud that changes someone's work gets one `DECIDED` line.
 
-Every board comment is one or two lines and starts with one of four words:
+Every message is one or two lines and starts with one of five words. Post them with `scripts/board.sh say`:
 
 | Prefix | Use it when | Example |
 |---|---|---|
@@ -323,6 +323,7 @@ Every board comment is one or two lines and starts with one of four words:
 | `CHANGED` | An interface or contract changed | `CHANGED Om / engine → all: state.provinces added, optional. Example updated.` |
 | `BLOCKED` | You cannot continue | `BLOCKED Ashish / voice → Abi: call_reply() returns no emotion. Mocking meanwhile.` |
 | `DECIDED` | The team or Tamim made a call | `DECIDED Tamim / lead → all: diplomat seat is cut.` |
+| `NEED` | You need something from someone but can keep working | `NEED Abi / leaders → Om: advise() should return scores as floats. Mocking meanwhile.` |
 
 - No progress chatter. If nobody needs to act on it, do not post it.
 - Agents read the board at task boundaries: before starting a task, before opening a PR and after finishing one. While waiting they run `scripts/wait_for_tag.sh`, which returns the moment they are addressed.
@@ -379,8 +380,8 @@ Each agent runs a loop without being told to carry on:
 
 1. Do the next task and run its "done when" check.
 2. Open a PR. If it only touches the author's own folders and the check passes, the agent merges it and pulls `main`. Drive-by and contract PRs wait for the owner or Tamim.
-3. Post `READY`, naming who can now use it.
-4. Re-read the board and its own issue; handle anything addressed to it.
+3. Update its status card and post `READY`, naming who can now use it (`scripts/board.sh status`, `scripts/board.sh say`).
+4. Run `scripts/board.sh read` and check its own issue; handle anything addressed to it.
 5. Start the next task. If a dependency is missing, build against the example or mock.
 6. With nothing left to do, post `BLOCKED` and run the wait script.
 
@@ -399,7 +400,7 @@ Example:
 
 > Om / engine → Tamim and Ashish. The One Berth call-response fixture is ready in PR #__. It includes an interrupted announcement and the leader's new decision. You can wire the phone UI against it now.
 
-### Proposed opening post (draft, not yet on GitHub)
+### Opening post (first draft; the live board is issue #25)
 
 ```markdown
 # Team message board

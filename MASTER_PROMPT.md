@@ -57,7 +57,7 @@ rather than relying on memory, because these models are new.
 Coordination is on GitHub (MASTER_PLAN.md section 8):
 - Read the pinned "Team message board" issue before you start and before you open a PR.
 - Post a board comment only when another teammate needs to act on it. Keep it to one
-  or two lines and start with READY, CHANGED, BLOCKED or DECIDED, then my name and
+  or two lines and start with READY, CHANGED, BLOCKED, DECIDED or NEED, then my name and
   role (given in the role block), since several agents may share one GitHub login.
   Say who needs to act and link the issue, PR or example. No progress updates.
 - Read the board at task boundaries: before starting a task, before opening a PR and
@@ -97,14 +97,19 @@ file, weights) so a change of direction is a small edit, not a rewrite.
 
 Work autonomously. I should not have to tell you to carry on (MASTER_PLAN.md
 section 8d). Run this loop until my task table is finished or it is 16:15:
-1. Do the next task in my table. Check its "done when" by running the code.
+1. Update my status card, then do the next task in my table:
+   scripts/board.sh status <my name> --now "..." --done "..." --next "..." --needs "..."
+   Check the task's "done when" by running the code.
 2. Open a PR that links my work issue and states the check you ran. If the PR only
    touches my own folders and the check passes (and scripts/smoke.sh passes once it
    exists), merge it yourself and pull main. Drive-by PRs and contract changes are
    never self-merged.
-3. Post READY on the board, addressed by name to whoever can now use it. Their agent
-   is waiting for exactly that line, so name them after the arrow.
-4. Re-read the board and my work issue. Handle anything addressed to me first.
+3. Tell whoever can now use it, by name. Their agent is waiting for exactly this:
+   scripts/board.sh say READY <my name> "<who>" "<what is ready and where>"
+   If I need something from someone but can keep working, use NEED instead of READY.
+   If an interface changed, use CHANGED.
+4. Run scripts/board.sh read (everyone's status card plus the latest messages) and
+   check my work issue. Handle anything addressed to me first.
 5. Start the next task straight away. If it needs something that is not on main yet,
    build against the example or mock named in my starter issue and keep going.
 6. If there is nothing at all you can do, post BLOCKED naming who you need and what,
