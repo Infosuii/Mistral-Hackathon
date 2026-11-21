@@ -6,15 +6,13 @@
 from __future__ import annotations
 
 import asyncio
-import sys
 
 from contracts.models import CallTurn, CallView, Seat
 from engine.core import new_game
-from agents.leaders import _RECENT_OPENINGS, _call_context, _opening_words, speak_fast
+from agents.leaders import _call_context, _opening_words, _parse_voice, speak_fast
 
 
 def test_call_context_passes_last_two_openings():
-    _RECENT_OPENINGS.clear()
     st = new_game(7, Seat(role="president", nation="valdoria"))
     history = [
         CallTurn(role="player", text="Your Majesty, let's talk trade."),
@@ -30,6 +28,22 @@ def test_call_context_passes_last_two_openings():
     assert user["avoid_openings"] == ["How charming", "Charming offers"]
 
 
+def test_fresh_game_empty_history_has_no_carried_over_openings():
+    """A new game on the same seed with history=None must never inherit prior openings."""
+    st_a = new_game(7, Seat(role="president", nation="valdoria"))
+    v_a = CallView(nation="kessaria", transcript="Hello.", interrupted=False, state=st_a, history=None)
+    _parse_voice({"reply_text": "First session greeting from Kessaria.", "emotion": "warm"}, v_a)
+
+    st_b = new_game(7, Seat(role="president", nation="valdoria"))
+    v_b = CallView(nation="kessaria", transcript="Hello again.", interrupted=False, state=st_b, history=None)
+    _, user_b, _ = _call_context(v_b)
+    assert "avoid_openings" not in user_b
+
+    v_empty = CallView(nation="kessaria", transcript="Hello again.", interrupted=False, state=st_b, history=[])
+    _, user_empty, _ = _call_context(v_empty)
+    assert "avoid_openings" not in user_empty
+
+
 LINES = [
     "Your Majesty, Valdoria would like to discuss trade through the strait.",
     "We can offer ten units of chips for food this month.",
@@ -41,11 +55,10 @@ LINES = [
 
 
 async def live_check() -> int:
-    from voice.audio import _load_env
     from pathlib import Path
+    from voice.audio import _load_env
 
     _load_env(Path(__file__).resolve().parent.parent / ".env")
-    _RECENT_OPENINGS.clear()
     st = new_game(7, Seat(role="president", nation="valdoria"))
     history: list[CallTurn] = []
     openings: list[str] = []

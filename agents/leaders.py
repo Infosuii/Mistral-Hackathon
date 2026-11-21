@@ -335,10 +335,6 @@ def _judge_rules(state: dict, nation: str) -> str:
     return JUDGE_RULES.replace("{vocab}", extra)
 
 
-# Recent spoken openings per (seed, nation) so back-to-back calls also vary their starts (#28).
-_RECENT_OPENINGS: dict[tuple[int, str], list[str]] = {}
-
-
 def _opening_words(text: str) -> str:
     words = text.strip().split()
     if not words:
@@ -346,34 +342,17 @@ def _opening_words(text: str) -> str:
     return " ".join(words[:2]).rstrip(",.;:!?—-")
 
 
-def _avoid_openings(v: CallView, state: dict) -> list[str]:
-    """Return the last two opening phrases this leader used (from CallView.history, plus recent calls)."""
+def _avoid_openings(v: CallView) -> list[str]:
+    """Return the last two opening phrases this leader used in CallView.history (#28)."""
+    if not v.history:
+        return []
     seen: list[str] = []
-    if v.history:
-        leader_lines = [t.text for t in v.history if t.role == "leader" and t.text.strip()]
-        for line in leader_lines[-2:]:
-            op = _opening_words(line)
-            if op and op not in seen:
-                seen.append(op)
-    key = (int(state.get("seed", 0)), v.nation)
-    for op in _RECENT_OPENINGS.get(key, [])[-2:]:
-        if op and op not in seen and len(seen) < 2:
+    leader_lines = [t.text for t in v.history if t.role == "leader" and t.text.strip()]
+    for line in leader_lines[-2:]:
+        op = _opening_words(line)
+        if op and op not in seen:
             seen.append(op)
     return seen
-
-
-def _remember_opening(state: dict, nation: str, reply: str) -> None:
-    op = _opening_words(reply)
-    if not op:
-        return
-    key = (int(state.get("seed", 0)), nation)
-    if key not in _RECENT_OPENINGS:
-        for k in [k for k in _RECENT_OPENINGS if k[0] != key[0]]:
-            del _RECENT_OPENINGS[k]
-    buf = _RECENT_OPENINGS.setdefault(key, [])
-    if not buf or buf[-1] != op:
-        buf.append(op)
-    del buf[:-2]
 
 
 def _call_context(v: CallView) -> tuple[str, dict, list[dict]]:
@@ -389,7 +368,7 @@ def _call_context(v: CallView) -> tuple[str, dict, list[dict]]:
                     (" You read that as weakness and push harder." if proud else " They seem unsure."))
     options = _legal(v.state, v.nation)
     seat = state.get("seat") or {}
-    avoid = _avoid_openings(v, state)
+    avoid = _avoid_openings(v)
     user = {
         "situation": _brief(state, v.nation),
         "call_so_far": [f"{t.role}: {t.text}" for t in (v.history or [])][-8:],
@@ -411,7 +390,6 @@ def _parse_voice(data: dict, v: CallView) -> dict:
     if not reply:
         raise ValueError('"reply_text" must be one or two spoken sentences')
     emotion = data.get("emotion") if data.get("emotion") in EMOTIONS else ("tense" if v.nation in PROUD else "calm")
-    _remember_opening(_dump(v.state), v.nation, reply)
     return {"reply_text": reply, "emotion": emotion}
 
 
