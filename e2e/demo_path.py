@@ -47,6 +47,10 @@ DEMO_LINES = {
         "Your Majesty, Valdoria wants to trade chips for your food today. "
         "Please agree to a trade deal with Valdoria."
     ),
+    "strategy_trade_followup": (
+        "Done, Your Majesty—Valdoria accepts your terms and guarantees the chips today. "
+        "Let us close this trade deal right now."
+    ),
     "promise_ostrava": (
         "General Dravic, I promise Ostrava the berth for the whole day. "
         "Your grain ships will dock and unload."
@@ -54,6 +58,10 @@ DEMO_LINES = {
     "promise_zarnia": (
         "Premier, I promise Zarnia the berth for the entire day. "
         "Your grain ships will have the berth."
+    ),
+    "call_nordhaven_tugs": (
+        "Chancellor Lindqvist, Port Kessar is about to erupt into war unless we open a second berth. "
+        "Valdoria guarantees port stability if Nordhaven agrees to send tugs before your deadline."
     ),
     "interrupt_blockade": (
         "Stop, hear me out before you announce anything! "
@@ -349,34 +357,46 @@ def run_demo_path(
         b_links = {(l.type, tuple(sorted((l.a, l.b)))) for l in before.links if "valdoria" in (l.a, l.b)}
         b_rel = dict(before.relations)
 
-        resp, after_call, call_s, interp_s = send_call(target, "strategy_trade")
-        after_turn = client.turn()
-        a_beliefs = after_call.nations[target].beliefs
-        a_links = {(l.type, tuple(sorted((l.a, l.b)))) for l in after_turn.links if "valdoria" in (l.a, l.b)}
-        lc = after_call.last_call
+        def collect_changes(after_call: State, after_turn: State | None = None) -> list[str]:
+            a_beliefs = after_call.nations[target].beliefs
+            lc = after_call.last_call
+            ch = []
+            if b_beliefs != a_beliefs:
+                ch.append(
+                    f"beliefs trust {b_beliefs.trust_in_player}->{a_beliefs.trust_in_player}, "
+                    f"resolve {b_beliefs.resolve_of_player}->{a_beliefs.resolve_of_player}"
+                )
+            if lc and lc.actions:
+                ch.append(f"actions={[a.type for a in lc.actions]}")
+            if lc and lc.promises:
+                ch.append(f"promises={len(lc.promises)}")
+            if after_turn is not None:
+                a_links = {(l.type, tuple(sorted((l.a, l.b)))) for l in after_turn.links if "valdoria" in (l.a, l.b)}
+                new_links = a_links - b_links
+                if new_links:
+                    ch.append(f"new_links={sorted(new_links)}")
+            if after_call.relations != b_rel:
+                ch.append("relations_changed")
+            return ch
 
-        changes = []
-        if b_beliefs != a_beliefs:
-            changes.append(
-                f"beliefs trust {b_beliefs.trust_in_player}->{a_beliefs.trust_in_player}, "
-                f"resolve {b_beliefs.resolve_of_player}->{a_beliefs.resolve_of_player}"
-            )
-        if lc and lc.actions:
-            changes.append(f"actions={[a.type for a in lc.actions]}")
-        if lc and lc.promises:
-            changes.append(f"promises={len(lc.promises)}")
-        new_links = a_links - b_links
-        if new_links:
-            changes.append(f"new_links={sorted(new_links)}")
-        if after_call.relations != b_rel:
-            changes.append("relations_changed")
+        resp, after_call, call_s, interp_s = send_call(target, "strategy_trade")
+        turns_used = 1
+        # If the leader negotiated instead of committing on line 1, accept their terms once.
+        if not collect_changes(after_call):
+            resp, after_call, c2, i2 = send_call(target, "strategy_trade_followup")
+            call_s += c2
+            interp_s += i2
+            turns_used = 2
+
+        after_turn = client.turn()
+        changes = collect_changes(after_call, after_turn)
         assert changes, (
-            f"strategy call to {target} produced no visible change "
-            f"(reply={resp.reply_text!r}, last_call={lc})"
+            f"strategy call to {target} produced no visible change after {turns_used} turn(s) "
+            f"(reply={resp.reply_text!r}, last_call={after_call.last_call})"
         )
         ctx["state"] = after_turn
         return (
-            f"to={target} call={call_s:.2f}s interp={interp_s:.2f}s "
+            f"to={target} calls={turns_used} call={call_s:.2f}s interp={interp_s:.2f}s "
             f"emotion={resp.emotion} ({'; '.join(changes)})"
         )
 
@@ -426,14 +446,26 @@ def run_demo_path(
             f"expected berth promise to zarnia, got promises={st_z.crisis.promises}, "
             f"last_call={st_z.last_call}"
         )
-        ctx["state"] = st_z
+
+        # Tick 4: ask Nordhaven to send tugs before its tick-6 deadline (second berth, timing-sensitive for +3 replay).
+        st = st_z
+        while st.crisis and st.crisis.tick < 4:
+            st = client.turn()
+        _, st_n, cn, in_ = send_call("nordhaven", "call_nordhaven_tugs")
+        n_tugs = (
+            any(p.to == "nordhaven" and p.what == "send_tugs" for p in st_n.crisis.promises)
+            or bool(st_n.last_call and any(a.type == "send_tugs" for a in st_n.last_call.actions))
+        )
+
+        ctx["state"] = st_n
         ctx["trust_before_compare"] = {
-            "ostrava": st_z.nations["ostrava"].beliefs.trust_in_player,
-            "zarnia": st_z.nations["zarnia"].beliefs.trust_in_player,
+            "ostrava": st_n.nations["ostrava"].beliefs.trust_in_player,
+            "zarnia": st_n.nations["zarnia"].beliefs.trust_in_player,
         }
         return (
             f"ostrava=({o_promises[-1].what}/{o_promises[-1].when}, {co:.2f}s+{io:.2f}s) "
-            f"zarnia=({z_promises[-1].what}/{z_promises[-1].when}, {cz:.2f}s+{iz:.2f}s)"
+            f"zarnia=({z_promises[-1].what}/{z_promises[-1].when}, {cz:.2f}s+{iz:.2f}s) "
+            f"nordhaven_tugs={n_tugs} ({cn:.2f}s+{in_:.2f}s)"
         )
 
     beat("double_promise", beat_double_promise)
