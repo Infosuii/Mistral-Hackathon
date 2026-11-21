@@ -5,6 +5,7 @@ import { relationBetween, statLabels, type GameState } from './state'
 import { nationStyle } from './theme'
 import { CapitalMarkers, CrisisFocus, flagOf, LeaderMedallions, NationalBorders, TerritoryLabels, UnitCounters } from './hud/MapLayers'
 import { OrdersBar } from './hud/OrdersBar'
+import { BreakingNews, RelationPops } from './hud/Reactions'
 import { Relief, Sea, TerrainDefs, TerrainFeatures, terrainLabel, terrainOf } from './hud/Terrain'
 
 interface Props {
@@ -181,11 +182,13 @@ export function PoliticalMap({ state, selected, onSelect }: Props) {
           <CapitalMarkers state={state} />
           <UnitCounters state={state} />
           <LeaderMedallions state={state} selected={selected} onSelect={onSelect} />
+          <RelationPops state={state} />
         </g>
         <rect className="map-decoration" x={VB.x} y={VB.y} width={VB.w} height={VB.h} fill="url(#vignette)" />
       </svg>
       {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} />}
       <OrdersBar state={state} selected={selected} />
+      <BreakingNews state={state} />
       <div className="map-hud-top">
         <div className="map-mode" role="group" aria-label="Map view">
           {(['political', 'relations', 'military', 'unrest'] as const)
