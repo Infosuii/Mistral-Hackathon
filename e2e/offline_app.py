@@ -71,34 +71,87 @@ def _offline_reply(view) -> tuple[str, str, CallOutput]:
             "target": view.state.seat.nation or "valdoria",
             "params": {"give": {give_res: 10}, "get": {"chips": 10}},
         }]
-    elif "tug" in t and nation == "nordhaven":
-        emotion = "assertive"
-        reply = "Your timing is tight, President, but stability comes first. Nordhaven will dispatch the tugs."
-        promises = [{"to": "nordhaven", "what": "send_tugs", "when": "now", "condition": None}]
-        actions = [{"type": "send_tugs", "by": "nordhaven"}]
-        trust = 0.1
-    elif "evening" in t or "tonight" in t or "night" in t or "afternoon" in t:
-        slot = "afternoon" if "afternoon" in t else "evening"
-        emotion = "calm"
-        reply = f"Very well—the {slot} slot is recorded. We will hold you to it."
-        promises = [{"to": nation, "what": "berth", "when": slot, "condition": None}]
-    elif "morning" in t:
-        emotion = "tense" if view.interrupted else "assertive"
-        reply = (
-            "You dare cut me off—fine, put the morning berth in writing and I hold my ships."
-            if view.interrupted
-            else "The morning slot is acceptable. Do not cross us."
-        )
-        promises = [{"to": nation, "what": "berth", "when": "morning", "condition": None}]
-        if view.interrupted and nation == "ostrava":
-            actions = [{"type": "wait", "by": "ostrava"}]
-            resolve = 0.1
-            trust = -0.05
-    elif "berth" in t or "dock" in t or "whole day" in t or "entire day" in t:
-        emotion = "determined"
-        reply = "Good. Our grain ships are moving on your word that the berth is ours all day."
-        promises = [{"to": nation, "what": "berth", "when": "all_day", "condition": None}]
-        resolve = 0.05
+    else:
+        crisis_id = view.state.crisis.id if view.state.crisis else "one_berth"
+        if crisis_id == "one_berth":
+            if "tug" in t and nation == "nordhaven":
+                emotion = "assertive"
+                reply = "Your timing is tight, President, but stability comes first. Nordhaven will dispatch the tugs."
+                promises = [{"to": "nordhaven", "what": "send_tugs", "when": "now", "condition": None}]
+                actions = [{"type": "send_tugs", "by": "nordhaven"}]
+                trust = 0.1
+            elif "evening" in t or "tonight" in t or "night" in t or "afternoon" in t:
+                slot = "afternoon" if "afternoon" in t else "evening"
+                emotion = "calm"
+                reply = f"Very well—the {slot} slot is recorded. We will hold you to it."
+                promises = [{"to": nation, "what": "berth", "when": slot, "condition": None}]
+            elif "morning" in t:
+                emotion = "tense" if view.interrupted else "assertive"
+                reply = (
+                    "You dare cut me off—fine, put the morning berth in writing and I hold my ships."
+                    if view.interrupted
+                    else "The morning slot is acceptable. Do not cross us."
+                )
+                promises = [{"to": nation, "what": "berth", "when": "morning", "condition": None}]
+                if view.interrupted and nation == "ostrava":
+                    actions = [{"type": "wait", "by": "ostrava"}]
+                    resolve = 0.1
+                    trust = -0.05
+            elif "berth" in t or "dock" in t or "whole day" in t or "entire day" in t:
+                emotion = "determined"
+                reply = "Good. Our grain ships are moving on your word that the berth is ours all day."
+                promises = [{"to": nation, "what": "berth", "when": "all_day", "condition": None}]
+                resolve = 0.05
+        elif crisis_id == "outbreak":
+            if "first dose" in t or "doses" in t or "vaccine" in t:
+                emotion = "determined"
+                reply = "We will hold Valdoria to that pledge on the first vaccine doses."
+                promises = [{"to": nation, "what": "first_doses", "when": "now", "condition": None}]
+                resolve = 0.05
+            elif "split" in t:
+                emotion = "calm"
+                reply = "Splitting the vaccine batch is difficult, but we have logged your commitment."
+                promises = [{"to": nation, "what": "split_batch", "when": "now", "condition": None}]
+            elif "second batch" in t or "fund" in t:
+                emotion = "warm"
+                reply = "Funding a second batch gives our clinics breathing room. Keep your word."
+                promises = [{"to": nation, "what": "fund_second_batch", "when": "now", "condition": None}]
+            elif "corridor" in t or "border" in t:
+                emotion = "calm"
+                reply = "Our border authorities have noted your assurance on the medical corridor."
+                promises = [{"to": nation, "what": "open_corridor", "when": "now", "condition": None}]
+        elif crisis_id == "coup":
+            if "backing" in t or "stand with" in t or "back" in t or "support" in t:
+                emotion = "determined"
+                reply = "Valdoria's backing is on the record. Do not waver while the capital is in play."
+                promises = [{"to": nation, "what": "valdoria_backing", "when": "now", "condition": None}]
+                resolve = 0.05
+            elif "talks" in t or "table" in t or "broker" in t:
+                emotion = "calm"
+                reply = "We will prepare the negotiating table. Make sure the other capitals attend."
+                promises = [{"to": nation, "what": "broker_talks", "when": "now", "condition": None}]
+            elif "stay out" in t or "stand down" in t:
+                emotion = "tense"
+                reply = "We will watch the border closely before standing down."
+                promises = [{"to": nation, "what": "stay_out", "when": "now", "condition": None}]
+        elif crisis_id == "pipeline_cut":
+            if "sole supplier" in t or "supplier" in t or "fill" in t:
+                emotion = "determined"
+                reply = "Good. Name us the sole supplier and the oil valves will turn."
+                promises = [{"to": nation, "what": "sole_supplier", "when": "now", "condition": None}]
+                resolve = 0.05
+            elif "pay" in t or "price" in t or "fair" in t:
+                emotion = "assertive"
+                reply = "We have logged your assurance on the price settlement. Keep the refineries running."
+                promises = [{"to": nation, "what": "pay_price", "when": "now", "condition": None}]
+            elif "embargo" in t:
+                emotion = "tense"
+                reply = "A chip embargo raises the stakes across the corridor. We note your stance."
+                promises = [{"to": nation, "what": "chip_embargo", "when": "now", "condition": None}]
+            elif "mediate" in t:
+                emotion = "calm"
+                reply = "Valdoria's mediation on the pipeline price is noted."
+                promises = [{"to": nation, "what": "mediate_price", "when": "now", "condition": None}]
 
     if (view.hesitation_ms or 0) > 2500:
         resolve = round(resolve - 0.15, 3)
