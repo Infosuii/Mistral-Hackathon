@@ -439,3 +439,54 @@ button:focus-visible { outline: var(--edge) solid var(--accent); outline-offset:
   .resources { grid-row: 2; grid-column: 1 / -1; }
   .session-controls { grid-row: 3; grid-column: 1 / -1; border-top: var(--edge) solid var(--border); }
 }
+
+.plain-control, .wiretap-controls select {
+  min-height: var(--control-min);
+  border: var(--edge) solid var(--border);
+  padding: var(--space-1) var(--space-2);
+  color: var(--text);
+  background: var(--surface);
+  font: inherit;
+  font-size: var(--type-sm);
+}
+.plain-control:enabled { cursor: pointer; }
+.plain-control:enabled:hover, .plain-control[aria-expanded='true'] { border-color: var(--accent); }
+.plain-control:disabled { opacity: .6; }
+
+.phone[data-ringing='true'] { border-color: var(--signal); }
+.phone[data-ringing='true'] .phone-heading { animation: phone-flash .7s ease-in-out 6 alternate; }
+@keyframes phone-flash { to { background: var(--phone-edge); } }
+@media (prefers-reduced-motion: reduce) { .phone[data-ringing='true'] .phone-heading { animation: none; } }
+
+.intelligence-controls, .wiretap-controls { display: flex; gap: var(--space-2); }
+.wiretap-controls select { flex: 1; min-width: 0; }
+.incoming-call .plain-control { border-color: var(--phone-edge); background: var(--phone); }
+.incoming-call .plain-control:enabled:hover { border-color: var(--signal); }
+.incoming-call p { margin-block: var(--space-2); }
+.call-error { color: var(--signal); font-size: var(--type-sm); margin-top: var(--space-2); }
+ol.transcript {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0 0;
+  font-size: var(--type-sm);
+  max-height: var(--transcript-height);
+  overflow: auto;
+}
+.transcript li + li { margin-top: var(--space-2); }
+.intel-drawer audio { display: block; width: 100%; margin-top: var(--space-2); }
+
+.intelligence { padding: var(--space-2) var(--space-4); border-top: var(--edge) solid var(--border); }
+.intel-drawer {
+  margin-top: var(--space-2);
+  max-height: var(--intel-height);
+  overflow: auto;
+  font-size: var(--type-sm);
+}
+.intel-drawer dt { color: var(--muted); }
+.intel-drawer dd { margin-bottom: var(--space-2); }
+.intel-drawer .transcript b { color: var(--accent); }
+
+.phone[data-speaking='true'] .phone-heading { border-bottom-color: var(--signal); }
+@media (prefers-reduced-motion: reduce) {
+  .phone .tb-talk[data-state='recording'] { animation: none; }
+}
