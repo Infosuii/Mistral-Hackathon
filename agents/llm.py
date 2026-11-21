@@ -11,8 +11,10 @@ GAMBIT_LEADER_MODEL=mistral-large-4 to switch back without code changes.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
+import random
 import time
 from typing import Any, Callable, Optional, Type, TypeVar
 
@@ -35,6 +37,10 @@ class LLMError(RuntimeError):
 
 class EmptyReply(LLMError):
     """HTTP 200 but no text chunk (a reasoning model spent its budget thinking)."""
+
+
+class RateLimited(LLMError):
+    """HTTP 429. The limit is shared by the whole workspace, so back off and retry."""
 
 
 def _key() -> str:
@@ -100,6 +106,9 @@ async def chat(messages: list[dict], *, model: Optional[str] = None, effort: str
         STATS["failures"] += 1
         raise LLMError(f"{type(e).__name__}: {e}") from e
     STATS["latencies"].append(time.perf_counter() - t0)
+    if r.status_code == 429:
+        STATS["rate_limited"] = STATS.get("rate_limited", 0) + 1
+        raise RateLimited(f"HTTP 429: {r.text[:200]}")
     if r.status_code != 200:
         STATS["failures"] += 1
         raise LLMError(f"HTTP {r.status_code}: {r.text[:300]}")
@@ -112,31 +121,39 @@ async def chat(messages: list[dict], *, model: Optional[str] = None, effort: str
 
 async def chat_json(messages: list[dict], parse: Callable[[Any], T], *, deadline: float,
                     **kw: Any) -> T:
-    """Ask for JSON and parse it with `parse`. Retry once (bad JSON, empty reply or
-    validation error) if time remains before `deadline` (a perf_counter value)."""
+    """Ask for JSON and parse it with `parse`. One retry on bad JSON, an empty reply or a
+    validation error; backs off and retries on 429. All before `deadline` (perf_counter)."""
     last: Exception | None = None
-    for attempt in range(2):
+    bad, waits = 0, 0
+    while bad < 2:
         left = deadline - time.perf_counter()
         if left < 1.0:
             break
         try:
             raw = await chat(messages, timeout=left, **kw)
+        except RateLimited as e:
+            last, waits = e, waits + 1
+            pause = min(0.3 * 2 ** waits + random.uniform(0, 0.3), deadline - time.perf_counter() - 1.5)
+            if pause <= 0:
+                break
+            await asyncio.sleep(pause)
+            continue
         except EmptyReply as e:
-            last = e
-            STATS["retries"] += attempt == 0
+            last, bad = e, bad + 1
+            STATS["retries"] += 1
             continue
         try:
             return parse(loads(raw))
         except (ValueError, ValidationError, KeyError, TypeError) as e:
-            last = e
-            STATS["retries"] += attempt == 0
+            last, bad = e, bad + 1
+            STATS["retries"] += 1
             messages = messages + [
                 {"role": "assistant", "content": raw[:2000]},
                 {"role": "user", "content": f"That was not valid: {str(e)[:300]}. "
                                             "Reply again with only the corrected JSON object."},
             ]
     STATS["failures"] += 1
-    raise LLMError(f"no valid reply: {last}")
+    raise LLMError(f"no valid reply in time: {last}")
 
 
 async def chat_model(model_cls: Type[T], messages: list[dict], *, timeout: float = 20.0,
