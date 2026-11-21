@@ -152,3 +152,22 @@ def test_interrupt_plus_half_day_beats_the_blockade_and_replay_flips_it():
 def test_without_the_interrupt_the_public_blockade_holds():
     g = _neon_1348(interrupt=False)
     assert g.last_crisis["decisions"]["ostrava"].action == "blockade"  # the back-down cost counts at the deadline
+
+
+def test_a_leader_who_has_decided_does_not_ring_to_threaten():
+    deal = _mk(actions=[{"type": "dock", "by": "ostrava"}])
+    async def go():
+        g = Game(seed=7, use_agents=False, needle=False)
+        g.start_crisis("one_berth")
+        rang = []
+        while g.state.phase == "crisis":
+            s = await g.turn()
+            if s.crisis and s.incoming_call:
+                rang.append((s.crisis.tick, s.incoming_call.from_))
+            if s.crisis and s.crisis.tick == 1:
+                g.apply_call("ostrava", deal)  # Ostrava agrees to dock; decided at tick 2
+        return g, rang
+    g, rang = asyncio.run(go())
+    assert (1, "ostrava") in rang and not any(t == 7 for t, _ in rang)
+    assert g.last_crisis["decisions"]["ostrava"].action == "dock"
+    assert not any(e.type == "public_commitment" for e in g.state.events)
