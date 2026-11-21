@@ -63,6 +63,7 @@ app = FastAPI(title="GAMBIT")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 routers = [router]
+MOUNT_ERRORS: dict[str, str] = {}  # scripts/smoke.sh fails if this is not empty
 for module in ("voice.api", "replay.api"):
     try:
         routers.append(importlib.import_module(module).router)
@@ -70,8 +71,10 @@ for module in ("voice.api", "replay.api"):
     except ModuleNotFoundError as e:
         if e.name and module.startswith(e.name):
             continue  # that folder has no routes yet
+        MOUNT_ERRORS[module] = f"{type(e).__name__}: {e}"
         log.exception("could not mount %s", module)
-    except Exception:
+    except Exception as e:
+        MOUNT_ERRORS[module] = f"{type(e).__name__}: {e}"
         log.exception("could not mount %s", module)
 
 for r in routers:
