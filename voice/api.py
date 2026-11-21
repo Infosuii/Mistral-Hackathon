@@ -107,6 +107,9 @@ def _history(nation: str, state: dict) -> list[dict]:
     return call["turns"]
 
 
+NO_KEY_REPLY = ("[Setup problem, not the leader] This game server has no MISTRAL_API_KEY, so no leader "
+                "can answer. Add the key to .env at the repo root and restart the server.")
+
 FALLBACK_REPLY = {
     "reply_text": FALLBACK_LINE[0],
     "emotion": FALLBACK_LINE[1], "promises": [], "actions": [],
@@ -150,6 +153,14 @@ async def call(req: CallRequest):
         print(f"[voice] leader reply failed, using fallback line: {e}")
         raw = dict(FALLBACK_REPLY)  # the player still said it: interpret below records their promises
     t_llm = time.perf_counter()
+
+    # A live server with no key cannot reach any leader. Say so in plain words instead of
+    # the in-character fallback: three machines ran keyless for an hour today and looked
+    # like flaky leaders ("the line is breaking up").
+    if real and not os.environ.get("MISTRAL_API_KEY"):
+        print("[voice] NO MISTRAL_API_KEY: leaders cannot answer. Add it to .env and restart.")
+        return {"transcript": transcript, "reply_text": NO_KEY_REPLY, "reply_audio_url": None,
+                "emotion": "calm", "promises": [], "actions": []}
 
     # Speech first: the TTS request goes out before anything else happens.
     url = await speak(raw["reply_text"], voice_id, raw["emotion"])

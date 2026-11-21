@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import intelExample from '../../contracts/examples/leader.response.json'
 import wiretapExample from '../../contracts/examples/wiretap.response.json'
 import { api, audioSource } from './api'
@@ -13,16 +13,45 @@ type Intel = {
   reason: string
 }
 type Wiretap = { lines: { speaker: string; text: string; audio_url?: string | null }[] }
+type Tab = 'intel' | 'wiretap'
 
 export function Intelligence({ state, id, online }: { state: GameState; id: string; online: boolean }) {
-  const [tab, setTab] = useState<'intel' | 'wiretap'>()
+  const [tab, setTab] = useState<Tab>()
   const [intel, setIntel] = useState<Intel>()
   const [lines, setLines] = useState<Wiretap['lines']>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const popover = useRef<HTMLDivElement>(null)
+  const closeButton = useRef<HTMLButtonElement>(null)
+  const opener = useRef<HTMLButtonElement>(null)
   const contacts = Object.entries(state.nations).filter(([nation]) => nation !== id && nation !== state.seat.nation)
   const [contact, setContact] = useState(contacts[0]?.[0] ?? '')
   const strategy = intel?.private_strategy?.trim()
+
+  useEffect(() => {
+    const panel = popover.current
+    if (!tab || !panel) return
+    panel.showPopover()
+    closeButton.current?.focus({ preventScroll: true })
+    return () => {
+      if (panel.matches(':popover-open')) panel.hidePopover()
+    }
+  }, [tab])
+
+  function close() {
+    setTab(undefined)
+    if (opener.current?.isConnected) opener.current.focus({ preventScroll: true })
+  }
+
+  function toggle(next: Tab, button: HTMLButtonElement) {
+    if (tab === next) {
+      close()
+      return
+    }
+    if (!tab) opener.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : button
+    setError('')
+    setTab(next)
+  }
 
   useEffect(() => {
     if (tab !== 'intel') return
@@ -86,46 +115,57 @@ export function Intelligence({ state, id, online }: { state: GameState; id: stri
   return (
     <div className="intelligence">
       <div className="intelligence-controls">
-        <button className="plain-control" aria-expanded={tab === 'intel'} onClick={() => setTab(tab === 'intel' ? undefined : 'intel')}>Intel</button>
+        <button className="plain-control" aria-expanded={tab === 'intel'} onClick={(event) => toggle('intel', event.currentTarget)}>Intel</button>
         {contacts.length > 0 && (
-          <button className="plain-control" aria-expanded={tab === 'wiretap'} onClick={() => { setError(''); setTab(tab === 'wiretap' ? undefined : 'wiretap') }}>Wiretap</button>
+          <button className="plain-control" aria-expanded={tab === 'wiretap'} onClick={(event) => toggle('wiretap', event.currentTarget)}>Wiretap</button>
         )}
       </div>
-      {tab === 'intel' && (
-        <section className="intel-drawer" aria-label="Leader intel">
-          {intel ? (
-            <dl>
-              {strategy && <><dt>Private strategy</dt><dd className="intel-strategy">{strategy}</dd></>}
-              <dt>Private intent</dt><dd>{intel.private_intent || 'No private intent recorded.'}</dd>
-              <dt>Advisers recommend</dt><dd>{intel.advice[0] ? actionName(intel.advice[0].action) : 'No advice recorded.'}</dd>
-              <dt>Chosen action</dt><dd>{intel.chosen.map(actionName).join(', ') || 'No action recorded.'}</dd>
-              {intel.reason && <><dt>Reason</dt><dd>{intel.reason}</dd></>}
-            </dl>
-          ) : error ? null : <p role="status">{online ? 'Loading intel' : 'No archived briefing for this leader.'}</p>}
-        </section>
-      )}
-      {tab === 'wiretap' && (
-        <section className="intel-drawer" aria-label="Wiretap">
-          <div className="wiretap-controls">
-            <select aria-label="Second leader" value={contact}
-              onChange={(event) => { setContact(event.target.value); setLines(undefined); setError('') }} disabled={busy}>
-              {contacts.map(([nation, leader]) => <option key={nation} value={nation}>{leader.name}</option>)}
-            </select>
-            <button className="plain-control" onClick={() => void listen()} disabled={!contact || busy}>{busy ? 'Listening' : 'Listen'}</button>
+      {tab && (
+        <div className="intel-popover" ref={popover} popover="manual" role="dialog" aria-labelledby="intel-popover-title"
+          onKeyDown={(event) => { if (event.key === 'Escape') close() }}>
+          <header className="intel-popover-header">
+            <h3 id="intel-popover-title">{state.nations[id]?.name} · {tab === 'intel' ? 'Intel' : 'Wiretap'}</h3>
+            <button type="button" className="plain-control" ref={closeButton} onClick={close}>Close</button>
+          </header>
+          <div className="intel-popover-body">
+            {tab === 'intel' && (
+              <section className="intel-drawer" aria-label="Leader intel">
+                {intel ? (
+                  <dl>
+                    {strategy && <><dt>Private strategy</dt><dd className="intel-strategy">{strategy}</dd></>}
+                    <dt>Private intent</dt><dd>{intel.private_intent || 'No private intent recorded.'}</dd>
+                    <dt>Advisers recommend</dt><dd>{intel.advice[0] ? actionName(intel.advice[0].action) : 'No advice recorded.'}</dd>
+                    <dt>Chosen action</dt><dd>{intel.chosen.map(actionName).join(', ') || 'No action recorded.'}</dd>
+                    {intel.reason && <><dt>Reason</dt><dd>{intel.reason}</dd></>}
+                  </dl>
+                ) : error ? null : <p role="status">{online ? 'Loading intel' : 'No archived briefing for this leader.'}</p>}
+              </section>
+            )}
+            {tab === 'wiretap' && (
+              <section className="intel-drawer" aria-label="Wiretap">
+                <div className="wiretap-controls">
+                  <select aria-label="Second leader" value={contact}
+                    onChange={(event) => { setContact(event.target.value); setLines(undefined); setError('') }} disabled={busy}>
+                    {contacts.map(([nation, leader]) => <option key={nation} value={nation}>{leader.name}</option>)}
+                  </select>
+                  <button className="plain-control" onClick={() => void listen()} disabled={!contact || busy}>{busy ? 'Listening' : 'Listen'}</button>
+                </div>
+                {lines && (lines.length === 0 ? <p>No intercepted lines.</p> : (
+                  <ol className="transcript">
+                    {lines.map((line, index) => (
+                      <li key={index}>
+                        <b>{state.nations[line.speaker]?.name ?? line.speaker}</b> {line.text}
+                        {online && line.audio_url && <audio controls preload="none" src={audioSource(line.audio_url)} />}
+                      </li>
+                    ))}
+                  </ol>
+                ))}
+              </section>
+            )}
+            {error && <p className="call-error" role="alert">{error}</p>}
           </div>
-          {lines && (lines.length === 0 ? <p>No intercepted lines.</p> : (
-            <ol className="transcript">
-              {lines.map((line, index) => (
-                <li key={index}>
-                  <b>{state.nations[line.speaker]?.name ?? line.speaker}</b> {line.text}
-                  {online && line.audio_url && <audio controls preload="none" src={audioSource(line.audio_url)} />}
-                </li>
-              ))}
-            </ol>
-          ))}
-        </section>
+        </div>
       )}
-      {error && <p className="call-error" role="alert">{error}</p>}
     </div>
   )
 }

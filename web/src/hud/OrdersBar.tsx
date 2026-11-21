@@ -13,18 +13,16 @@ const modules = import.meta.glob<{ Diplomacy?: ComponentType<DiplomacyProps> }>(
 const Diplomacy = Object.values(modules)[0]?.Diplomacy
 
 function openCall() {
-  const phone = document.querySelector<HTMLElement>('.phone')
-  phone?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  phone?.querySelector<HTMLElement>('input[type="text"], input:not([type]), textarea')?.focus()
-  phone?.animate([{ boxShadow: '0 0 0 0 #ff978c' }, { boxShadow: '0 0 0 6px #ff978c00' }], { duration: 700 })
+  const phone = document.getElementById('phone-controls')
+  phone?.scrollIntoView({ block: 'nearest' })
+  phone?.querySelector<HTMLElement>(':scope > div:not([hidden]) .tb-talk:enabled, .preview-call')
+    ?.focus({ preventScroll: true })
 }
 
 function openDossierTab(label: 'Intel' | 'Wiretap') {
   const button = [...document.querySelectorAll<HTMLButtonElement>('.intelligence-controls button')]
     .find((b) => b.textContent?.trim() === label)
-  if (!button) return
-  if (button.getAttribute('aria-expanded') !== 'true') button.click()
-  button.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  if (button?.getAttribute('aria-expanded') === 'false') button.click()
 }
 
 export function OrdersBar({ state, selected }: { state: GameState; selected?: string }) {
@@ -46,9 +44,9 @@ export function OrdersBar({ state, selected }: { state: GameState; selected?: st
       </div>
       {!own && (
         <div className="orders-actions" role="group" aria-label={`Orders for ${nation.name}`}>
-          <button className="order order-call" onClick={openCall}>
+          <button className="order order-call" onClick={openCall} aria-controls="phone-controls">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 2.5l3 3-2 2.2c1 2.2 2.6 3.8 4.8 4.8l2.2-2 3 3-2 2.5C9.5 16 4 10.5 3 4.5z" /></svg>
-            Call {nation.leader.split(' ').slice(-1)[0]}
+            Open phone
           </button>
           {canIntel && <button className="order" onClick={() => openDossierTab('Intel')}>Intel</button>}
           {canIntel && <button className="order" onClick={() => openDossierTab('Wiretap')}>Wiretap</button>}

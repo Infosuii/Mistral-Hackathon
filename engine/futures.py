@@ -11,6 +11,7 @@ two sides comes from the deal, not from luck.
 from __future__ import annotations
 
 import hashlib
+import os
 import json
 import math
 import random
@@ -103,7 +104,9 @@ def caption(before: float, after: float) -> str:
 def futures(before: State, after: State, first_after: Optional[list[Action]] = None,
             count: Optional[int] = None, months: Optional[int] = None) -> FuturesResponse:
     r = weights()["rollout"]
-    count, months = count or r["count"], months or r["months"]
+    # GAMBIT_ROLLOUTS lowers the count on a slow demo laptop (Reviewer, #27 14:07); default 200.
+    count = count or int(os.environ.get("GAMBIT_ROLLOUTS") or r["count"])
+    months = months or r["months"]
     b = war_p(before, count, months)
     a = war_p(after, count, months, first_after)
     return FuturesResponse(before={"war_p": round(b, 3)}, after={"war_p": round(a, 3)}, caption=caption(b, a))
