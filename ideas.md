@@ -45,7 +45,8 @@ Score ideas out of 100 using **35 for voice being essential**, **30 for likeliho
 **Status:** proposal (v2 of this PR, updated 11:45 with the accepted points from Abi's review in PR #3; see §0b). It replaces the first draft below the line. React 👍 on the PR or comment with objections so we can lock it and build.
 **Fallback:** IMPOSTOR (social-deduction game with a sabotaging coding agent).
 **First tests (before 12:00):** Le Chonk returns valid leader JSON 10/10; 8 parallel model calls timed; Voxtral talk → reply → speech round trip timed; one emotion tag audibly changes a voice.
-**Build assignments:** Tamim interface + replay + integration (`/web`, `/replay`), Om engine + futures (`/engine`), Abi leaders + batch (`/agents`), Ashish voice + demo (`/voice`). Full concept below.
+**Build assignments:** Tamim lead coordinator + interface + replay (`/web`, `/replay`), Om engine + futures (`/engine`), Abi leaders + batch (`/agents`), Ashish voice + demo (`/voice`). Full concept below.
+**How we build it:** `MASTER_PLAN.md` (tasks, checkpoints, contracts, coordination) and `MASTER_PROMPT.md` (what each person pastes into their coding agent). Where they differ from this file, they win.
 
 ---
 
@@ -353,7 +354,7 @@ Whatever layer is finished at the freeze is what we show. Tamim calls the cuts a
 
 ## 16. Roles (sized to each person's AI usage)
 
-Each person owns one folder and never edits another's. Requests go in `COORD.md`.
+Each person owns one folder. Requests and coordination go through the Team message board on GitHub (`MASTER_PLAN.md` §8). Tamim is lead coordinator.
 
 | Person | Owns | Delivers | Backup |
 |---|---|---|---|
@@ -405,7 +406,8 @@ ideas.md            ← this plan
 /web      (Tamim)
 /replay   (Tamim)
 /voice    (Ashish)
-COORD.md  ← requests between folders, status, blockers
+MASTER_PLAN.md    ← tasks, checkpoints, contracts, coordination
+MASTER_PROMPT.md  ← what to paste into your coding agent
 ```
 
 Before every push: `git pull --rebase`. Commit small and often. Keys only in `.env` (gitignored).
