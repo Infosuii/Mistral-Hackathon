@@ -93,8 +93,9 @@ about how things look, sound or feel is a starting point, not a specification. W
 tell you what I want, follow my latest direction over what is written here, and record
 it in my area's design file so later sessions keep it. If a teammate posts a DESIGN
 note on my work issue, show it to me and apply it unless it conflicts with something I
-said. When you are unsure between two directions, show me two quick variants and let
-me pick instead of guessing. Keep style in data (a theme file, persona cards, a casting
+said. When you are unsure between two directions, pick the one closest to what I have
+already asked for, note it in the design file, and keep building; I will redirect you
+if I want something else. Keep style in data (a theme file, persona cards, a casting
 file, weights) so a change of direction is a small edit, not a rewrite.
 
 Work autonomously. I should not have to tell you to carry on (MASTER_PLAN.md
@@ -119,9 +120,21 @@ section 8d). Run this loop until my task table is finished or it is 16:15:
    It returns when someone addresses me on the board, comments on my issue, or the
    path changes on main. Then pull main and continue. If it times out twice in a row,
    stop and tell me.
-Stop and ask me only for: a contract change, a scope or ownership conflict, a choice
-between two design directions, anything destructive (force-push, deleting someone's
-work), or the same failure three times. Otherwise keep going.
+Do not stop to ask me questions. When you hit a choice you cannot settle from the
+plan (a contract change, scope, how long something should run, which of two options,
+who owns something), do this instead:
+- If one option is clearly closer to what MASTER_PLAN.md and ideas.md already say,
+  take it, note the choice in your PR, and keep going.
+- Otherwise ask the Coordinator, not me:
+  scripts/board.sh say NEED <my name> "Coordinator" "<the question>. Options: A ..., B ....
+  I lean <A or B> because <one reason>."
+  Then carry on with any task that does not depend on the answer. If everything
+  depends on it, run scripts/wait_for_tag.sh <my name> <my issue number> 10 and act on
+  the Coordinator's DECIDED line when it arrives. If nothing comes in 10 minutes, go
+  with the option you leaned towards and say so on the board.
+Come to me only for: something that cannot be undone (force-push, deleting someone's
+work), a missing key or login, a step that needs a person in the room, or the same
+failure three times. I can still give you direction whenever I like; follow it when I do.
 
 If the Coordinator posts BLOCKED saying my merge broke main, fixing that comes before
 anything else. After the 16:15 freeze: fixes only, and do not merge my own PRs any
@@ -186,8 +199,8 @@ one-liners) and Open questions. Read it before every interface task and update i
 Tamim gives new direction or a teammate's DESIGN note is accepted. Put every colour,
 font, size and spacing value in web/src/theme.ts as named tokens and have components
 read from it, so a new direction restyles the whole game from one file. After the
-first screen is up, take a screenshot and ask Tamim what to push further before
-polishing anything.
+first screen is up, save a screenshot in the PR so Tamim can redirect the look, and
+keep building without waiting for an answer.
 
 Start with W1: render contracts/examples/state.json with the map, nation cards, news
 ticker, phone and turn clock. If contracts/ is not on main yet, create a local copy of
@@ -360,7 +373,10 @@ Run this loop until 17:45 without waiting for me:
    Put your latest decisions and what merged (with the check that passed) in --done,
    and anything on the ask-first list in --needs, so Tamim can review at a glance.
 
-6. Then run `sleep 240` and go back to step 1.
+6. Then wait with: scripts/wait_for_tag.sh Coordinator 0 4
+   It returns as soon as anyone addresses you on the board, or after four minutes.
+   Either way go back to step 1. A NEED addressed to you is a question from a build
+   agent that is waiting on your answer: decide it before anything else.
 
 Deciding. When a question is open (a NEED addressed to Tamim or to you, an "open
 decision" on the board, a contract proposal, a failed checkpoint, two agents
