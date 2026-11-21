@@ -39,6 +39,36 @@ Decide = Callable[[LeaderView], Awaitable[LeaderOutput]]
 HISTORIAN_TIMEOUT_S = float(os.environ.get("GAMBIT_HISTORIAN_TIMEOUT", "30"))
 
 
+MEDIATOR = os.environ.get("GAMBIT_MEDIATOR", "").lower() in ("1", "true", "on", "yes")
+
+
+def available_roles() -> Optional[list[str]]:
+    """Seats /start accepts beyond the president (DECIDED 13:09); None means president only."""
+    return ["president", "mediator"] if MEDIATOR else None
+
+
+EXTRA_CRISES = os.environ.get("GAMBIT_EXTRA_CRISES", "").lower() in ("1", "true", "on", "yes")
+
+
+def available_crises() -> Optional[list[dict]]:
+    """Crises /crisis/start accepts beyond One Berth (DECIDED 13:12): every file in
+    data/crises/ that loads, One Berth first. None (One Berth only) unless the flag is on."""
+    if not EXTRA_CRISES:
+        return None
+    from engine.crisis import available
+    out = []
+    for cid in available():
+        try:
+            out.append({"id": cid, "title": crisis_file(cid).title})
+        except Exception as e:  # a broken file is simply not offered
+            log.warning("crisis %s does not load: %s", cid, e)
+    return sorted(out, key=lambda c: (c["id"] != "one_berth", c["id"]))
+
+
+def allowed_crises() -> list[str]:
+    return [c["id"] for c in available_crises() or []] or ["one_berth"]
+
+
 PRIVATE_STRATEGY = os.environ.get("GAMBIT_PRIVATE_STRATEGY", "").lower() in ("1", "true", "on", "yes")
 
 
@@ -128,7 +158,14 @@ class Game:
         self.reset(seed, seat)
 
     def reset(self, seed: int, seat: Optional[Seat] = None) -> State:
-        self.state = new_game(seed, seat or Seat(role="president", nation="valdoria"))
+        seat = seat or Seat(role="president", nation="valdoria")
+        if seat.role not in (available_roles() or ["president"]):
+            raise ValueError(f"the {seat.role} seat is not enabled")
+        self.state = new_game(seed, seat)
+        if available_roles():
+            self.state = self.state.model_copy(update={"available_roles": available_roles()})
+        if available_crises():
+            self.state = State.model_validate({**self.state.model_dump(), "available_crises": available_crises()})
         self.leaders: dict[str, LeaderDetail] = {}
         self.inbox: dict[str, list[ReceivedMessage]] = {n: [] for n in NATION_IDS}
         self.queued: list[Action] = []  # agreed on the phone; applied next turn
@@ -149,7 +186,9 @@ class Game:
         self.session_log: list[dict] = [{"turn": 0, "type": "news", "text": n.text} for n in self.state.news]
         self.months_in_power = self.peace_months = 0
         self.promises_kept = self.promises_broken = 0
-        self.original_leader = self.state.nations[self.state.seat.nation].leader
+        self.peaceful_crises = 0
+        seat_nation = self.state.seat.nation
+        self.original_leader = self.state.nations[seat_nation].leader if seat_nation else "The mediator"
         # Private strategies by phase: "" for the game, a crisis id for that crisis.
         self.strategies: dict[str, dict[str, str]] = {}
         self._strategize("")
@@ -228,7 +267,14 @@ class Game:
             s = self.state
             ai = self.ai_nations()
             advice = {n: advise(s, n) for n in ai}
+            epoch = self.epoch
             results = await asyncio.gather(*(self._one_leader(n, advice[n]) for n in ai))
+            if epoch != self.epoch:  # /start arrived while the leaders were thinking
+                return self.state
+            # A phone call can land while the leaders think (apply_call does not take the
+            # lock). Step from the state as it is now, or that call's promises, trust
+            # changes and last_call would be overwritten.
+            s = self.state
 
             queued_by = {a.by for a in self.queued}
             actions = list(self.queued)
@@ -256,7 +302,11 @@ class Game:
         nxt = c.tick + 1
         due = [n for n in self.ai_nations() if n not in c.decisions and c.deadlines.get(n) == nxt]
         advice = {n: advise(s, n) for n in due}
+        epoch = self.epoch
         results = await asyncio.gather(*(self._one_leader(n, advice[n]) for n in due))
+        if epoch != self.epoch or self.state.crisis is None:  # reset, or ended, meanwhile
+            return self.state
+        s = self.state  # keep any call that landed while the leaders were thinking
 
         queued_by = {a.by for a in self.queued}
         actions = list(self.queued)
@@ -309,14 +359,15 @@ class Game:
             if d["type"] == "crisis_resolved":
                 self.promises_kept += d.get("promises_kept", 0)
                 self.promises_broken += d.get("promises_broken", 0)
+                self.peaceful_crises += 0 if d.get("war") else 1
 
     def _after_month(self, old: State, new: State) -> None:
-        seat = new.seat.nation
+        seat = new.seat.nation  # None for a mediator: no ouster, and peace means no war anywhere
         ousted = [e for e in _new_items(old.events, new.events)
-                  if e.nation == seat and e.type in ("election", "coup")]
+                  if seat is not None and e.nation == seat and e.type in ("election", "coup")]
         if not ousted:
             self.months_in_power += 1
-        if not any(l.type == "war" and seat in (l.a, l.b) for l in new.links):
+        if not any(l.type == "war" and (seat is None or seat in (l.a, l.b)) for l in new.links):
             self.peace_months += 1
         if ousted:
             self.end("voted_out" if ousted[0].type == "election" else "coup")
@@ -329,7 +380,7 @@ class Game:
         if self.state.phase == "ended":
             return self.state
         sc = score(self.start_state, self.state, self.months_in_power, self.peace_months,
-                   self.promises_kept, self.promises_broken)
+                   self.promises_kept, self.promises_broken, self.peaceful_crises)
         self.state = self.state.model_copy(update={
             "phase": "ended", "crisis": None, "incoming_call": None,
             "ending": Ending(reason=reason, score=sc)})
@@ -383,6 +434,15 @@ class Game:
         return LeaderDetail(public_statement=n.public_statement, private_intent="", advice=advise(self.state, nation),
                             chosen=[], reason="", persona=_persona(nation), private_strategy=strategy)
 
+    def interrupt(self, to: str) -> bool:
+        """The player cut this leader off. Cancels a threat that has not gone public yet.
+        Called the moment /call arrives, so it does not wait for the reply to be worked
+        out (interpret takes seconds; the next tick would make the threat public first)."""
+        if self.pending_announce and self.pending_announce.by == to:
+            self.pending_announce = None
+            return True
+        return False
+
     def begin_call(self, to: str) -> str:
         """For split replies: call when the spoken reply goes out. state.last_call shows
         this call as pending until apply_call(..., call_id=...) fills it in."""
@@ -407,8 +467,8 @@ class Game:
         if call_id is not None and not call_id.startswith(f"g{self.epoch}c"):
             log.warning("dropping reply for %s: call %s started before the game was reset", to, call_id)
             return self.state
-        if interrupted and self.pending_announce and self.pending_announce.by == to:
-            self.pending_announce = None  # cut off before the threat went public
+        if interrupted:
+            self.interrupt(to)  # normally already done when /call arrived
         before = self.state
         s, strategy_promises = apply_call_effects(self.state, to, out, interrupted, len(self.promises))
         self.promises += strategy_promises

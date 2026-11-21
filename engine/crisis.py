@@ -103,13 +103,14 @@ def _score(s: State, nation: str, action: str) -> float:
     nat = s.nations[nation]
     b = nat.beliefs
     score = pay.get("base", 0.0)
-    score += pay.get("berth", 0.0) * berth_belief(s, nation)
+    if "berth" in pay:
+        score += pay["berth"] * berth_belief(s, nation)
     score += pay.get("low_resolve", 0.0) * (1 - (b.resolve_of_player if b else 0.5))
     trust = b.trust_in_player if b else 0.5
-    score += sum(r["promise_bonus"] * trust for p in _player_promises(s, nation) if p.what == action)
+    score += sum(r.get("promise_bonus", 4) * trust for p in _player_promises(s, nation) if p.what == action)
     committed = [pc.action for pc in s.crisis.public_commitments if pc.nation == nation]
     if committed and action not in committed:
-        score -= r["public_backdown_cost"].get(nat.system, 0)
+        score -= r.get("public_backdown_cost", {}).get(nat.system, 0)
     return round(score, 2)
 
 
@@ -127,7 +128,7 @@ def _decide(s: State, nation: str, action: str) -> None:
 
 
 def _compatible(r: dict, a: str, b: str) -> bool:
-    return any({a, b} == set(pair) for pair in r["compatible_when"])
+    return any({a, b} == set(pair) for pair in r.get("compatible_when", []))
 
 
 def _compare_notes(s: State, between: list[str]) -> None:
@@ -143,7 +144,7 @@ def _compare_notes(s: State, between: list[str]) -> None:
     for n in (a, b):
         bl = s.nations[n].beliefs
         if bl:
-            bl.trust_in_player = round(bl.trust_in_player * r["contradiction_trust_factor"], 3)
+            bl.trust_in_player = round(bl.trust_in_player * r.get("contradiction_trust_factor", 0.4), 3)
     for p, q in clash:
         p.kept = q.kept = False
     _say(s, f"{s.nations[a].name} and {s.nations[b].name} compare notes: you promised the {clash[0][0].what} to both",
@@ -194,12 +195,21 @@ def berth_holders(s: State) -> dict[str, str]:
     return {docking[0]: "berth"} if len(docking) == 1 else {}
 
 
-def _resolve(s: State) -> None:
-    c, r = s.crisis, _rules(s)
+def _war(s: State, a: str, b: str) -> bool:
+    """Start a war between a and b; False if they were already at war."""
+    if any(l.type == "war" and {l.a, l.b} == {a, b} for l in s.links):
+        return False
+    from contracts.models import Link
+    x, y = sorted((a, b))
+    s.links.append(Link(type="war", a=x, b=y))
+    return True
+
+
+def _one_berth_outcomes(s: State, dec: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+    """One Berth's own resolver: who docks, and what the blockade and mobilisation cost."""
+    r = _rules(s)
     out = r["outcomes"]
-    dec = {n: d.action for n, d in c.decisions.items()}
     holders = berth_holders(s)
-    cf_actions = crisis_file(c.id).actions
     for n in r["needs_berth"]:
         for stat, d in out[holders.get(n, "no_berth")].items():
             _bump(s, n, stat, d)
@@ -210,11 +220,11 @@ def _resolve(s: State) -> None:
     if dec.get("zarnia") == "mobilise":
         for k, d in out["mobilise"]["relations"].items():
             _rel(s, k, d)
-    war = (out["blockade_and_mobilise_means_war"] and dec.get("ostrava") == "blockade"
-           and dec.get("zarnia") == "mobilise")
-    if war and not any(l.type == "war" and {l.a, l.b} == {"ostrava", "zarnia"} for l in s.links):
-        from contracts.models import Link
-        s.links.append(Link(type="war", a="ostrava", b="zarnia"))
+    notes = []
+    if (out["blockade_and_mobilise_means_war"] and dec.get("ostrava") == "blockade"
+            and dec.get("zarnia") == "mobilise"):
+        _war(s, "ostrava", "zarnia")
+        notes.append("Ostrava and Zarnia are at war.")
     if dec.get("kessaria") == "close_port":
         _bump(s, "kessaria", "gdp", out["close_port"]["kessaria_gdp"])
     v = dec.get("valdoria", "")
@@ -226,22 +236,66 @@ def _resolve(s: State) -> None:
     elif v == "split_cargo":
         for n in r["needs_berth"]:
             _bump(s, n, "food", out["split_cargo"]["food"])
+    docked = ", ".join(f"{s.nations[n].name} ({h.replace('_', ' ')})" for n, h in holders.items()) or "nobody"
+    return holders, [f"Docked: {docked}."] + notes
+
+
+def _matches(when: dict, dec: dict[str, str]) -> bool:
+    return all(dec.get(n) in (v if isinstance(v, list) else [v]) for n, v in when.items())
+
+
+def _rule_outcomes(s: State, dec: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+    """Generic resolver: every rule in rules.outcomes whose `when` matches the decisions fires.
+
+    {"when": {"zarnia": "mobilise", "kessaria": ["close_port", "split_day"]},
+     "effects": {"stats": {"zarnia": {"stability": -5}}, "relations": {"kessaria|zarnia": -10},
+                 "war": ["kessaria", "zarnia"], "peace": ["a", "b"], "news": "Shots on the border."}}
+    A `when` value is one action or a list of allowed actions; {} always fires."""
+    notes = []
+    for rule in _rules(s).get("outcomes", []):
+        if not _matches(rule.get("when", {}), dec):
+            continue
+        eff = rule.get("effects", {})
+        for n, stats in eff.get("stats", {}).items():
+            for stat, d in stats.items():
+                _bump(s, n, stat, d)
+        for k, d in eff.get("relations", {}).items():
+            _rel(s, k, d)
+        if eff.get("war"):
+            _war(s, *eff["war"])
+        if eff.get("peace"):
+            pair = set(eff["peace"])
+            s.links = [l for l in s.links if not (l.type == "war" and {l.a, l.b} == pair)]
+        if eff.get("news"):
+            notes.append(eff["news"])
+    return {}, notes
+
+
+def _resolve(s: State) -> None:
+    c, r = s.crisis, _rules(s)
+    dec = {n: d.action for n, d in c.decisions.items()}
+    cf_actions = crisis_file(c.id).actions
+    wars_before = {frozenset((l.a, l.b)) for l in s.links if l.type == "war"}
+    if r.get("resolver") == "one_berth":
+        holders, notes = _one_berth_outcomes(s, dec)
+    else:
+        holders, notes = _rule_outcomes(s, dec)
+    war = any(frozenset((l.a, l.b)) not in wars_before for l in s.links if l.type == "war")
 
     for p in c.promises:
         if p.by != "player":
             continue
         if p.kept is None:
-            if p.what == "berth":
+            if p.what == "berth" and r.get("resolver") == "one_berth":
                 p.kept = p.to in holders
             elif p.what in cf_actions.get(p.to, []):
                 p.kept = dec.get(p.to) == p.what
         b = s.nations[p.to].beliefs
         if b and p.kept is not None:
-            d = r["kept_trust"] if p.kept else r["broken_trust"]
+            d = r.get("kept_trust", 0.15) if p.kept else r.get("broken_trust", -0.2)
             b.trust_in_player = round(min(1.0, max(0.0, b.trust_in_player + d)), 3)
 
-    docked = ", ".join(f"{s.nations[n].name} ({h.replace('_', ' ')})" for n, h in holders.items()) or "nobody"
-    _say(s, f"{crisis_file(c.id).title} is over. Docked: {docked}." + (" Ostrava and Zarnia are at war." if war else ""),
+    _say(s, " ".join([f"{crisis_file(c.id).title} is over."] + notes),
          "crisis_resolved", None, crisis=c.id, decisions=dec, holders=holders, war=war,
          promises_kept=sum(1 for p in c.promises if p.by == "player" and p.kept is True),
          promises_broken=sum(1 for p in c.promises if p.by == "player" and p.kept is False))
