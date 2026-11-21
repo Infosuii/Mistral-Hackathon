@@ -19,6 +19,7 @@ import { nationStyle } from './theme'
 import { CapitalMarkers, CrisisFocus, flagOf, LeaderMedallions, NationalBorders, TerritoryLabels, UnitCounters } from './hud/MapLayers'
 import { OrdersBar } from './hud/OrdersBar'
 import { BreakingNews, RelationPops } from './hud/Reactions'
+import { attackable, useWar, WarMapLayer, WarRoomPanel } from './hud/War'
 import { Biomes, coastPath, GroundCover, Lakes, Mountains, polar, Relief, Rivers, Sea, SeaIce, TerrainDefs, TerrainFeatures, terrainOf } from './hud/Terrain'
 
 interface Props {
@@ -130,6 +131,8 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
   const [view, setView] = useState(() => homeView(state.seat.nation))
   const [citySelection, setCitySelection] = useState<string | null>(null)
   const [mode, setMode] = useState<MapMode>('political')
+  const warCtl = useWar(state)
+  const warTargets = warCtl.attackMode ? attackable(state, warCtl.war) : null
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null)
   const relations = mode === 'relations' && Boolean(state.seat.nation)
   const shownMode: MapMode = mode === 'relations' && !relations ? 'political' : mode
@@ -322,7 +325,11 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
                   data-hover={hover?.id === id}
                   onPointerMove={(event) => hoverProvince(id, event)}
                   onPointerLeave={() => setHover(null)}
-                  onClick={() => nation && onSelect(owner)}>
+                  data-war-target={Boolean(warTargets?.has(id))}
+                  onClick={() => {
+                    if (warTargets?.has(id)) void warCtl.attack(id)
+                    else if (nation) onSelect(owner)
+                  }}>
                   <title>{nation?.name ?? 'Unclaimed'} · {id.toUpperCase()}</title>
                 </path>
               )
@@ -384,6 +391,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
           {layers.labels && <SiteLabels state={state} />}
           <CapitalMarkers state={state} />
           <UnitCounters state={state} />
+          <WarMapLayer state={state} controls={warCtl} showAll={shownMode === 'military'} />
           <LeaderMedallions state={state} selected={selected} onSelect={onSelect} />
           <CityMarkers state={state} onCity={selectCity} />
           <RelationPops state={state} />
@@ -394,6 +402,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
       <div className="map-vignette" aria-hidden="true" />
       </div>
       {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} />}
+      <WarRoomPanel state={state} selected={selected} controls={warCtl} />
       <div className="map-hud-top">
         {citySelection && <FreightSummary state={state} province={citySelection} onClose={() => setCitySelection(null)} />}
         <div className="map-mode" role="group" aria-label="Map view">
