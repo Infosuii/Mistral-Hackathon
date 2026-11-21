@@ -14,7 +14,7 @@ from pathlib import Path
 os.environ["GAMBIT_AGENTS"] = "stub"
 os.environ["VOICE_WIRETAP"] = "demo"
 os.environ["VOICE_MOCK"] = "fixed"
-os.environ.pop("MISTRAL_API_KEY", None)
+os.environ["MISTRAL_API_KEY"] = ""  # also blocks .env loaders using setdefault
 
 from contracts.models import CallOutput, CallView  # noqa: E402
 import engine.app as eng_app  # noqa: E402

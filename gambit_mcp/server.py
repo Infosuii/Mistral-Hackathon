@@ -307,7 +307,7 @@ async def gambit_call(to: str, text: str, interrupted: bool = False) -> str:
         deadline = time.monotonic() + CALL_WAIT_S
         while time.monotonic() < deadline:
             await asyncio.sleep(0.5)
-            lc = (await _request("GET", "/state")).get("last_call") or {}
+            lc = await _request("GET", f"/calls/{call_id}")
             if lc.get("call_id") == call_id and not lc.get("pending"):
                 promises, actions, waited = lc.get("promises") or [], lc.get("actions") or [], True
                 if lc.get("ends_call"):
@@ -315,7 +315,7 @@ async def gambit_call(to: str, text: str, interrupted: bool = False) -> str:
                 break
         if not waited:
             lines.append(f"The game is still working out what was agreed (after {CALL_WAIT_S:.0f} s); "
-                         "check gambit_state in a moment.")
+                         f"call ID {call_id}.")
             return "\n".join(lines)
     lines.append("Recorded promises: " + ("; ".join(_promise({"by": "player", **p}) for p in promises) or "none"))
     lines.append("Recorded actions: " + ("; ".join(_action(a) for a in actions) or "none"))

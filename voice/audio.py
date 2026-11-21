@@ -194,6 +194,8 @@ def start_speech(text: str, voice_id: str, emotion: str | None = None,
     """Sync version of speak() for code already inside the event loop (the engine's turn).
     Returns the URL, or None if the line is not rendered and no loop is running."""
     name = f"{cache_key(text, voice_id, emotion, fmt)}.{fmt}"
+    if find_audio(name) is None and not os.environ.get("MISTRAL_API_KEY") and os.environ.get("VOICE_MOCK") == "fixed":
+        return None
     if find_audio(name) is None and (name not in JOBS or JOBS[name].error):
         try:
             asyncio.get_running_loop()

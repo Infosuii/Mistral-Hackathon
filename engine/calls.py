@@ -31,7 +31,7 @@ def normalise_promise(state: State, to: str, what: str, when: str) -> tuple[str,
     if what not in vocab:
         hits = [v for v in vocab if v.replace("_", " ") in text]
         if hits:
-            what = max(hits, key=len)
+            what = max(hits, key=lambda name: (len(name), name))
     for word, phrases in WHEN_WORDS:
         if any(ph in text for ph in phrases):
             return what, word

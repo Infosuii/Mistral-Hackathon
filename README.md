@@ -34,7 +34,7 @@ echo "MISTRAL_API_KEY=your_key_here" > .env
 ./scripts/demo.sh
 ```
 
-`scripts/demo.sh` checks your API key, bootstraps `.venv` and `web/node_modules` on a fresh clone, verifies/warms pre-rendered crisis and Wiretap audio, starts the FastAPI backend (`http://127.0.0.1:8000`) with the stage defaults (`GAMBIT_DECIDE_MODEL=mistral-medium-latest`, `GAMBIT_PRIVATE_STRATEGY=1`, `GAMBIT_PLAYER_ACTIONS=1`, `GAMBIT_EXTRA_CRISES=1`, `VOICE_WIRETAP=demo`), and starts the web app at **`http://localhost:5173`**. Run `python scripts/preflight.py` before going on stage to verify your key, models, speech and transcription in 10 seconds.
+`scripts/demo.sh` checks your API key, bootstraps `.venv` and `web/node_modules` on a fresh clone, verifies/warms pre-rendered crisis and Wiretap audio, starts the FastAPI backend (`http://127.0.0.1:8000`) with the stage defaults (`GAMBIT_DECIDE_MODEL=mistral-medium-latest`, `GAMBIT_PRIVATE_STRATEGY=1`, `GAMBIT_PLAYER_ACTIONS=1`, `GAMBIT_EXTRA_CRISES=1`, `VOICE_WIRETAP=demo`), and starts the web app at **`http://localhost:5173`**. Activate the environment the launcher used (normally `source .venv/bin/activate`), then run `python scripts/preflight.py` before going on stage to verify your key, models, speech and transcription in 10 seconds.
 
 Open **`http://localhost:5173`** in **Chrome** (allow microphone access when prompted). Hold the red talk button to speak — or press it while a leader is speaking to interrupt them mid-sentence. A typed fallback box sits directly underneath for noisy rooms.
 
@@ -44,7 +44,7 @@ Open **`http://localhost:5173`** in **Chrome** (allow microphone access when pro
 ./scripts/demo.sh --offline
 ```
 
-Runs the full playable game from deterministic cached replies, adviser-driven turns, and committed pre-rendered audio in `voice/prerendered/` with zero network calls.
+Provision Python and web dependencies once while online. In offline mode, type your own lines. Microphone input uses a fixed transcript. Leaders give deterministic written replies, with audio for lines that have an exact recording. Scripted rings and recorded Wiretap pairs play from `voice/prerendered/`.
 
 ---
 

@@ -21,6 +21,10 @@ _STORE: "OrderedDict[str, str]" = OrderedDict()
 MAX_SNAPSHOTS = 2000
 
 
+def clear_snapshots() -> None:
+    _STORE.clear()
+
+
 def snapshot(state: State) -> str:
     js = state.model_dump_json(by_alias=True)
     sid = "s_" + hashlib.sha256(js.encode()).hexdigest()[:12]
