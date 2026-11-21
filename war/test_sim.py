@@ -56,15 +56,17 @@ def test_attack_takes_time_and_stronger_side_wins():
 def test_weak_attack_is_repelled():
     s, clock = game(), Clock()
     room = WarRoom(s, clock=clock)
-    room.declare(s, "valdoria", "nordhaven")
-    target = border_target(s, "valdoria", "nordhaven")
+    enemy = next(s.provinces[q] for p, o in sorted(s.provinces.items()) if o == "valdoria"
+                 for q in NEIGHBOURS[p] if s.provinces.get(q) not in (None, "valdoria"))
+    room.declare(s, "valdoria", enemy)
+    target = border_target(s, "valdoria", enemy)
     src = next(q for q in NEIGHBOURS[target] if s.provinces[q] == "valdoria")
     room.garrison[src], room.garrison[target] = 200, 5000
     room.attack(s, "valdoria", target, share=1.0, src=src)
-    clock.t += 30
+    clock.t += 60
     room.advance(s)
-    assert s.provinces[target] == "nordhaven"
-    assert any(e["kind"] == "battle" and e["winner"] == "nordhaven" and e["province"] == target for e in room.log)
+    assert s.provinces[target] == enemy
+    assert any(e["kind"] == "battle" and e["winner"] == enemy and e["province"] == target for e in room.log)
 
 
 def test_cannot_attack_without_war_or_border():
@@ -164,6 +166,23 @@ def test_marches_do_not_flood_the_news():
     assert len(s.news) == n + 1  # only the declaration
 
 
+def test_peace_made_by_the_engine_ends_the_war_room_war():
+    """Coordinator 16:38: after a month /state reported peace while /war still had the war."""
+    s, clock = game(), Clock()
+    room = WarRoom(s, clock=clock)
+    room.declare(s, "valdoria", "kessaria")
+    s.links[:] = [l for l in s.links if l.type != "war"]  # the engine's month made peace
+    room.advance(s)
+    assert not room.wars and not room.view(s)["wars"]
+
+
+def test_war_started_by_the_engine_appears_in_the_war_room():
+    from contracts.models import Link
+    s, clock = game(), Clock()
+    room = WarRoom(s, clock=clock)
+    s.links.append(Link(type="war", a="zarnia", b="kessaria"))
+    room.advance(s)
+    assert room.at_war("zarnia", "kessaria")
 def test_war_room_follows_wars_the_engine_starts_and_ends():
     """Coordinator, 16:38: after a normal month /state said peace while /war still showed
     a war. The room now follows state.links both ways."""
@@ -180,3 +199,4 @@ def test_war_room_follows_wars_the_engine_starts_and_ends():
     s.links.append(Link(type="war", a="ostrava", b="zarnia"))
     room.advance(s)
     assert room.at_war("ostrava", "zarnia")
+

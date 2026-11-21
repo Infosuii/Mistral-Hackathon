@@ -50,13 +50,13 @@
 .wl-turn { color: var(--accent); font: 700 .65rem var(--display-font); margin-right: 5px; }
 
 /* map: attack targets, garrisons, marching armies, battles */
-.war-target { fill: url(#war-hatch); stroke: var(--war); stroke-width: 2; pointer-events: none; animation: target-pulse 1s ease-in-out infinite alternate; }
+.war-target { fill: url(#war-room-hatch); stroke: var(--war); pointer-events: none; animation: target-pulse 1s ease-in-out infinite alternate; }
 @keyframes target-pulse { from { opacity: .55; } to { opacity: 1; } }
 .province[data-war-target='true'] { cursor: crosshair; }
 .garrison rect { fill: #071012e6; stroke: var(--nation-accent); stroke-width: .8; }
 .garrison[data-capital='true'] rect { stroke-width: 1.6; }
 .garrison text { fill: #fff; font: 700 8.5px var(--display-font); text-anchor: middle; }
-.march-path { fill: none; stroke: var(--nation-accent); stroke-width: 2; stroke-dasharray: 5 4; opacity: .8; animation: march 0.6s linear infinite; }
+.march-path { fill: none; stroke: var(--nation-accent); opacity: .85; }
 @keyframes march { to { stroke-dashoffset: -9; } }
 .army-arrow { fill: var(--nation-fill); stroke: #fff; stroke-width: 1.4; }
 .army-plate { fill: #071012; stroke: var(--nation-accent); stroke-width: 1; }
@@ -64,4 +64,5 @@
 .battle-burst { fill: none; stroke: var(--war); stroke-width: 3; animation: burst 1.2s ease-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes burst { from { opacity: 1; transform: scale(.4); } to { opacity: 0; transform: scale(2.4); } }
 .battle-x { stroke: #fff; stroke-width: 2.4; stroke-linecap: round; }
-@media (prefers-reduced-motion: reduce) { .war-target, .march-path, .battle-burst, .war-attack[data-on='true'] { animation: none; } }
+.war-room { z-index: 6; }
+@media (prefers-reduced-motion: reduce) { .war-target, .battle-burst, .war-attack[data-on='true'] { animation: none; } }

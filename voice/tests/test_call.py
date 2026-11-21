@@ -179,6 +179,16 @@ def test_mediator_gets_no_wiretap(client, monkeypatch):
     monkeypatch.setattr(GAME.state, "seat", Seat(role="mediator", nation=None))
     assert client.get("/api/wiretap", params={"a": "zarnia", "b": "ostrava"}).status_code == 403
 
+def test_transcription_quota_returns_typed_fallback(client, monkeypatch):
+    async def rate_limited(*args):
+        raise api.VoiceRateLimited(8)
+
+    monkeypatch.setattr(api, "transcribe", rate_limited)
+    res = client.post("/call", json={"to": "ostrava", "audio": "UklGRg=="})
+    assert res.status_code == 429
+    assert res.headers["retry-after"] == "8"
+    assert "Type a message" in res.json()["detail"]
+
 
 def test_a_keyless_live_server_says_so_instead_of_faking_a_bad_line(client, monkeypatch):
     """Real agents but no MISTRAL_API_KEY: the reply names the setup problem, with no audio."""

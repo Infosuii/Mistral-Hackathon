@@ -1,0 +1,18 @@
+{
+  "kinds": {
+    "army_base": {"name":"Army base","cost":{"gdp":9,"food":6,"oil":3},"output":{"army":1.0}},
+    "arms_factory": {"name":"Arms industry","cost":{"gdp":12,"chips":5,"oil":4},"output":{"army":1.3}},
+    "airfield": {"name":"Airfield","cost":{"gdp":11,"chips":4,"oil":5},"output":{"gdp":0.35}},
+    "factory": {"name":"Factory","cost":{"gdp":10,"oil":4,"chips":2},"output":{"gdp":1.25}},
+    "farm": {"name":"Farming district","cost":{"gdp":5,"oil":2},"output":{"food":1.5}},
+    "chip_works": {"name":"Chip works","cost":{"gdp":13,"chips":4,"oil":3},"output":{"chips":1.1}},
+    "freight_yard": {"name":"Rail freight yard","cost":{"gdp":8,"oil":3},"output":{"gdp":0.8}}
+  },
+  "start": {
+    "valdoria": {"army_base":"p02","arms_factory":"p05","airfield":"p06"},
+    "ostrava": {"army_base":"p14","arms_factory":"p12","airfield":"p11"},
+    "kessaria": {"army_base":"p29","arms_factory":"p30","airfield":"p32"},
+    "nordhaven": {"army_base":"p34","arms_factory":"p38","airfield":"p35"},
+    "zarnia": {"army_base":"p25","arms_factory":"p21","airfield":"p23"}
+  }
+}

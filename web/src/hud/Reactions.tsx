@@ -1,9 +1,10 @@
 // Moments that make the world feel live: a breaking-news card when a new month's news
 // arrives, and floating relation changes over a capital when a leader warms or cools.
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import map from '../map.json'
+import map from '../atlas.json'
 import { relationBetween, type GameState } from '../state'
 import { nationStyle } from '../theme'
+import { useMarkerScale } from './scale'
 
 const capitals = map.capitals as Record<string, number[]>
 
@@ -38,6 +39,7 @@ export function BreakingNews({ state }: { state: GameState }) {
 
 /** Floating "+5" / "−8" over a capital when that leader's relation with you changes. */
 export function RelationPops({ state }: { state: GameState }) {
+  const m = useMarkerScale()
   const seat = state.seat.nation
   const before = useRef<Record<string, number>>({})
   const timers = useRef(new Set<number>())
@@ -74,10 +76,11 @@ export function RelationPops({ state }: { state: GameState }) {
         const c = capitals[id]
         if (!c) return null
         return (
-          <text key={key} x={c[0] - 40} y={c[1] - 58} className="relation-pop" data-sign={Math.sign(delta)}
-            style={nationStyle(id) as CSSProperties}>
-            {delta > 0 ? `+${delta}` : `−${Math.abs(delta)}`}
-          </text>
+          <g key={key} transform={`translate(${c[0] - 40 * m} ${c[1] - 58 * m}) scale(${m})`}>
+            <text className="relation-pop" data-sign={Math.sign(delta)} style={nationStyle(id) as CSSProperties}>
+              {delta > 0 ? `+${delta}` : `−${Math.abs(delta)}`}
+            </text>
+          </g>
         )
       })}
     </g>

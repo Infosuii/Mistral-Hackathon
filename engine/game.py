@@ -71,7 +71,7 @@ def allowed_crises() -> list[str]:
 
 
 PLAYER_ACTIONS = os.environ.get("GAMBIT_PLAYER_ACTIONS", "").lower() in ("1", "true", "on", "yes")
-ONE_SIDED = ("set_tariff", "declare_war", "make_peace")  # trade and alliances stay phone calls
+ONE_SIDED = ("set_tariff", "declare_war", "make_peace", "leave_alliance", "deploy_fleet", "recall_fleet")  # trade and alliances stay phone calls
 
 
 PRIVATE_STRATEGY = os.environ.get("GAMBIT_PRIVATE_STRATEGY", "").lower() in ("1", "true", "on", "yes")
@@ -195,6 +195,7 @@ class Game:
         self.last_crisis: Optional[dict] = None  # inputs of the finished crisis, for replay
         # End of session (W7): the whole session's log and the score counters.
         self.start_state = self.state
+        self.dispatch_log: list[dict] = []
         self.session_log: list[dict] = [{"turn": 0, "type": "news", "text": n.text} for n in self.state.news]
         self.months_in_power = self.peace_months = 0
         self.promises_kept = self.promises_broken = 0
@@ -207,7 +208,9 @@ class Game:
         return self.state
 
     def start_crisis(self, crisis_id: str) -> State:
-        self.state = start_crisis(self.state, crisis_id)
+        old = self.state
+        self.state = start_crisis(old, crisis_id)
+        self._record(old, self.state)
         self.monthly_deals, self.queued = self.queued, []
         self._change_call_phase()
         self.needle_seq += 1
@@ -338,6 +341,8 @@ class Game:
                 new.nations[n].public_statement = out.public_statement
                 for m in out.messages:
                     inbox[m.to].append(ReceivedMessage(**{"from": n, "text": m.text}))
+                    self.dispatch_log.append({"turn": new.turn, "type": "dispatch",
+                                             "nation": n, "target": m.to, "text": m.text})
                 self.leaders[n] = LeaderDetail(
                     public_statement=out.public_statement, private_intent=out.private_intent,
                     advice=advice[n], chosen=chosen, reason=out.reason, persona=_persona(n))
@@ -583,6 +588,7 @@ class Game:
         if call_id == self.latest_call_id:
             s.last_call = result
         self.state = s
+        self._record(before, s)
         if self.needle and (out.promises or out.actions):
             self._needle(before, s, list(self.queued))
         return s
