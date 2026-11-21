@@ -78,3 +78,17 @@ Tests: `python -m pytest voice/tests -q` (fake agents, no network).
 
 Rerun with `python -m voice.v0 all` and the page at `/voice-static/v0.html` (there's a synthetic
 button that needs no mic, plus hold-to-record from the mic). Retest in the room on the demo laptop.
+
+## Pre-rendered demo lines (V3)
+
+`python -m voice.prerender` renders every scripted `incoming_call` opening line in
+`data/crises/*.json`, the Wiretap scripts in `voice/demo_lines.json`, and each leader's fallback
+line into `voice/prerendered/` (committed, about 300 KB). `/audio` serves those first, so they
+play instantly with no network and no API key. `--check` exits 1 if any is missing. Rerun it
+after changing a crisis file or the casting.
+
+- `voice.audio_url_for(nation, text, emotion) -> str | None` gives the URL for a leader line:
+  instant when pre-rendered, otherwise it starts rendering in the running loop. Use it to fill
+  `state.incoming_call.audio_url`.
+- `/wiretap` uses `agents.wiretap(a, b)` when it exists, then the demo script for that pair,
+  then a stand-in.

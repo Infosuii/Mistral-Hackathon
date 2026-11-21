@@ -35,7 +35,8 @@ _load_env(Path(__file__).resolve().parent.parent / ".env")
 API = "https://api.mistral.ai/v1"
 STT_MODEL = "voxtral-mini-transcribe-3"
 TTS_MODEL = "voxtral-mini-tts-3-0"
-CACHE = Path(__file__).resolve().parent / "cache"
+CACHE = Path(__file__).resolve().parent / "cache"  # gitignored, per machine
+PRERENDERED = Path(__file__).resolve().parent / "prerendered"  # committed demo lines (V3)
 AUDIO_BASE = os.environ.get("VOICE_AUDIO_BASE", "/audio")
 
 # MASTER_PLAN.md section 4.6. Anything else is silently ignored by Voxtral.
@@ -170,13 +171,37 @@ async def _run(name: str, text: str, voice_id: str, emotion: str | None, fmt: st
             JOBS.pop(name, None)
 
 
+def find_audio(name: str) -> Path | None:
+    """A finished file: the committed demo renders first, then the local cache."""
+    for folder in (PRERENDERED, CACHE):
+        if (folder / name).exists():
+            return folder / name
+    return None
+
+
+def start_speech(text: str, voice_id: str, emotion: str | None = None,
+                 fmt: str = "mp3") -> str | None:
+    """Sync version of speak() for code already inside the event loop (the engine's turn).
+    Returns the URL, or None if the line is not rendered and no loop is running."""
+    name = f"{cache_key(text, voice_id, emotion, fmt)}.{fmt}"
+    if find_audio(name) is None and (name not in JOBS or JOBS[name].error):
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return None
+        JOBS[name] = Job()
+        task = asyncio.create_task(_run(name, text, voice_id, emotion, fmt))
+        _tasks.add(task)
+        task.add_done_callback(_tasks.discard)
+    return f"{AUDIO_BASE}/{name}"
+
+
+_tasks: set[asyncio.Task] = set()
+
+
 async def speak(text: str, voice_id: str, emotion: str | None = None, fmt: str = "mp3") -> str:
     """Start (or reuse) synthesis and return the URL the page can play right away."""
-    name = f"{cache_key(text, voice_id, emotion, fmt)}.{fmt}"
-    if not (CACHE / name).exists() and (name not in JOBS or JOBS[name].error):
-        JOBS[name] = Job()
-        asyncio.create_task(_run(name, text, voice_id, emotion, fmt))
-    return f"{AUDIO_BASE}/{name}"
+    return start_speech(text, voice_id, emotion, fmt)
 
 
 async def speak_to_file(text: str, voice_id: str, emotion: str | None = None,
@@ -184,7 +209,7 @@ async def speak_to_file(text: str, voice_id: str, emotion: str | None = None,
     """Synthesize fully and wait. Returns (path, seconds to first chunk, total seconds).
     For scripts and pre-rendering; the server uses speak()."""
     name = f"{cache_key(text, voice_id, emotion, fmt)}.{fmt}"
-    path = CACHE / name
+    path = find_audio(name) or CACHE / name
     if path.exists():
         return path, 0.0, 0.0
     t0 = time.perf_counter()
