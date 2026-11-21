@@ -45,13 +45,20 @@ interface LastCall {
   promises: { to: string; what: string; when: string; condition?: string | null }[]
 }
 
-export interface SessionScore {
+interface SessionScore {
   months_in_power: number
   peace_months: number
   gdp_change: number
   stability_change: number
   promises_kept: number
   promises_broken: number
+  peaceful_crises?: number | null
+  average_trust?: number | null
+}
+
+interface MediatorScore {
+  peaceful_crises: number
+  average_trust: number
 }
 
 export interface GameState {
@@ -59,6 +66,7 @@ export interface GameState {
   phase: string
   seed: number
   seat: { role: string; nation: string | null }
+  available_roles?: string[] | null
   nations: Record<string, Nation>
   relations: Record<string, number>
   links: { type: string; a: string; b: string }[]
@@ -69,7 +77,7 @@ export interface GameState {
   crisis: CrisisState | null
   last_futures: Futures | null
   last_call?: LastCall | null
-  ending?: { reason: string; score: SessionScore; verdict: string | null } | null
+  ending?: { reason: string; score: PresidentScore | MediatorScore; verdict: string | null } | null
 }
 
 export const exampleState: GameState = fixture

@@ -20,6 +20,7 @@ const gameRequests = {
 export function GameSession() {
   const [state, setState] = useState(exampleState)
   const [connection, setConnection] = useState<'connecting' | 'online' | 'offline'>('connecting')
+  const [newSeat, setNewSeat] = useState<'president' | 'mediator'>('president')
   const [session, setSession] = useState(0)
   const [paused, setPaused] = useState(true)
   const [pending, setPending] = useState(false)
@@ -54,7 +55,7 @@ export function GameSession() {
     }
   }, [])
 
-  const send = useCallback(async (action: keyof typeof gameRequests) => {
+  const send = useCallback(async (action: keyof typeof gameRequests, body?: unknown) => {
     if (actionPending.current) return
     actionPending.current = true
     stateRequest.current?.abort()
@@ -62,7 +63,7 @@ export function GameSession() {
     setError('')
     const request = gameRequests[action]
     try {
-      const next = await post<GameState>(request.path, request.body)
+      const next = await post<GameState>(request.path, body ?? request.body)
       setState(next)
       setConnection('online')
       if (action === 'start') setSession((current) => current + 1)
@@ -88,9 +89,20 @@ export function GameSession() {
     }
   }, [canAdvance, paused, pending, send, state.turn, crisisTick])
 
+  const canMediate = online && state.available_roles?.includes('mediator')
+  const startBody = canMediate && newSeat === 'mediator'
+    ? { ...startRequest, seat: { role: 'mediator', nation: null } }
+    : startRequest
   const controls = (
     <div className="session-controls" aria-label="Session controls">
-      <button onClick={() => void send('start')} disabled={pending}>{state.phase !== 'ended' && (state.turn === 0 || !online) ? 'Start game' : 'New game'}</button>
+      {canMediate && (
+        <select aria-label="Seat for new game" className="plain-control" value={newSeat}
+          onChange={(event) => setNewSeat(event.target.value === 'mediator' ? 'mediator' : 'president')} disabled={pending}>
+          <option value="president">President of Valdoria</option>
+          <option value="mediator">Independent mediator</option>
+        </select>
+      )}
+      <button onClick={() => void send('start', startBody)} disabled={pending}>{state.phase !== 'ended' && (state.turn === 0 || !online) ? 'Start game' : 'New game'}</button>
       {state.phase !== 'ended' && (
         <>
           <button onClick={() => setPaused((wasPaused) => !wasPaused)} disabled={!canAdvance || pending}>{paused ? 'Resume' : 'Pause'}</button>
