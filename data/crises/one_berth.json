@@ -1,0 +1,214 @@
+{
+  "id": "one_berth",
+  "title": "One Berth",
+  "ticks_total": 12,
+  "intro_news": "Storm closes Port Kessar to a single berth for 24 hours.",
+  "deadlines": {
+    "nordhaven": 6,
+    "ostrava": 8,
+    "zarnia": 9,
+    "kessaria": 10,
+    "valdoria": 10
+  },
+  "actions": {
+    "ostrava": [
+      "dock",
+      "wait",
+      "blockade"
+    ],
+    "zarnia": [
+      "dock",
+      "wait",
+      "mobilise"
+    ],
+    "kessaria": [
+      "assign_berth_ostrava",
+      "assign_berth_zarnia",
+      "split_day",
+      "close_port"
+    ],
+    "valdoria": [
+      "honour_both",
+      "favour_ostrava",
+      "favour_zarnia",
+      "split_cargo"
+    ],
+    "nordhaven": [
+      "send_tugs",
+      "stay_out"
+    ]
+  },
+  "rules": {
+    "second_berth_requires": {
+      "nation": "nordhaven",
+      "action": "send_tugs",
+      "by_tick": 6
+    },
+    "public_backdown_cost": {
+      "junta": 3,
+      "democracy": 2,
+      "one_party": 2,
+      "monarchy": 1,
+      "technocracy": 1
+    },
+    "berth_prior": 0.3,
+    "promise_weight": 0.5,
+    "promise_bonus": 4,
+    "contradiction_trust_factor": 0.4,
+    "compatible_when": [
+      [
+        "morning",
+        "afternoon"
+      ],
+      [
+        "morning",
+        "evening"
+      ],
+      [
+        "afternoon",
+        "evening"
+      ]
+    ],
+    "kept_trust": 0.15,
+    "broken_trust": -0.2,
+    "split_day_belief": 0.6,
+    "needs_berth": [
+      "ostrava",
+      "zarnia"
+    ],
+    "payoffs": {
+      "ostrava": {
+        "dock": {
+          "base": -4,
+          "berth": 12
+        },
+        "wait": {
+          "base": -3,
+          "berth": 10
+        },
+        "blockade": {
+          "base": 1,
+          "low_resolve": 3
+        }
+      },
+      "zarnia": {
+        "dock": {
+          "base": -4,
+          "berth": 12
+        },
+        "wait": {
+          "base": -3,
+          "berth": 10
+        },
+        "mobilise": {
+          "base": 0,
+          "low_resolve": 3
+        }
+      },
+      "kessaria": {
+        "assign_berth_ostrava": {
+          "base": 2
+        },
+        "assign_berth_zarnia": {
+          "base": 2
+        },
+        "split_day": {
+          "base": 3
+        },
+        "close_port": {
+          "base": -2
+        }
+      },
+      "valdoria": {
+        "honour_both": {
+          "base": 2
+        },
+        "favour_ostrava": {
+          "base": 1
+        },
+        "favour_zarnia": {
+          "base": 1
+        },
+        "split_cargo": {
+          "base": 1.5
+        }
+      },
+      "nordhaven": {
+        "send_tugs": {
+          "base": -1
+        },
+        "stay_out": {
+          "base": 1
+        }
+      }
+    },
+    "outcomes": {
+      "berth": {
+        "food": 15,
+        "stability": 5
+      },
+      "half_berth": {
+        "food": 7,
+        "stability": 2
+      },
+      "no_berth": {
+        "stability": -6,
+        "approval": -4
+      },
+      "blockade": {
+        "blocks": "zarnia",
+        "kessaria_gdp": -8,
+        "relations": {
+          "kessaria|ostrava": -20,
+          "ostrava|valdoria": -15
+        }
+      },
+      "mobilise": {
+        "relations": {
+          "ostrava|zarnia": -20
+        }
+      },
+      "blockade_and_mobilise_means_war": true,
+      "close_port": {
+        "kessaria_gdp": -5
+      },
+      "favour": {
+        "favoured_relation": 10,
+        "other_relation": -15
+      },
+      "split_cargo": {
+        "food": 3
+      }
+    }
+  },
+  "scripted": [
+    {
+      "tick": 1,
+      "type": "incoming_call",
+      "from": "ostrava",
+      "emotion": "angry",
+      "opening_line": "Our people have three days of bread. That berth is ours. Say it."
+    },
+    {
+      "tick": 5,
+      "type": "compare_notes",
+      "between": [
+        "ostrava",
+        "zarnia"
+      ]
+    },
+    {
+      "tick": 6,
+      "type": "forecast",
+      "text": "Forecast: the storm may clear by nightfall."
+    },
+    {
+      "tick": 7,
+      "type": "incoming_call",
+      "from": "ostrava",
+      "emotion": "tense",
+      "opening_line": "You promised Zarnia the same berth. I am announcing a blockade of the strait.",
+      "announces": "blockade"
+    }
+  ]
+}

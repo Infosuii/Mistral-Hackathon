@@ -48,6 +48,11 @@ for i in range(1, 4):
     s = State.model_validate(call("POST", "/turn"))
     assert s.turn == i, (s.turn, i)
 print("ok   /turn x3")
+s = State.model_validate(call("POST", "/crisis/start", {"id": "one_berth"}))
+assert s.phase == "crisis", s.phase
+s = State.model_validate(call("POST", "/turn"))
+assert s.crisis.tick == 1, s.crisis.tick
+print("ok   /crisis/start one_berth + 1 tick")
 try:
     r = call("POST", "/call", json.load(open("contracts/examples/call.request.text.json")))
     CallResponse.model_validate(r); print("ok   /call typed")

@@ -129,9 +129,12 @@ def _trade_params(state: State, nation: str, w: dict) -> dict:
 
 
 def legal_actions(state: State, nation: str) -> list[Action]:
+    if state.phase == "crisis":
+        from engine.crisis import crisis_legal
+        return crisis_legal(state, nation)
     acts = [Action(type="wait", by=nation)]
     if state.phase != "strategy":
-        return acts  # crisis actions arrive with E3
+        return acts
     w = weights()
     for t in NATION_IDS:
         if t == nation:
@@ -233,6 +236,9 @@ def _score(state: State, a: Action, w: dict, assume_accept: bool = False) -> flo
 
 def advise(state: State, nation: str) -> list[Advice]:
     """Every legal action for `nation`, scored by its regime's weights, best first."""
+    if state.phase == "crisis":
+        from engine.crisis import crisis_advise
+        return crisis_advise(state, nation)
     w = weights()
     scored = [Advice(action=a, score=_score(state, a, w)) for a in legal_actions(state, nation)]
     # Ties go to "wait": doing nothing is the default when nothing is better.
@@ -404,9 +410,12 @@ def _refresh_status(s: State, w: dict) -> None:
 
 def step(state: State, actions: list[Action], seed: int) -> State:
     """Advance one month. Pure: the input state is not modified."""
+    if state.phase == "crisis":
+        from engine.crisis import crisis_step
+        return crisis_step(state, actions, seed)
     s = state.model_copy(deep=True)
     if s.phase != "strategy":
-        return s  # crisis ticks arrive with E3
+        return s  # the game has ended
     w = weights()
     rng = random.Random(f"{seed}:{s.turn}")
     s.turn += 1
