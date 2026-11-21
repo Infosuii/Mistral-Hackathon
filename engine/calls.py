@@ -51,7 +51,7 @@ def apply_call_effects(state: State, to: str, out: CallOutput, interrupted: bool
         b.resolve_of_player = round(min(1.0, max(0.0, b.resolve_of_player + out.belief_updates.resolve_of_player)), 3)
     seat = s.seat.nation
     call = weights()["call"]
-    if interrupted and to in call["proud"] and to != seat:
+    if interrupted and seat is not None and to in call["proud"] and to != seat:
         k = relation_key(seat, to)
         s.relations[k] = max(-100, s.relations.get(k, 0) + call["interrupt_relation_proud"])
     tick = s.crisis.tick if s.crisis else s.turn

@@ -23,6 +23,7 @@ SCHEMAS: dict[str, tuple[type[BaseModel], str]] = {
     "state.crisis.json": (m.State, "GET /state during a crisis, POST /crisis/start"),
     "state.ended.json": (m.State, "GET /state after POST /end (end screen)"),
     "start.request.json": (m.StartRequest, "POST /start body"),
+    "start.request.mediator.json": (m.StartRequest, "POST /start body, mediator seat (GAMBIT_MEDIATOR)"),
     "crisis_start.request.json": (m.CrisisStartRequest, "POST /crisis/start body"),
     "action.json": (m.Action, "engine step(), agents.decide actions"),
     "leader_view.json": (m.LeaderView, "agents.decide input"),
