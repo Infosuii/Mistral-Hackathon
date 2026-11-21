@@ -34,7 +34,8 @@ function provinceStyle(state: GameState, owner: string, relations: boolean): CSS
 
 export function PoliticalMap({ state, selected, onSelect }: Props) {
   const [view, setView] = useState(homeView)
-  const [relations, setRelations] = useState(false)
+  const [relationView, setRelations] = useState(false)
+  const relations = relationView && Boolean(state.seat.nation)
   const drag = useRef<{ id: number; x: number; y: number; view: typeof homeView; moved: boolean } | null>(null)
   const suppressClick = useRef(false)
 
@@ -80,10 +81,12 @@ export function PoliticalMap({ state, selected, onSelect }: Props) {
 
   return (
     <div className="map-window">
-      <div className="map-mode" role="group" aria-label="Map view">
-        <button aria-pressed={!relations} onClick={() => setRelations(false)}>Political</button>
-        <button aria-pressed={relations} onClick={() => setRelations(true)}>Relations</button>
-      </div>
+      {state.seat.nation && (
+        <div className="map-mode" role="group" aria-label="Map view">
+          <button aria-pressed={!relations} onClick={() => setRelations(false)}>Political</button>
+          <button aria-pressed={relations} onClick={() => setRelations(true)}>Relations</button>
+        </div>
+      )}
       <svg className="political-map" data-zoomed={view.zoom > 1} viewBox={`0 0 ${map.width} ${map.height}`}
         aria-label={relations ? 'Relations map' : 'Political map'} onPointerDown={startDrag}
         onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
