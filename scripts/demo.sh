@@ -127,22 +127,26 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# Stage feature flags (DECIDED 14:57): Orders player actions and crisis picker on by default;
+# mediator seat stays opt-in (GAMBIT_MEDIATOR=1).
 export GAMBIT_PLAYER_ACTIONS="${GAMBIT_PLAYER_ACTIONS:-1}"
+export GAMBIT_EXTRA_CRISES="${GAMBIT_EXTRA_CRISES:-1}"
+
 if [ "$OFFLINE" -eq 1 ]; then
   export GAMBIT_AGENTS=stub
   export VOICE_WIRETAP=demo
   export VOICE_MOCK=fixed
   unset MISTRAL_API_KEY || true
   APP_TARGET="e2e.offline_app:app"
-  MODE_LABEL="OFFLINE (cached replies, stub turns, pre-rendered audio)"
+  MODE_LABEL="OFFLINE (cached replies, stub turns, pre-rendered audio, actions=${GAMBIT_PLAYER_ACTIONS}, extra_crises=${GAMBIT_EXTRA_CRISES})"
 else
-  # Demo settings (DECIDED 13:07 & 13:48): Medium for turns so 2512's 30 RPM stays for voice;
+  # Demo settings (DECIDED 13:07, 13:48, 14:57): Medium for turns so 2512's 30 RPM stays for voice;
   # Large 4 for private strategy, call interpretation, wiretap, replay why, and historian.
   export GAMBIT_DECIDE_MODEL="${GAMBIT_DECIDE_MODEL:-mistral-medium-latest}"
   export GAMBIT_PRIVATE_STRATEGY="${GAMBIT_PRIVATE_STRATEGY:-1}"
   export VOICE_WIRETAP="${VOICE_WIRETAP:-demo}"
   APP_TARGET="engine.app:app"
-  MODE_LABEL="LIVE (decide=${GAMBIT_DECIDE_MODEL}, private_strategy=${GAMBIT_PRIVATE_STRATEGY}, wiretap=${VOICE_WIRETAP})"
+  MODE_LABEL="LIVE (decide=${GAMBIT_DECIDE_MODEL}, private_strategy=${GAMBIT_PRIVATE_STRATEGY}, actions=${GAMBIT_PLAYER_ACTIONS}, extra_crises=${GAMBIT_EXTRA_CRISES}, wiretap=${VOICE_WIRETAP})"
 fi
 
 echo "[demo] Starting backend ($APP_TARGET) on http://127.0.0.1:${BACKEND_PORT} ..."

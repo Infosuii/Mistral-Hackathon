@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import uvicorn
 
-from contracts.models import CallOutput
+from contracts.models import CallOutput, CallView
 import engine.app as eng_app
 import voice.api as v_api
 from e2e.demo_path import Client, _free_port, run_demo_path, run_honest_path
@@ -15,9 +15,11 @@ from e2e.demo_path import Client, _free_port, run_demo_path, run_honest_path
 
 def test_demo_path_harness_offline():
     async def fake_fast(view):
-        return {"reply_text": f"Understood, President ({view.nation}).", "emotion": "tense"}
+        v = view if isinstance(view, CallView) else CallView.model_validate(view)
+        return {"reply_text": f"Understood, President ({v.nation}).", "emotion": "tense"}
 
     async def fake_interp(view, reply_text):
+        view = view if isinstance(view, CallView) else CallView.model_validate(view)
         t = view.transcript.lower()
         promises, actions = [], []
         trust, resolve = 0.05, 0.05
@@ -58,7 +60,7 @@ def test_demo_path_harness_offline():
     old_wt = os.environ.get("VOICE_WIRETAP")
     os.environ["VOICE_WIRETAP"] = "demo"
     try:
-        with patch.object(v_api, "_phone", return_value=(fake_fast, fake_interp, True)), \
+        with patch.object(v_api, "_phone", return_value=(fake_fast, fake_interp, False)), \
              patch.object(v_api, "speak", side_effect=fake_speak):
             cfg = uvicorn.Config(eng_app.app, host="127.0.0.1", port=port, log_level="error")
             srv = uvicorn.Server(cfg)
