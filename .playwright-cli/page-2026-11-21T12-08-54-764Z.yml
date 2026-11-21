@@ -1,0 +1,167 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - heading "GAMBIT" [level=1] [ref=e5]
+    - generic [ref=e8]:
+      - generic [ref=e9]: president
+      - strong [ref=e10]: Valdoria
+    - generic "Valdoria resources" [ref=e11]:
+      - generic [ref=e12]:
+        - term [ref=e13]: Economy
+        - definition [ref=e14]: "78"
+      - generic [ref=e15]:
+        - term [ref=e16]: Oil
+        - definition [ref=e17]: "42"
+      - generic [ref=e18]:
+        - term [ref=e19]: Food
+        - definition [ref=e20]: "87"
+      - generic [ref=e21]:
+        - term [ref=e22]: Chips
+        - definition [ref=e23]: "59"
+      - generic [ref=e24]:
+        - term [ref=e25]: Army
+        - definition [ref=e26]: "34"
+      - generic [ref=e27]:
+        - term [ref=e28]: Stability
+        - definition [ref=e29]: "76"
+      - generic [ref=e30]:
+        - term [ref=e31]: Approval
+        - definition [ref=e32]: "65"
+    - generic [ref=e33]:
+      - generic [ref=e34]: Strategy phase
+      - strong [ref=e35]: Month 03
+  - main [ref=e36]:
+    - img "Political map" [ref=e38]:
+      - generic [ref=e40]:
+        - generic "Valdoria · P01" [ref=e41] [cursor=pointer]
+        - generic "Ostrava · P02" [ref=e42] [cursor=pointer]
+        - generic "Ostrava · P03" [ref=e43] [cursor=pointer]
+        - generic "Ostrava · P04" [ref=e44] [cursor=pointer]
+        - generic "Ostrava · P05" [ref=e45] [cursor=pointer]
+        - generic "Ostrava · P06" [ref=e46] [cursor=pointer]
+        - generic "Ostrava · P07" [ref=e47] [cursor=pointer]
+        - generic "Ostrava · P08" [ref=e48] [cursor=pointer]
+        - generic "Ostrava · P09" [ref=e49] [cursor=pointer]
+        - generic "Valdoria · P10" [ref=e50] [cursor=pointer]
+        - generic "Valdoria · P11" [ref=e51] [cursor=pointer]
+        - generic "Valdoria · P12" [ref=e52] [cursor=pointer]
+        - generic "Valdoria · P13" [ref=e53] [cursor=pointer]
+        - generic "Valdoria · P14" [ref=e54] [cursor=pointer]
+        - generic "Valdoria · P15" [ref=e55] [cursor=pointer]
+        - generic "Valdoria · P16" [ref=e56] [cursor=pointer]
+        - generic "Nordhaven · P17" [ref=e57] [cursor=pointer]
+        - generic "Nordhaven · P18" [ref=e58] [cursor=pointer]
+        - generic "Nordhaven · P19" [ref=e59] [cursor=pointer]
+        - generic "Nordhaven · P20" [ref=e60] [cursor=pointer]
+        - generic "Nordhaven · P21" [ref=e61] [cursor=pointer]
+        - generic "Nordhaven · P22" [ref=e62] [cursor=pointer]
+        - generic "Nordhaven · P23" [ref=e63] [cursor=pointer]
+        - generic "Nordhaven · P24" [ref=e64] [cursor=pointer]
+        - generic "Kessaria · P25" [ref=e65] [cursor=pointer]
+        - generic "Kessaria · P26" [ref=e66] [cursor=pointer]
+        - generic "Kessaria · P27" [ref=e67] [cursor=pointer]
+        - generic "Kessaria · P28" [ref=e68] [cursor=pointer]
+        - generic "Kessaria · P29" [ref=e69] [cursor=pointer]
+        - generic "Kessaria · P30" [ref=e70] [cursor=pointer]
+        - generic "Kessaria · P31" [ref=e71] [cursor=pointer]
+        - generic "Kessaria · P32" [ref=e72] [cursor=pointer]
+        - generic "Zarnia · P33" [ref=e73] [cursor=pointer]
+        - generic "Zarnia · P34" [ref=e74] [cursor=pointer]
+        - generic "Zarnia · P35" [ref=e75] [cursor=pointer]
+        - generic "Zarnia · P36" [ref=e76] [cursor=pointer]
+        - generic "Zarnia · P37" [ref=e77] [cursor=pointer]
+        - generic "Zarnia · P38" [ref=e78] [cursor=pointer]
+        - generic "Zarnia · P39" [ref=e79] [cursor=pointer]
+        - generic "Zarnia · P40" [ref=e80] [cursor=pointer]
+      - generic: North Sea
+      - generic: Kessar Strait
+      - generic:
+        - generic: Valdoria
+        - generic: Ostrava
+        - generic: Nordhaven
+        - generic: Kessaria
+        - generic: Zarnia
+    - generic [ref=e81]:
+      - navigation "Nations" [ref=e82]:
+        - heading "Nations" [level=2] [ref=e83]
+        - list [ref=e84]:
+          - listitem [ref=e85]:
+            - button "Valdoria President Ana Varen You" [ref=e86] [cursor=pointer]:
+              - generic [ref=e88]:
+                - strong [ref=e89]: Valdoria
+                - generic [ref=e90]: President Ana Varen
+              - generic [ref=e91]: You
+          - listitem [ref=e92]:
+            - button "Nordhaven Director Ilse Voss" [ref=e93] [cursor=pointer]:
+              - generic [ref=e95]:
+                - strong [ref=e96]: Nordhaven
+                - generic [ref=e97]: Director Ilse Voss
+          - listitem [ref=e98]:
+            - button "Ostrava General Marek Dravic" [pressed] [ref=e99] [cursor=pointer]:
+              - generic [ref=e101]:
+                - strong [ref=e102]: Ostrava
+                - generic [ref=e103]: General Marek Dravic
+          - listitem [ref=e104]:
+            - button "Kessaria Queen Sera Kessar" [ref=e105] [cursor=pointer]:
+              - generic [ref=e107]:
+                - strong [ref=e108]: Kessaria
+                - generic [ref=e109]: Queen Sera Kessar
+          - listitem [ref=e110]:
+            - button "Zarnia Chairman Ilya Moroz" [ref=e111] [cursor=pointer]:
+              - generic [ref=e113]:
+                - strong [ref=e114]: Zarnia
+                - generic [ref=e115]: Chairman Ilya Moroz
+      - region "The World Dispatch" [ref=e116]:
+        - heading "The World Dispatch" [level=2] [ref=e117]
+        - list [ref=e118]:
+          - listitem [ref=e119]:
+            - generic [ref=e120]: Month 3
+            - paragraph [ref=e121]: Workers riot in Zarnia over bread prices
+          - listitem [ref=e122]:
+            - generic [ref=e123]: Month 2
+            - paragraph [ref=e124]: Nordhaven signs a trade agreement with Valdoria
+    - generic [ref=e125]:
+      - region "Ostrava" [ref=e126]:
+        - generic [ref=e127]:
+          - text: Military junta
+          - heading "Ostrava" [level=2] [ref=e128]
+          - paragraph [ref=e129]: General Marek Dravic
+        - generic [ref=e130]:
+          - generic [ref=e131]:
+            - term [ref=e132]: Economy
+            - definition [ref=e133]: "62"
+          - generic [ref=e134]:
+            - term [ref=e135]: Oil
+            - definition [ref=e136]: "80"
+          - generic [ref=e137]:
+            - term [ref=e138]: Food
+            - definition [ref=e139]: "25"
+          - generic [ref=e140]:
+            - term [ref=e141]: Chips
+            - definition [ref=e142]: "10"
+          - generic [ref=e143]:
+            - term [ref=e144]: Army
+            - definition [ref=e145]: "85"
+          - generic [ref=e146]:
+            - term [ref=e147]: Stability
+            - definition [ref=e148]: "41"
+          - generic [ref=e149]:
+            - term [ref=e150]: Approval
+            - definition [ref=e151]: "50"
+          - generic [ref=e152]:
+            - term [ref=e153]: Territory
+            - definition [ref=e154]: "8"
+        - generic [ref=e155]:
+          - generic [ref=e156]: Relations -20
+          - strong [ref=e157]: PROTESTS
+        - generic [ref=e158]:
+          - heading "Public statement" [level=3] [ref=e159]
+          - blockquote [ref=e160]: We seek only fair trade.
+      - region "Red Phone" [ref=e161]:
+        - heading "Red Phone" [level=2] [ref=e165]
+        - generic [ref=e166]:
+          - text: Direct line
+          - strong [ref=e167]: General Marek Dravic
+        - button "Preview call" [ref=e169] [cursor=pointer]
+  - contentinfo [ref=e170]:
+    - strong [ref=e171]: Latest dispatch
+    - paragraph [ref=e172]: Workers riot in Zarnia over bread prices
