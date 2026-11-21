@@ -42,10 +42,10 @@ Score ideas out of 100 using **35 for voice being essential**, **30 for likeliho
 ## Team decision
 
 **Proposed project: GAMBIT** — a voice-played strategy game. Five AI-run nations share one world. You take a seat as a president, a diplomat or an outside mediator and govern by phoning the other leaders. When a crisis erupts a clock starts, and what you say, when you say it and whether you interrupt decides what happens next.
-**Status:** proposal (v2 of this PR, 11:30). It replaces the first draft below the line. React 👍 on the PR or comment with objections so we can lock it and build.
+**Status:** proposal (v2 of this PR, updated 11:45 with the accepted points from Abi's review in PR #3; see §0b). It replaces the first draft below the line. React 👍 on the PR or comment with objections so we can lock it and build.
 **Fallback:** IMPOSTOR (social-deduction game with a sabotaging coding agent).
 **First tests (before 12:00):** Le Chonk returns valid leader JSON 10/10; 8 parallel model calls timed; Voxtral talk → reply → speech round trip timed; one emotion tag audibly changes a voice.
-**Build assignments:** Tamim interface + integration (`/web`), Om engine + futures (`/engine`), Abi leaders + batch (`/agents`), Ashish voice + demo (`/voice`). Full concept below.
+**Build assignments:** Tamim interface + replay + integration (`/web`, `/replay`), Om engine + futures (`/engine`), Abi leaders + batch (`/agents`), Ashish voice + demo (`/voice`). Full concept below.
 
 ---
 
@@ -69,6 +69,21 @@ The first draft (BUTTERFLY) was a year-long world with a war-odds needle. This v
 | **Docs fixes** | "threatening" emotion; shared batch key | Supported emotion tags only; batch on a separate account | "threatening" is not a Voxtral tag and is ignored silently. Rate limits are shared per workspace |
 
 Kept from the first draft: the five nations, two-faced leaders, Wiretap, the pure deterministic engine, the layered build, the fixed demo seed.
+
+## 0b. Review decisions (from Abi's review, PR #3)
+
+| # | Suggestion | Decision |
+|---|---|---|
+| 1 | Move `/replay` from Om to Abi | **Changed.** `/replay` moves off Om, but to Tamim, who has the most AI usage. Om keeps `fork`, rollouts and the needle |
+| 2 | Give Ashish crisis-deck files and the end screen after 14:15 | **Half.** Crisis-deck data files, yes. The end screen stays in `/web` |
+| 3 | When a tool's quota runs out, switch to Vibe in the same folder | **Taken**, with Vibe limited to small, self-contained tasks (§16) |
+| 4 | Most headroom takes the engine | **Not taken.** No role swap. Extra work goes to Tamim first |
+| 5 | Make live replay a stretch goal; pre-record it | **Half.** Original decisions are cached and the needle is built first. The replay runs in code, not from a recording, because the judge speaks live (§7) |
+| 6 | Treat latency as the top demo risk | **Taken** (§8, §18) |
+| 7 | Abi mocks the advisers' ranking until `advise()` lands | **Taken** (§11) |
+| 8 | Typed-input fallback and cached responses for the demo seed | **Taken.** Cache only scripted parts; replies to the judge are live (§8) |
+| 9 | Don't claim "each nation is a Mistral Agent" unless the test passes | **Taken** (§13, §17) |
+| 10 | Stats slide optional; batch on a separate account | **Taken** (§13, §15) |
 
 ## 1. The idea in one breath
 
@@ -214,7 +229,8 @@ Trust and resolve carry over between crises. Lying can win one crisis and lose t
 Both fork the world from a saved snapshot. This works because the engine is pure and seeded.
 
 - **War-odds needle.** Hundreds of rollouts in code, six months ahead, with and without your deal, using the same seeds on both sides. Leaders in rollouts follow their advisers plus a personality bias, so no model calls are needed. It is a forecast: the real leaders can defy it, and when they do, say so on screen.
-- **"What if I'd waited?"** One replay of the crisis with your offer moved earlier or later. Promises were already interpreted, so only leaders whose inputs changed are asked again (temperature 0, fixed `random_seed`). Output: which nation changed its decision, from what to what, and the payoff line that flipped it.
+- **"What if I'd waited?"** One replay of the crisis with your offer moved earlier or later, run entirely in code. Every leader's original decision is cached. Leaders whose inputs did not change keep theirs; leaders whose inputs changed follow their advisers plus personality bias. Le Chonk only writes the one-line "why". No model call decides anything in a replay, so it is instant and repeats exactly. Output: which nation changed its decision, from what to what, and the payoff line that flipped it.
+- **Order:** build the needle first, then the replay on the same fork function. If Layer 3 runs short, the replay is cut before the needle.
 
 ## 8. Voice (Voxtral)
 
@@ -224,6 +240,9 @@ Both fork the world from a saved snapshot. This works because the engine is pure
 - **Hesitation is a signal.** The gap between the leader finishing and you starting is sent as `hesitation_ms`.
 - **One distinct voice per leader**, with an emotion tag that tracks the escalation level.
 - **Wiretap:** the latest messages between two AI leaders, played as a two-voice conversation. Can be rendered ahead of time.
+- **Fast first audio.** Latency is the top demo risk, because the interrupt moment needs the leader to start speaking quickly. Calls use `reasoning_effort="low"`, replies of two sentences at most, and streamed speech. Each leader's opening line in a crisis is written and rendered ahead of time.
+- **Typed fallback.** A text box posts to the same call endpoint. Emergency use only, if the room or the API fails.
+- **Cached for the demo seed:** opening lines, Wiretap audio and the AI-to-AI turns. Replies to what the judge says are always live.
 
 Checked against the Voxtral 3 docs on the day:
 
@@ -272,9 +291,10 @@ Beliefs: each leader holds `trust_in_player (0–1)` and `resolve_of_player (0�
 }
 ```
 
-- **Phone calls:** the same persona in conversation. Input: your transcript, `interrupted`, `hesitation_ms`, world state. Output: reply text, one emotion from the enum, structured promises, any agreed actions, and updated `trust_in_player` and `resolve_of_player`.
+- **Phone calls:** the same persona in conversation, with `reasoning_effort="low"` and replies of two sentences at most. Input: your transcript, `interrupted`, `hesitation_ms`, world state. Output: reply text, one emotion from the enum, structured promises, any agreed actions, and updated `trust_in_player` and `resolve_of_player`.
 - **Historian:** one call at the end summarising the session.
 - **Personality cards** live in `agents/personas/*.md`.
+- **Until `advise()` lands (12:45),** Abi uses a mocked advisers' ranking so prompt work is not blocked.
 - **Managed Agents:** each nation as an agent with its own session memory, only if a 20-minute test passes. Fallback: plain chat completions with the history we keep.
 
 ## 12. Screens and UI (must feel like a game, not a dashboard)
@@ -295,9 +315,9 @@ Dark situation-room look, bold nation colours, big readable numbers, everything 
 
 - **Le Chonk (Mistral Large 4):** every leader's decisions and private intents, phone conversations, turning speech into promises, the historian.
 - **Voxtral:** live transcription of the player, a voice for every leader with emotion tags, Wiretap.
-- **Mistral Agents (bonus):** one Managed Agent per nation, if the test passes.
-- **Mistral Workflows (bonus, optional):** the headless batch that plays AI-only worlds for the stats slide. Start it as a plain script; wrap it in a Workflow only if there is time. Run it on a separate account.
-- **Vibe:** say honestly which parts Vibe built. Everyone has Vibe Pro from the event; use it when another tool's quota runs out.
+- **Mistral Agents (bonus):** one Managed Agent per nation, if the 20-minute test passes. Do not claim it in the pitch otherwise.
+- **Mistral Workflows (bonus, optional):** the headless batch that plays AI-only worlds for the stats slide, which is optional. Start it as a plain script; wrap it in a Workflow only if there is time. Run it on a separate account.
+- **Vibe:** say honestly which parts Vibe built. Everyone has Vibe Pro from the event. Vibe takes small, self-contained tasks (see §16).
 
 ## 14. API contract (everyone codes against this)
 
@@ -307,9 +327,9 @@ Backend: Python + FastAPI. Frontend: one web page polling the backend. Om puts o
 - `GET  /state` → full world state, plus `turn`, `events`, `news`, `crisis` (`id, clock, deadlines, public_commitments`) and `last_futures`.
 - `POST /turn` → advance one month, or one tick in crisis mode.
 - `POST /crisis/start {id}` → enter crisis mode.
-- `POST /call {to, audio, interrupted, hesitation_ms}` → `{transcript, reply_text, reply_audio_url, emotion, promises, actions}`.
+- `POST /call {to, audio | text, interrupted, hesitation_ms}` → `{transcript, reply_text, reply_audio_url, emotion, promises, actions}`.
 - `POST /futures {snapshot_id}` → `{before:{war_p}, after:{war_p}, caption}`.
-- `POST /replay {shift_ticks}` → `{changed:[{nation, was, now, why}]}`.
+- `POST /replay {shift_ticks}` → `{changed:[{nation, was, now, why}]}`. Code only; lives in `/replay` (Tamim) and calls Om's `fork()` and `advise()`.
 - `GET  /wiretap?a=ostrava&b=kessaria` → `{lines:[{speaker, text, audio_url}]}`.
 - `GET  /leaders/{id}` → `{public_statement, private_intent, advice, chosen, reason, persona}`.
 
@@ -322,14 +342,14 @@ State is the single source of truth. The frontend never computes game logic.
 | **0 — World** | 12:45 | Five nations, pure `step()`, `advise()`, leaders with public/private output, terminal log | 20 turns of readable drama, including one leader defying advice |
 | **1 — Playable** | 14:15 | Map, cards, ticker, intel; president seat; voice calls that change the world; Wiretap | Everyone plays three minutes by voice. **Record backup video.** |
 | **2 — Red Phone** | 15:15 | One Berth: crisis clock, deadlines, promises, interruption, hesitation | The double-promise scene plays out and can be interrupted |
-| **3 — What if** | 16:00 | Snapshot and fork: needle and replay | Needle moves on three rehearsed calls; replay names who flipped |
+| **3 — What if** | 16:00 | Snapshot and fork: needle first, then replay | Needle moves on three rehearsed calls; replay names who flipped, or is cut |
 | **4 — More** | if time | Second crisis, mediator seat, diplomat seat, end screen | Each works or is cut |
 | Freeze | 16:15 | Polish, demo seed, stats slide | — |
 | Video | 17:00 | Record final demo video | Submitted by 17:45 |
 
 Whatever layer is finished at the freeze is what we show. Tamim calls the cuts at each checkpoint.
 
-**Cut first if time is short:** diplomat seat, extra crises, voter blocs, leaderboard, French calls, Workflows wrapper.
+**Cut first if time is short:** diplomat seat, extra crises, voter blocs, leaderboard, French calls, Workflows wrapper, stats slide, then the replay (before the needle).
 
 ## 16. Roles (sized to each person's AI usage)
 
@@ -337,13 +357,16 @@ Each person owns one folder and never edits another's. Requests go in `COORD.md`
 
 | Person | Owns | Delivers | Backup |
 |---|---|---|---|
-| **Tamim** | Interface (`/web`), integration, cut decisions | 12:00 layout on fake state · 13:45 wired to `/state` · 15:30 crisis bar, needle, intel, replay panel | Om |
-| **Om** | Engine and futures (`/engine`), API | 12:00 example responses on `main` · 12:45 20-turn headless run with `advise()` · 15:00 crisis rules · 15:45 `fork`, `/futures`, `/replay` | Tamim |
-| **Abi** | Leaders (`/agents`), headless batch | 12:00 valid JSON 10/10, parallel-call test · 12:45 leaders act sensibly, headlines · 14:15 call prompt with promises · 15:30 historian, batch script | Ashish |
-| **Ashish** | Voice (`/voice`), demo | 12:00 talk-to-reply round trip timed · 13:30 leader voices and `/call` · 14:15 Wiretap, talk button with interruption and hesitation · then script, video, submission | Abi |
+| **Tamim** | Interface (`/web`), replay (`/replay`), integration, cut decisions | 12:00 layout on fake state · 13:45 wired to `/state` · 15:30 crisis bar, needle, intel · 16:00 `/replay` and its panel | Om |
+| **Om** | Engine and futures (`/engine`), API | 12:00 example responses on `main` · 12:45 20-turn headless run with `advise()` · 15:00 crisis rules · 15:30 `fork` · 15:45 rollouts and `/futures` | Tamim |
+| **Abi** | Leaders (`/agents`), headless batch | 12:00 valid JSON 10/10, parallel-call test · 12:45 leaders act sensibly (on a mocked ranking until `advise()` lands), headlines · 14:15 call prompt with promises · 15:30 historian, replay "why" line, batch script | Ashish |
+| **Ashish** | Voice (`/voice`), demo | 12:00 talk-to-reply round trip timed · 13:30 leader voices and `/call` · 14:15 Wiretap, talk button with interruption and hesitation, typed fallback · then crisis-deck data files, script, video, submission | Abi |
 
 - The talk button is a self-contained module from Ashish that Tamim mounts without editing.
-- Protect the single-plan seats: work in one folder, avoid asking the agent to read the whole repo, switch to Vibe if the quota runs out.
+- Tamim has the most AI usage, so extra work goes to Tamim first, not to the single-plan seats.
+- Protect the single-plan seats: work in one folder and avoid asking the agent to read the whole repo.
+- **Quota rule:** when a tool runs out, switch to Vibe in the same folder. Backups are for someone who is stuck or away, not for quota.
+- **What Vibe builds:** small, self-contained tasks only, such as data files, persona cards, headlines and tests. Core engine, voice and interface work stays on each person's main tool. Tasks will be tagged "Vibe" in the master plan.
 
 ## 17. Five-minute demo script
 
@@ -356,19 +379,20 @@ Each person owns one folder and never edits another's. Requests go in `COORD.md`
 | 2:10 | Intel: public versus private, advisers versus choice. Wiretap: Ostrava and Kessaria discussing the judge. |
 | 2:50 | Deadlines pass. Outcome on the map. Needle: war odds before and after. |
 | 3:20 | "What if you'd waited?" Slide the offer later; Kessaria closes the port. |
-| 4:00 | Stats from the AI-only worlds. |
-| 4:30 | "Le Chonk runs every leader, Voxtral is every voice, each nation is a Mistral Agent." |
+| 4:00 | Stats from the AI-only worlds, if the batch ran. Otherwise the end screen and historian's verdict. |
+| 4:30 | "Le Chonk runs every leader and Voxtral is every voice." Add "each nation is a Mistral Agent" only if that is built. |
 
 ## 18. Risks and the first tests
 
 | Risk | Test (before 12:00) | Fallback |
 |---|---|---|
 | Le Chonk JSON unreliable | 10 calls, validate schema | Retry and repair; fewer action types |
-| Voice round trip slow | Time talk → reply → first audio | Shorter replies; stream speech |
+| **Latency (top demo risk)** | Time talk → reply → first audio | Low reasoning effort, two-sentence replies, streamed speech, pre-rendered opening lines |
 | Emotion tags make no audible difference | Same line with `angry`, `calm`, `tense` | Different voices carry the temper |
 | Browser recording format rejected | Upload one clip | Encode WAV in the page |
 | Rate limits during the demo | 8 parallel calls timed | Batch on a separate account, stopped before judging |
 | Demo not repeatable | Fixed seed run twice | Same seed and a pause button |
+| Room noise or API outage | Try the typed box and the cached scripted lines | Typed fallback, cached demo-seed responses, backup video |
 | Managed Agents unavailable | 20-minute test | Plain chat completions |
 | Scope | Checkpoints in §15 | Show the last finished layer |
 
@@ -379,6 +403,7 @@ ideas.md            ← this plan
 /engine   (Om)
 /agents   (Abi)
 /web      (Tamim)
+/replay   (Tamim)
 /voice    (Ashish)
 COORD.md  ← requests between folders, status, blockers
 ```
