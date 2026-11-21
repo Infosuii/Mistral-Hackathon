@@ -400,7 +400,9 @@ It returns when a board comment names you (or "all") after the arrow, when someo
 | 13:30 to 16:15 (pieces connect) | Each agent, its own-folder PRs | `scripts/smoke.sh` after every merge. A failure means `BLOCKED` to the author whose merge broke it: fix first |
 | After the 16:15 freeze | The Coordinator only | `scripts/smoke.sh` on the branch before merging and on `main` after. Fixes only |
 
-Agents stop for a human only for: a contract change, a scope or ownership conflict, a choice between two design directions, anything destructive, or the same failure three times.
+**Questions go to the Coordinator, not to a human.** A build agent that hits a choice it cannot settle from the plan posts `NEED <name> → Coordinator` with the options and the one it leans towards, carries on with other work, and acts on the Coordinator's `DECIDED` line. With no answer in ten minutes it takes the option it leaned towards. The Coordinator is woken by any line addressed to it.
+
+Agents stop for a human only for: something that cannot be undone, a missing key or login, a step that needs a person in the room, or the same failure three times.
 
 What a human still does: paste the kickoff prompt once, set the tool to run commands without asking each time (within the repo), answer those stop questions, and switch to Vibe when quota runs out.
 
