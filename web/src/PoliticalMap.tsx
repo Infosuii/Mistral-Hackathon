@@ -88,20 +88,26 @@ function provinceStyle(state: GameState, owner: string, mode: MapMode): CSSPrope
   return { ...style, '--nation-fill': fill, '--nation-accent': 'var(--text)' } as CSSProperties
 }
 
-// The card is about 18rem wide and up to 15rem tall: near the right or bottom edge of the
-// map it opens on the other side of the pointer so it is never cut off.
-function cardPlace(x: number, y: number, box?: { w: number; h: number }): CSSProperties {
+// The card is about 18rem wide and up to 15rem tall. Near the right or bottom edge of the map,
+// or where a HUD panel would cover it, it opens on the other side of the pointer.
+type MapBox = { w: number; h: number; left: number; top: number; el: HTMLElement }
+function covered(box: MapBox, x: number, y: number): boolean {
+  const hit = document.elementFromPoint(box.left + x, box.top + y)
+  return !!hit && hit !== box.el && !(hit instanceof SVGElement)
+}
+function cardPlace(x: number, y: number, box?: MapBox): CSSProperties {
   const rem = typeof window === 'undefined' ? 16 : parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
   const w = 18 * rem, h = 15 * rem
   const place: CSSProperties = {}
-  if (box && x + 18 + w > box.w) place.right = Math.max(4, box.w - x + 18)
+  const right = x + 18 + w, bottom = y + 18 + h
+  if (box && (right > box.w || covered(box, right - 6, y + 24) || covered(box, right - 6, Math.min(bottom, box.h) - 6))) place.right = Math.max(4, box.w - x + 18)
   else place.left = x + 18
-  if (box && y + 18 + h > box.h) place.bottom = Math.max(4, box.h - y + 18)
+  if (box && bottom > box.h) place.bottom = Math.max(4, box.h - y + 18)
   else place.top = y + 18
   return place
 }
 
-function ProvinceCard({ state, id, x, y, box }: { state: GameState; id: string; x: number; y: number; box?: { w: number; h: number } }) {
+function ProvinceCard({ state, id, x, y, box }: { state: GameState; id: string; x: number; y: number; box?: MapBox }) {
   const owner = state.provinces[id]
   const nation = state.nations[owner]
   if (!nation) return null
@@ -413,7 +419,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
       </svg>
       <div className="map-vignette" aria-hidden="true" />
       </div>
-      {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} box={windowRef.current ? { w: windowRef.current.clientWidth, h: windowRef.current.clientHeight } : undefined} />}
+      {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} box={windowRef.current ? { w: windowRef.current.clientWidth, h: windowRef.current.clientHeight, left: windowRef.current.getBoundingClientRect().left, top: windowRef.current.getBoundingClientRect().top, el: windowRef.current } : undefined} />}
       <WarRoomPanel state={state} selected={selected} controls={warCtl} />
       <div className="map-hud-top">
         {citySelection && <FreightSummary state={state} province={citySelection} onClose={() => setCitySelection(null)} />}
