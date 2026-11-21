@@ -13,7 +13,7 @@ const endReasons: Record<string, string> = {
   ended: 'You ended the session.',
   voted_out: 'Your leader was voted out.',
   coup: 'A coup removed your leader from office.',
-  time: 'Your year in office is over.',
+  time: 'Your three-year term is over.',
 }
 
 const signed = new Intl.NumberFormat('en', { signDisplay: 'exceptZero', maximumFractionDigits: 1 })
