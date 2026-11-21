@@ -55,11 +55,12 @@ export function CrisisBar({ crisis, nations, catalog, clockHeld }: {
         <section aria-labelledby="promises-heading">
           <h3 id="promises-heading">Promises</h3>
           {crisis.promises.length ? (
-            <ol aria-label="Promises">
+            <ol aria-label="Promises" tabIndex={0}>
               {crisis.promises.map((promise) => (
                 <li key={promise.id}>
                   <b>{name(promise.by)} → {name(promise.to)}</b>
-                  <p>{words(promise.what)} · {words(promise.when)}{promise.condition && ` · if ${words(promise.condition)}`}</p>
+                  {' · '}{words(promise.what)} · {words(promise.when)}{promise.condition && ` · if ${words(promise.condition)}`}
+                  {' '}
                   {promise.kept !== null && <small>{promise.kept ? 'Kept' : 'Broken'}</small>}
                 </li>
               ))}
@@ -69,7 +70,7 @@ export function CrisisBar({ crisis, nations, catalog, clockHeld }: {
         <section aria-labelledby="commitments-heading">
           <h3 id="commitments-heading">Public commitments</h3>
           {crisis.public_commitments.length ? (
-            <ol aria-label="Public commitments">
+            <ol aria-label="Public commitments" tabIndex={0}>
               {crisis.public_commitments.map(({ nation, action, tick }, index) => (
                 <li key={`${nation}-${tick}-${index}`}>
                   <b>{name(nation)}</b> {words(action)} · {crisisTime(tick, crisis.ticks_total)}
