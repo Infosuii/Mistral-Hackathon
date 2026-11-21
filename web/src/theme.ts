@@ -61,6 +61,7 @@ export const theme = {
   '--contact-min': '9.5rem',
   '--needle-line': '2.5px',
   '--forecast-width': '10rem',
+  '--ending-width': '52rem',
   '--replay-height': '8rem',
   '--phone-line-height': '9rem',
   '--transcript-height': '9rem',

@@ -621,3 +621,59 @@ ol.transcript {
   .replay-panel { grid-row: 6; }
   .left-rail:has(.replay-panel) .dispatches { grid-row: 7; }
 }
+
+.ending-screen {
+  display: grid;
+  align-items: start;
+  justify-items: center;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-8) var(--space-4);
+  background:
+    linear-gradient(to bottom, var(--grid) var(--edge), transparent var(--edge)) 0 0 / 100% var(--map-grid-size),
+    linear-gradient(to right, var(--grid) var(--edge), transparent var(--edge)) 0 0 / var(--map-grid-size) 100%,
+    var(--sea-deep);
+}
+.ending-sheet {
+  width: min(100%, var(--ending-width));
+  padding: var(--space-6);
+  border: var(--edge) solid var(--border);
+  border-top-color: var(--accent);
+  background: var(--panel);
+  box-shadow: 0 var(--space-2) var(--shadow-depth) var(--shadow);
+}
+.ending-sheet h2 { color: var(--accent); font: 700 var(--type-brand) var(--display-font); }
+.ending-sheet h3 { font: 600 var(--type-lg) var(--display-font); }
+.ending-reason { color: var(--muted); }
+.ending-reason::first-letter { text-transform: uppercase; }
+.ending-score {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.ending-score > div { background: var(--surface); padding: var(--space-2) var(--space-3); }
+.ending-score dt { color: var(--muted); font-size: var(--type-sm); }
+.ending-score dd { font: 600 var(--type-xl) var(--display-font); font-variant-numeric: tabular-nums; }
+.historian-verdict {
+  margin-top: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  background: var(--paper);
+  color: var(--ink);
+}
+.historian-verdict blockquote, .historian-verdict p { margin-top: var(--space-2); }
+.ending-dispatches { margin-top: var(--space-5); }
+.ending-dispatches ol { list-style: none; padding: 0; margin: var(--space-2) 0 0; }
+.ending-dispatches li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-3);
+  border-top: var(--edge) solid var(--border);
+  padding-block: var(--space-2);
+}
+.ending-dispatches li span { color: var(--muted); font-size: var(--type-sm); }
+
+@media (max-width: 35rem) {
+  .ending-sheet { padding: var(--space-4); }
+  .ending-score { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

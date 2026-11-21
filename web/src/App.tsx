@@ -1,5 +1,6 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { CrisisBar, crisisTime } from './CrisisBar'
+import { EndScreen } from './EndScreen'
 import { Intelligence } from './Intelligence'
 import { Phone } from './Phone'
 import { ReplayPanel } from './ReplayPanel'
@@ -148,6 +149,15 @@ export function App({ state, controls, online }: { state: GameState; controls: R
   const news = [...state.news].reverse()
   const headline = news[0]
   const canReplay = !state.crisis && state.events.some((event) => event.type === 'crisis_resolved')
+
+  if (state.phase === 'ended') {
+    return (
+      <div className="game-screen" style={theme as CSSProperties}>
+        <ResourceBar state={state} controls={controls} />
+        <EndScreen state={state} online={online} />
+      </div>
+    )
+  }
 
   return (
     <div className="game-screen" style={theme as CSSProperties} data-crisis={Boolean(state.crisis)}>
