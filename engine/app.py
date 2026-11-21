@@ -35,7 +35,10 @@ router = APIRouter()
 @router.post("/start", response_model=State)
 async def start(req: StartRequest) -> State:
     async with GAME.lock:
-        return GAME.reset(req.seed, req.seat)
+        try:
+            return GAME.reset(req.seed, req.seat)
+        except ValueError as e:  # a seat that is not enabled (GAMBIT_MEDIATOR)
+            raise HTTPException(400, str(e))
 
 
 @router.get("/state", response_model=State)
