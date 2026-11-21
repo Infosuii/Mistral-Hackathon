@@ -1,6 +1,7 @@
 import { useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import map from './map.json'
 import { MapOverlays } from './MapOverlays'
+import { DecisionMotion } from './hud/DecisionMotion'
 import { relationBetween, statLabels, type GameState } from './state'
 import { nationStyle } from './theme'
 import { CapitalMarkers, CrisisFocus, flagOf, LeaderMedallions, NationalBorders, TerritoryLabels, UnitCounters } from './hud/MapLayers'
@@ -10,6 +11,7 @@ import { Relief, Sea, TerrainDefs, TerrainFeatures, terrainLabel, terrainOf } fr
 
 interface Props {
   state: GameState
+  online: boolean
   selected: string | undefined
   onSelect: (id: string) => void
 }
@@ -77,7 +79,7 @@ function ProvinceCard({ state, id, x, y }: { state: GameState; id: string; x: nu
   )
 }
 
-export function PoliticalMap({ state, selected, onSelect }: Props) {
+export function PoliticalMap({ state, online, selected, onSelect }: Props) {
   const [view, setView] = useState(homeView)
   const [mode, setMode] = useState<MapMode>('political')
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null)
@@ -184,6 +186,7 @@ export function PoliticalMap({ state, selected, onSelect }: Props) {
           <UnitCounters state={state} />
           <LeaderMedallions state={state} selected={selected} onSelect={onSelect} />
           <RelationPops state={state} />
+          <DecisionMotion state={state} online={online} />
         </g>
         <rect className="map-decoration" x={VB.x} y={VB.y} width={VB.w} height={VB.h} fill="url(#vignette)" />
       </svg>

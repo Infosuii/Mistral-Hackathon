@@ -198,7 +198,7 @@ export function App({ state, controls, online, clockHeld, onPhoneActivity }: {
         crisis={state.crisis} nations={state.nations} catalog={state.available_crises} clockHeld={clockHeld}
       />}
       <main className="theatre">
-        <PoliticalMap state={state} selected={selected} onSelect={setSelection} />
+        <PoliticalMap state={state} online={online} selected={selected} onSelect={setSelection} />
         <div className="left-rail">
           <NationRail state={state} selected={selected} onSelect={setSelection} />
           {canReplay && <ReplayPanel nations={state.nations} online={online} />}
