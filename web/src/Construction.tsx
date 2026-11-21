@@ -44,7 +44,9 @@ export function Construction({ state, online, waiting, onQueued }: {
   if (!player) return null
   const nation = state.nations[player]
   const disrupted = new Set(state.disrupted ?? [])
-  const queued = state.construction_queue ?? []
+  // An older save may still hold the single-slot project: it is pending and pays when it opens.
+  const legacy = state.construction ?? null
+  const queued = [...(state.construction_queue ?? []), ...(legacy ? [legacy] : [])]
   const provinces = Object.keys(state.provinces).filter((id) => state.provinces[id] === player)
   const province = provinces.includes(selected) ? selected : provinces[0]
   const existing = (state.buildings ?? []).filter((building) => building.province === province)
@@ -52,7 +54,8 @@ export function Construction({ state, online, waiting, onQueued }: {
   const taken = [...existing.map((b) => b.kind), ...queuedHere.map((p) => p.kind)]
   const spec = kinds[kind]
   const funds = nation.stats as unknown as Record<string, number>
-  const short = Object.entries(spec.cost).filter(([key, price]) => funds[key] < price).map(([key]) => resources[key])
+  const reserved = (key: string) => (legacy ? (kinds[legacy.kind as Kind]?.cost as Record<string, number> | undefined)?.[key] ?? 0 : 0)
+  const short = Object.entries(spec.cost).filter(([key, price]) => funds[key] - reserved(key) < price).map(([key]) => resources[key])
   const unavailable = !online || waiting || state.phase !== 'strategy' || !province
   const blocked = unavailable || busy || short.length > 0 || taken.length >= 3 || taken.includes(kind)
 
@@ -76,7 +79,7 @@ export function Construction({ state, online, waiting, onQueued }: {
     setMessage('')
     try {
       onQueued(await send('/construction/cancel', project))
-      setMessage(`${kinds[project.kind as Kind]?.name ?? project.kind} cancelled and refunded.`)
+      setMessage(`${kinds[project.kind as Kind]?.name ?? project.kind} cancelled${project === legacy ? '' : ' and refunded'}.`)
     } catch (error) {
       setMessage(`Could not cancel: ${error instanceof Error ? error.message : 'unknown error'}.`)
     } finally {
@@ -122,6 +125,7 @@ export function Construction({ state, online, waiting, onQueued }: {
                 {queued.map((project) => (
                   <li key={`${project.province}:${project.kind}`}>
                     {kinds[project.kind as Kind]?.name ?? project.kind} · {countyOf.get(project.province)} {project.province.toUpperCase()}
+                    {project === legacy ? ' (from a saved game: pays when it opens)' : ''}
                     {' '}<button type="button" disabled={unavailable || busy} onClick={() => void cancel(project)}>Cancel</button>
                   </li>
                 ))}
