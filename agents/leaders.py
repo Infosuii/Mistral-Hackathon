@@ -28,7 +28,7 @@ EMOTIONS: tuple[str, ...] = Emotion.__args__  # type: ignore[attr-defined]
 DECIDE_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_DECIDE_S", "7.5"))
 CALL_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_CALL_S", "6"))
 # Large 4 first; the hedge model joins if Large 4 has not answered by then.
-HEDGE_AFTER_S = float(os.environ.get("GAMBIT_HEDGE_AFTER_S", "3"))
+HEDGE_AFTER_S = float(os.environ.get("GAMBIT_HEDGE_AFTER_S", "3.5"))
 INTERPRET_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_INTERPRET_S", "45"))
 MAX_OPTIONS = 10
 HESITATION_MS = 2500  # ideas.md 6b
@@ -162,7 +162,8 @@ async def decide(view: LeaderView | dict) -> LeaderOutput:
     scores = [a.score for a in v.advice[:len(options)]]
     out = await llm.hedged(lambda m: llm.chat_json(
         msgs, lambda d: _parse_decide(d, options, scores, v.nation),
-        deadline=deadline, model=m, max_tokens=500, temperature=0.9), after=HEDGE_AFTER_S)
+        deadline=deadline, model=m, max_tokens=500, temperature=0.9),
+        primary=llm.DECIDE_MODEL, after=HEDGE_AFTER_S)
     _MEMORY.setdefault(key, []).append((state.get("turn") or 0, out.private_intent))
     return out
 

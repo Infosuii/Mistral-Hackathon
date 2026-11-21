@@ -15,16 +15,17 @@ The five AI leaders. Personalities live in `personas/*.md` and how often each on
 | `why(change)` | `{nation, was, now, inputs?}` | one line | never raises |
 | `historian(log)` | list of events | paragraph | never raises |
 
-## Models (DECIDED 12:29)
+## Models (DECIDED 12:29 and 12:43)
 
-Large 4 for decisions and everything except the spoken reply; `mistral-large-2512` for the spoken reply. Large 4 cannot turn reasoning off and takes 26-72 s on a leader prompt (`A0_RESULTS.md`), so latency-bound calls are **hedged**: Large 4 starts first and, if it has not answered after `GAMBIT_HEDGE_AFTER_S` (3 s for decide), `mistral-medium-latest` races it; the first valid answer wins. In practice decide() is answered by the hedge model; interpret() and historian() by Large 4. `llm.STATS["by_model"]` counts who answered.
+decide() is selectable with `GAMBIT_DECIDE_MODEL`: `mistral-large-2512` for the demo (default), `mistral-large-4` supported. Large 4 for interpret and everything else except the spoken reply; `mistral-large-2512` for the spoken reply. Large 4 cannot turn reasoning off and takes 26-72 s on a leader prompt (`A0_RESULTS.md`), so latency-bound calls are **hedged**: the chosen model starts first and, if it has not answered after `GAMBIT_HEDGE_AFTER_S` (3.5 s for decide), `mistral-medium-latest` races it; the first valid answer wins. With decide() on Large 4 the hedge model answers nearly every time; with 2512 it covers 429s. interpret() and historian() are answered by Large 4. `llm.STATS["by_model"]` counts who answered.
 
 Rate limits on this workspace are per model: `mistral-large-2512` 30 requests/minute (keep it for speech only); Large 4 and medium 2,000.
 
 ```
-GAMBIT_LEADER_MODEL=mistral-large-4        # decide, interpret, headline, why, historian, wiretap
+GAMBIT_DECIDE_MODEL=mistral-large-2512     # decide (set mistral-large-4 to run strategy on Large 4)
+GAMBIT_LEADER_MODEL=mistral-large-4        # interpret, headline, why, historian, wiretap
 GAMBIT_HEDGE_MODEL=mistral-medium-latest   # races Large 4 when it is slow
-GAMBIT_HEDGE_AFTER_S=3                     # decide's head start for Large 4
+GAMBIT_HEDGE_AFTER_S=3.5                   # decide's head start for Large 4
 GAMBIT_FAST_MODEL=mistral-large-2512       # speak_fast, call_reply
 GAMBIT_FAST_FALLBACK=mistral-large-4
 GAMBIT_AGENTS_DECIDE_S=7.5   GAMBIT_AGENTS_CALL_S=6   GAMBIT_AGENTS_INTERPRET_S=45
