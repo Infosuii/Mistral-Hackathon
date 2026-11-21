@@ -32,7 +32,7 @@ export interface GameState {
   links: { type: string; a: string; b: string }[]
   provinces: Record<string, string>
   news: { turn: number; text: string }[]
-  events: { turn: number; type: string; nation?: string | null }[]
+  events: { turn: number; type: string; nation?: string | null; province?: string | null }[]
   incoming_call: { from: string; emotion: string; opening_line: string; audio_url?: string | null } | null
   crisis: { id: string; tick: number; ticks_total: number } | null
   last_futures: unknown
@@ -57,4 +57,8 @@ export const systemLabels: Record<string, string> = {
   monarchy: 'Constitutional monarchy',
   technocracy: 'Technocracy',
   one_party: 'One-party state',
+}
+
+export function relationBetween(state: GameState, a: string | null, b: string | undefined) {
+  if (a && b && a !== b) return state.relations[[a, b].sort().join('|')]
 }

@@ -290,3 +290,99 @@ button:focus-visible { outline: var(--edge) solid var(--accent); outline-offset:
   .dispatches { grid-row: 5; }
   .ticker { gap: var(--space-2); }
 }
+
+/* Map controls follow the SVG frame on narrow screens. */
+.map-window { padding-block: var(--space-8); }
+.political-map { overflow: hidden; user-select: none; }
+.political-map[data-zoomed='true'] { cursor: grab; touch-action: none; }
+.political-map[data-zoomed='true']:active,
+.political-map[data-zoomed='true']:active .province { cursor: grabbing; }
+
+.map-mode, .map-footer {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  inset-inline: var(--space-2);
+}
+.map-mode { top: var(--space-3); justify-content: center; }
+.map-footer { bottom: var(--space-3); justify-content: space-between; }
+.map-zoom, .map-legend { display: flex; align-items: center; }
+.map-mode button, .map-zoom button, .map-legend {
+  min-height: var(--control-min);
+  background: var(--panel);
+  color: var(--muted);
+  border: var(--edge) solid var(--border);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--type-sm);
+}
+.map-mode button, .map-zoom button { cursor: pointer; }
+.map-mode button[aria-pressed='true'] { color: var(--accent); border-color: var(--accent); }
+.map-zoom button { min-width: var(--control-min); }
+.map-zoom button + button { border-left: 0; }
+.map-zoom button:disabled { opacity: .55; cursor: default; }
+.map-mode button:hover, .map-zoom button:enabled:hover { color: var(--text); }
+.map-legend { flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
+.map-legend span { display: inline-flex; align-items: center; gap: var(--space-1); white-space: nowrap; }
+.map-legend span::before {
+  content: '';
+  display: inline-block;
+  width: var(--space-2);
+  height: var(--space-2);
+  background: var(--legend-color);
+}
+.map-legend .trade { --legend-color: var(--trade); }
+.map-legend .alliance { --legend-color: var(--alliance); }
+.map-legend .war { --legend-color: var(--war); }
+.map-legend .event { --legend-color: var(--accent); }
+.map-legend .negative { --legend-color: var(--relation-negative); }
+.map-legend .neutral { --legend-color: var(--relation-neutral); }
+.map-legend .positive { --legend-color: var(--relation-positive); }
+.map-legend .own-nation { --legend-color: var(--relation-own); }
+
+.map-link {
+  fill: none;
+  stroke-width: var(--map-link-line);
+  vector-effect: non-scaling-stroke;
+  opacity: .85;
+}
+.map-link.trade { stroke: var(--trade); stroke-dasharray: 6 5; }
+.map-link.alliance { stroke: var(--alliance); stroke-dasharray: 2 4; }
+.map-link.war-front {
+  stroke: var(--war);
+  stroke-width: var(--war-front-line);
+  stroke-linecap: round;
+  animation: war-pulse 1.8s ease-in-out infinite alternate;
+}
+@keyframes war-pulse { from { opacity: .55; } to { opacity: 1; } }
+
+.map-event { cursor: pointer; }
+.map-event circle { fill: var(--accent); stroke: var(--sea-deep); stroke-width: var(--map-line); }
+.map-event text { fill: var(--ink); text-anchor: middle; font: 700 var(--map-water-size) var(--display-font); }
+
+.nation-stats meter {
+  display: block;
+  width: 100%;
+  height: var(--meter-height);
+  margin-top: var(--space-1);
+}
+.nation-stats meter::-webkit-meter-bar { border: 0; background: var(--border); }
+.nation-stats meter::-webkit-meter-optimum-value { background: var(--nation-accent); }
+.nation-stats meter::-moz-meter-bar { background: var(--nation-accent); }
+
+.nation-button[data-protests='true'] .nation-mark { animation: protest-shake .45s ease-out; }
+@keyframes protest-shake {
+  25%, 75% { transform: translateX(calc(-1 * var(--space-1))); }
+  50% { transform: translateX(var(--space-1)); }
+}
+
+@media (max-width: 48rem) {
+  .map-window { display: flex; flex-direction: column; gap: var(--space-1); padding: 0; }
+  .map-mode, .map-footer { position: static; width: 100%; }
+  .map-footer { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-link.war-front, .nation-button[data-protests='true'] .nation-mark { animation: none; }
+}
