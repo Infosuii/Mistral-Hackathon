@@ -31,6 +31,7 @@ CALL_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_CALL_S", "6"))
 # Shorter head start for a reasoning model (Large 4 almost never answers in time).
 HEDGE_AFTER_S = float(os.environ.get("GAMBIT_HEDGE_AFTER_S", "2.5" if llm.reasons(llm.DECIDE_MODEL) else "3.5"))
 INTERPRET_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_INTERPRET_S", "45"))
+INTERPRET_HEDGE_S = float(os.environ.get("GAMBIT_INTERPRET_HEDGE_S", "12"))
 MAX_OPTIONS = 10
 HESITATION_MS = 2500  # ideas.md 6b
 
@@ -177,7 +178,7 @@ Pick one emotion for your voice from: {emotions}."""
 
 SPEAK_JSON = """Reply with ONLY this JSON object: {"reply_text": str, "emotion": str}"""
 
-JUDGE_RULES = """"promises": what the PLAYER committed to in what they just said, as {"to": nation id the promise is made to, "what": short noun phrase, "when": short or "now", "condition": short or null}. Only record real commitments; usually none.
+JUDGE_RULES = """"promises": what the PLAYER committed to YOU in what they just said, as {"what": short noun phrase, "when": short or "now", "condition": short or null}. Only record real commitments to you; usually none.{vocab}
 "action": the number of an option you agree to take right now, or null (usually null; only if you were persuaded).
 "trust_delta" in -0.3..0.3: how much more or less you trust the player after this. A contradiction of an earlier promise, or a promise you know they made to a rival, is strongly negative.
 "resolve_delta" in -0.2..0.2: how firm the player sounded (a credible threat or clear red line is positive; pleading or vagueness is negative).
@@ -215,6 +216,15 @@ def _call_view(view: CallView | dict) -> CallView:
     return view if isinstance(view, CallView) else CallView.model_validate(view)
 
 
+def _judge_rules(state: dict, nation: str) -> str:
+    vocab = _crisis_vocab(state, nation)
+    extra = ("" if vocab is None else
+             f'\nIn this crisis "what" must be one of {vocab} (the berth itself, or a crisis action), and for the berth '
+             f'"when" must be one of {list(SLOTS)} (all_day if no time was given). "condition" is null unless the player '
+             "made it conditional.")
+    return JUDGE_RULES.replace("{vocab}", extra)
+
+
 def _call_context(v: CallView) -> tuple[str, dict, list[dict]]:
     """(system prompt head, user payload, legal options) shared by every phone function."""
     state = _dump(v.state)
@@ -249,14 +259,74 @@ def _parse_voice(data: dict, v: CallView) -> dict:
     return {"reply_text": reply, "emotion": emotion}
 
 
-def _parse_judgement(data: dict, v: CallView, options: list[dict]) -> dict:
-    promises = []
+SLOTS = ("morning", "afternoon", "evening", "all_day")  # engine/crisis.py compatible_when
+_SLOT_WORDS = [("all_day", r"all[ _-]?day|whole day|full day|entire day|24 ?h|all 24|day and night|whole time"),
+               ("morning", r"morning|dawn|sunrise|first light|first half|a\.?m\b"),
+               ("afternoon", r"afternoon|midday|noon|second half|p\.?m\b"),
+               ("evening", r"evening|night|dusk|nightfall|sunset|tonight")]
+
+
+def _crisis_vocab(state: dict, nation: str) -> Optional[list[str]]:
+    """In a crisis, the promise subjects the engine understands: "berth" and this leader's
+    own crisis action ids (engine/crisis.py matches promise.what exactly against
+    actions[promise.to]). None outside a crisis."""
+    c = state.get("crisis")
+    if not c:
+        return None
+    try:
+        from engine.crisis import crisis_file  # type: ignore
+        ids = [a for a in crisis_file(c["id"]).actions.get(nation, []) if "berth" not in a]
+    except Exception:  # noqa: BLE001
+        ids = []
+    return ["berth"] + ids
+
+
+def _norm_what(what: str, vocab: list[str]) -> Optional[str]:
+    w = what.strip().lower()
+    key = re.sub(r"[^a-z]+", "_", w).strip("_")
+    if "berth" in vocab and re.search(r"berth|dock|port|slot|mooring|harbou?r|unload", w):
+        return "berth"  # first: "dock at dawn" and "assign_berth_x" mean the berth itself
+    if key in vocab:
+        return key
+    for a in sorted(vocab, key=len, reverse=True):  # "send the tugs" -> send_tugs
+        if a != "berth" and all(part in key for part in a.split("_")):
+            return a
+    return None
+
+
+def _norm_when(when: str, what: str) -> str:
+    text = f"{when} {what}".lower()
+    for slot, pat in _SLOT_WORDS:
+        if re.search(pat, text):
+            return slot
+    return "all_day"  # "the berth is yours" with no time: the whole day
+
+
+def _parse_promises(data: dict, v: CallView, state: dict) -> list[dict]:
+    """Only promises made to the leader on the line count: the other leaders did not hear
+    them. In a crisis, what/when are mapped onto the engine's vocabulary or dropped."""
+    vocab = _crisis_vocab(state, v.nation)
+    out = []
     for p in data.get("promises") or []:
         if not isinstance(p, dict) or not str(p.get("what") or "").strip():
             continue
-        promises.append({"to": p.get("to") if p.get("to") in NATION_IDS else v.nation,
-                         "what": str(p["what"]).strip(), "when": str(p.get("when") or "now").strip(),
-                         "condition": (str(p["condition"]).strip() or None) if p.get("condition") else None})
+        if p.get("to") not in (None, "", v.nation):
+            continue
+        what, when = str(p["what"]).strip(), str(p.get("when") or "").strip()
+        if vocab is not None:
+            norm = _norm_what(what, vocab)
+            if norm is None:
+                continue
+            when = _norm_when(when, what) if norm == "berth" else (when if when in SLOTS else "now")
+            what = norm
+        cond = p.get("condition")
+        cond = str(cond).strip() if cond and str(cond).strip().lower() not in ("none", "null", "no") else None
+        out.append({"to": v.nation, "what": what, "when": when or "now", "condition": cond})
+    return out
+
+
+def _parse_judgement(data: dict, v: CallView, options: list[dict], state: Optional[dict] = None) -> dict:
+    promises = _parse_promises(data, v, state if state is not None else _dump(v.state))
     actions = []
     a = data.get("action")
     if isinstance(a, int) and 0 <= a < len(options) and options[a]["type"] != "wait":
@@ -296,12 +366,12 @@ async def interpret(view: CallView | dict, reply_text: str) -> CallOutput:
     emotion is a placeholder the caller overrides). Raises llm.LLMError on failure."""
     v = _call_view(view)
     system, user, options = _call_context(v)
-    msgs = [{"role": "system", "content": system + "\n" + JUDGE_RULES + "\n" + INTERPRET_JSON.format(reply=reply_text)},
+    msgs = [{"role": "system", "content": system + "\n" + _judge_rules(_dump(v.state), v.nation) + "\n" + INTERPRET_JSON.format(reply=reply_text)},
             {"role": "user", "content": _j(user)}]
     deadline = time.perf_counter() + INTERPRET_BUDGET_S
     judged = await llm.hedged(lambda m: llm.chat_json(
         msgs, lambda d: _parse_judgement(d, v, options), deadline=deadline, model=m,
-        max_tokens=300, temperature=0.3), after=INTERPRET_BUDGET_S * 0.6)
+        max_tokens=300, temperature=0.3), after=INTERPRET_HEDGE_S)
     return CallOutput.model_validate({"reply_text": reply_text or "...", "emotion": "calm", **judged})
 
 
@@ -310,7 +380,7 @@ async def call_reply(view: CallView | dict) -> CallOutput:
     Raises llm.LLMError within CALL_BUDGET_S."""
     v = _call_view(view)
     system, user, options = _call_context(v)
-    msgs = [{"role": "system", "content": system + "\n" + JUDGE_RULES + "\n" + CALL_JSON},
+    msgs = [{"role": "system", "content": system + "\n" + _judge_rules(_dump(v.state), v.nation) + "\n" + CALL_JSON},
             {"role": "user", "content": _j(user)}]
     return await llm.chat_json(
         msgs, lambda d: CallOutput.model_validate({**_parse_voice(d, v), **_parse_judgement(d, v, options)}),
