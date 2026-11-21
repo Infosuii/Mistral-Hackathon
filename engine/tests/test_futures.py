@@ -39,10 +39,21 @@ def test_honest_deal_lowers_war_odds_in_one_berth():
 
 
 def test_full_needle_is_fast_enough():
+    # Alone it takes about 3 s for both sides, cold. The limit leaves room for a machine busy
+    # with several agents (Reviewer, #27 14:07); the 5 s target is for an idle laptop.
     s = start_crisis(new_game(11, SEAT), "one_berth")
     t = time.time()
     futures(s, s.model_copy(update={"seed": 12}))
-    assert time.time() - t < 5
+    assert time.time() - t < 10
+
+
+def test_rollout_count_can_be_lowered_for_the_demo(monkeypatch):
+    import engine.futures as fm
+    calls = []
+    monkeypatch.setattr(fm, "war_p", lambda state, count, months, first=None: calls.append(count) or 0.5)
+    monkeypatch.setenv("GAMBIT_ROLLOUTS", "80")
+    futures(new_game(7, SEAT), new_game(7, SEAT))
+    assert calls == [80, 80]
 
 
 def test_futures_endpoint_and_needle_after_a_call():

@@ -10,19 +10,21 @@ const capitals = map.capitals as Record<string, number[]>
 /** Newest headline of a new month (or crisis tick) as a card at the top of the map. */
 export function BreakingNews({ state }: { state: GameState }) {
   const latest = state.news[state.news.length - 1]
-  const key = latest ? `${latest.turn}|${state.crisis?.tick ?? ''}|${latest.text}` : ''
+  const text = latest?.text
+  const turn = latest?.turn
+  const key = latest ? `${turn}|${state.crisis?.tick ?? ''}|${text}` : ''
   const seen = useRef<string | null>(null)
   const [shown, setShown] = useState<{ key: string; text: string; turn: number } | null>(null)
 
   useEffect(() => {
-    if (!latest) return
+    if (turn === undefined || text === undefined) return
     if (seen.current === null) { seen.current = key; return } // not on first load
     if (seen.current === key) return
     seen.current = key
-    setShown({ key, text: latest.text, turn: latest.turn })
+    setShown({ key, text, turn })
     const timer = window.setTimeout(() => setShown((s) => (s?.key === key ? null : s)), 6000)
     return () => window.clearTimeout(timer)
-  }, [key, latest])
+  }, [key, text, turn])
 
   if (!shown) return null
   return (

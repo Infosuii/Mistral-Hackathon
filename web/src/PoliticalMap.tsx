@@ -27,7 +27,8 @@ function limitView(view: typeof homeView) {
   }
 }
 
-type MapMode = 'political' | 'relations' | 'military' | 'unrest'
+const modeLabels = { political: 'Political', relations: 'Relations', military: 'Military', unrest: 'Unrest' }
+type MapMode = keyof typeof modeLabels
 
 function provinceStyle(state: GameState, owner: string, mode: MapMode): CSSProperties {
   const style = nationStyle(owner)
@@ -137,7 +138,7 @@ export function PoliticalMap({ state, selected, onSelect }: Props) {
     <div className="map-window" ref={windowRef} onPointerLeave={() => setHover(null)}>
       <svg className="political-map" data-zoomed={view.zoom > 1} viewBox={`${VB.x} ${VB.y} ${VB.w} ${VB.h}`}
         preserveAspectRatio="xMidYMid slice"
-        aria-label={relations ? 'Relations map' : 'Political map'} onPointerDown={startDrag}
+        aria-label={`${modeLabels[shownMode]} map`} onPointerDown={startDrag}
         onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
         onPointerLeave={(event) => { if (!drag.current?.moved) endDrag(event) }}
         onClickCapture={(event) => {
@@ -187,43 +188,45 @@ export function PoliticalMap({ state, selected, onSelect }: Props) {
         <rect className="map-decoration" x={VB.x} y={VB.y} width={VB.w} height={VB.h} fill="url(#vignette)" />
       </svg>
       {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} />}
-      <OrdersBar state={state} selected={selected} />
-      <BreakingNews state={state} />
       <div className="map-hud-top">
         <div className="map-mode" role="group" aria-label="Map view">
-          {(['political', 'relations', 'military', 'unrest'] as const)
+          {(Object.keys(modeLabels) as MapMode[])
             .filter((m) => m !== 'relations' || state.seat.nation)
-            .map((m) => <button key={m} aria-pressed={shownMode === m} onClick={() => setMode(m)}>{m[0].toUpperCase() + m.slice(1)}</button>)}
+            .map((m) => <button key={m} aria-pressed={shownMode === m} onClick={() => setMode(m)}>{modeLabels[m]}</button>)}
         </div>
+        <BreakingNews state={state} />
       </div>
-      <div className="map-footer">
-        <div className="map-legend" aria-label={relations ? 'Relations legend' : 'Map legend'}>
-          {shownMode === 'military' || shownMode === 'unrest' ? (
-            <>
-              <span className="heat-low">{shownMode === 'military' ? 'Weak army' : 'Stable'}</span>
-              <span className="heat-high">{shownMode === 'military' ? 'Strong army' : 'Unrest'}</span>
-            </>
-          ) : relations ? (
-            <>
-              <span className="negative">Hostile</span>
-              <span className="neutral">Neutral</span>
-              <span className="positive">Friendly</span>
-              <span className="own-nation">Your nation</span>
-            </>
-          ) : (
-            <>
-              <span className="trade">Trade</span>
-              <span className="alliance">Alliance</span>
-              <span className="war">War front</span>
-              <span className="event">Event</span>
-            </>
-          )}
+      <div className="map-bottom">
+        <div className="map-footer">
+          <div className="map-legend" aria-label={`${modeLabels[shownMode]} legend`}>
+            {shownMode === 'military' || shownMode === 'unrest' ? (
+              <>
+                <span className="heat-low">{shownMode === 'military' ? 'Weak army' : 'Stable'}</span>
+                <span className="heat-high">{shownMode === 'military' ? 'Strong army' : 'Unrest'}</span>
+              </>
+            ) : relations ? (
+              <>
+                <span className="negative">Hostile</span>
+                <span className="neutral">Neutral</span>
+                <span className="positive">Friendly</span>
+                <span className="own-nation">Your nation</span>
+              </>
+            ) : (
+              <>
+                <span className="trade">Trade</span>
+                <span className="alliance">Alliance</span>
+                <span className="war">War front</span>
+                <span className="event">Event</span>
+              </>
+            )}
+          </div>
+          <div className="map-zoom" role="group" aria-label="Map zoom">
+            <button onClick={() => zoom(-0.5)} disabled={view.zoom === 1} aria-label="Zoom out">−</button>
+            <button onClick={() => setView(homeView)} disabled={view.zoom === 1} aria-label="Reset map view">{view.zoom}×</button>
+            <button onClick={() => zoom(0.5)} disabled={view.zoom === maxZoom} aria-label="Zoom in">+</button>
+          </div>
         </div>
-        <div className="map-zoom" role="group" aria-label="Map zoom">
-          <button onClick={() => zoom(-0.5)} disabled={view.zoom === 1} aria-label="Zoom out">−</button>
-          <button onClick={() => setView(homeView)} disabled={view.zoom === 1} aria-label="Reset map view">{view.zoom}×</button>
-          <button onClick={() => zoom(0.5)} disabled={view.zoom === maxZoom} aria-label="Zoom in">+</button>
-        </div>
+        <OrdersBar state={state} selected={selected} />
       </div>
     </div>
   )

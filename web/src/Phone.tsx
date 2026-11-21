@@ -153,29 +153,31 @@ export function Phone({ state, selected, online, onActivity }: {
         <h2 id="phone-heading">Red Phone</h2>
       </header>
       <div className="phone-line" aria-live="polite">
-        <span className="subtle">{ringing ? 'Incoming call' : contact ? 'Direct line' : 'Select a foreign leader'}</span>
-        {contact && <strong>{contact.leader}</strong>}
-        {ringing && incoming && (
-          <div className="incoming-call">
-            <p>{incoming.opening_line}</p>
-            {incoming.audio_url && contactId === incoming.from && (
-              <button className="plain-control" onClick={() => void talk.current?.playLine(incoming.audio_url ?? null, incoming.from)}>
-                Play opening line
-              </button>
-            )}
-            <button className="plain-control" onClick={() => setDismissed(ringing)}>Dismiss</button>
-          </div>
-        )}
-        {lastCall?.pending && <p className="phone-promises" role="status">Checking commitments…</p>}
-        {!!lastCall?.promises.length && !lastCall.pending && (
-          <ul className="phone-promises" aria-label="Promises from last call">
-            {lastCall.promises.map(({ to, what, when }, index) => (
-              <li key={index}>{state.nations[to]?.name ?? to}: {what.replaceAll('_', ' ')} · {when.replaceAll('_', ' ')}</li>
-            ))}
-          </ul>
-        )}
+        <div className="phone-summary">
+          <span className="subtle">{ringing ? 'Incoming call' : contact ? 'Direct line' : 'Select a foreign leader'}</span>
+          {contact && <strong>{contact.leader}</strong>}
+          {ringing && incoming && (
+            <div className="incoming-call">
+              <p>{incoming.opening_line}</p>
+              {incoming.audio_url && contactId === incoming.from && (
+                <button className="plain-control" onClick={() => void talk.current?.playLine(incoming.audio_url ?? null, incoming.from)}>
+                  Play opening line
+                </button>
+              )}
+              <button className="plain-control" onClick={() => setDismissed(ringing)}>Dismiss</button>
+            </div>
+          )}
+          {lastCall?.pending && <p className="phone-promises" role="status">Checking commitments…</p>}
+          {!!lastCall?.promises.length && !lastCall.pending && (
+            <ul className="phone-promises" aria-label="Promises from last call">
+              {lastCall.promises.map(({ to, what, when }, index) => (
+                <li key={index}>{state.nations[to]?.name ?? to}: {what.replaceAll('_', ' ')} · {when.replaceAll('_', ' ')}</li>
+              ))}
+            </ul>
+          )}
+        </div>
         {transcript.length > 0 && (
-          <ol ref={transcriptList} className="transcript" aria-label="Call transcript">
+          <ol ref={transcriptList} className="transcript" aria-label="Call transcript" tabIndex={0}>
             {transcript.map((line, index) => (
               <li key={index}><b>{line.role === 'player' ? 'You' : contact?.name}</b> {line.text}</li>
             ))}

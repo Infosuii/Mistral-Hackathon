@@ -440,6 +440,13 @@ button:focus-visible { outline: var(--edge) solid var(--accent); outline-offset:
   .session-controls { grid-row: 3; grid-column: 1 / -1; border-top: var(--edge) solid var(--border); }
 }
 
+@media (min-width: 68.01rem) and (max-width: 83rem) {
+  .topbar { grid-template-columns: auto auto minmax(0, 1fr) auto; }
+  .resources { grid-row: 1; grid-column: 3; }
+  .turn-clock { grid-row: 1; grid-column: 4; }
+  .session-controls { grid-row: 2; padding-block: var(--space-1); }
+}
+
 .plain-control, .wiretap-controls select {
   min-height: var(--control-min);
   border: var(--edge) solid var(--border);
@@ -476,12 +483,30 @@ ol.transcript {
 .intel-drawer audio { display: block; width: 100%; margin-top: var(--space-2); }
 
 .intelligence { padding: var(--space-2) var(--space-4); border-top: var(--edge) solid var(--border); }
-.intel-drawer {
-  margin-top: var(--space-2);
-  max-height: var(--intel-height);
-  overflow: auto;
+.intel-popover {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: min(30rem, calc(100% - 2 * var(--space-3)));
+  max-height: min(70svh, 34rem);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: var(--edge) solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 var(--space-3) var(--shadow-depth) var(--shadow);
   font-size: var(--type-sm);
 }
+.intel-popover:popover-open { display: flex; flex-direction: column; }
+.intel-popover .intel-popover-header {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--edge) solid var(--border);
+}
+.intel-popover-header h3 { color: var(--accent); font: 700 var(--type-lg) var(--display-font); }
+.intel-popover-body { min-height: 0; overflow: auto; padding: var(--space-3); }
+.intel-drawer ol.transcript { max-height: none; overflow: visible; }
 .intel-drawer dt { color: var(--muted); }
 .intel-drawer dd { margin-bottom: var(--space-2); }
 .intel-strategy { white-space: pre-line; }
@@ -560,7 +585,18 @@ ol.transcript {
   .contacts, .dispatches, .dossier { min-height: 0; overflow: auto; }
   .phone { flex: 0 0 auto; display: flex; flex-direction: column; }
   .phone-heading, #phone-controls { flex: none; }
-  .phone-line { max-height: var(--phone-line-height); overflow: auto; }
+  .phone-line {
+    display: flex;
+    flex-direction: column;
+    max-height: var(--phone-line-height);
+    min-height: 0;
+    padding-bottom: var(--space-2);
+  }
+  .phone-summary { min-height: 0; overflow: auto; }
+  .phone-line .transcript {
+    min-block-size: calc(var(--type-sm) * 2.8);
+    padding-block-end: var(--space-2);
+  }
 }
 
 .forecast {
