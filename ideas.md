@@ -41,225 +41,345 @@ Score ideas out of 100 using **35 for voice being essential**, **30 for likeliho
 
 ## Team decision
 
-**Chosen project: GAMBIT** — a living world of five AI-run nations that a judge joins as a head of state, by voice. Every decision forks the world into parallel futures and a needle shows how much more or less likely war just became.
+**Proposed project: GAMBIT** — a voice-played strategy game. Five AI-run nations share one world. You take a seat as a president, a diplomat or an outside mediator and govern by phoning the other leaders. When a crisis erupts a clock starts, and what you say, when you say it and whether you interrupt decides what happens next.
+**Status:** proposal (v2 of this PR, 11:30). It replaces the first draft below the line. React 👍 on the PR or comment with objections so we can lock it and build.
 **Fallback:** IMPOSTOR (social-deduction game with a sabotaging coding agent).
-**First tests (before 11:30):** Le Chonk returns valid leader JSON 10/10; 20 parallel model calls without rate limits; Voxtral push-to-talk → reply → TTS round trip.
-**Build assignments:** A engine & futures (`/engine`), B agents (`/agents`), C UI (`/web`), D voice (`/voice`). Full concept below.
+**First tests (before 12:00):** Le Chonk returns valid leader JSON 10/10; 8 parallel model calls timed; Voxtral talk → reply → speech round trip timed; one emotion tag audibly changes a voice.
+**Build assignments:** Tamim interface + integration (`/web`), Om engine + futures (`/engine`), Abi leaders + batch (`/agents`), Ashish voice + demo (`/voice`). Full concept below.
 
 ---
 
-# GAMBIT — every word you say forks the world
+# GAMBIT — every call is a move
 
-*Working title. Le Chonk in London — Mistral Vibe Hackathon, Sat 21 Nov 2026. Submission + demo video due 18:00.*
+*Le Chonk in London — Mistral Vibe Hackathon, Sat 21 Nov 2026. Submission + demo video due 18:00.*
+
+## 0. What changed from the first draft, and why
+
+The first draft (BUTTERFLY) was a year-long world with a war-odds needle. This version keeps that world and puts a tense, timed crisis mode ("Red Phone") inside it.
+
+| | First draft | GAMBIT v2 | Why it's better |
+|---|---|---|---|
+| **Why voice matters** | Voice was how you talked; typing would have worked the same | Interrupting, hesitating and timing change the outcome | Our prize target is Best Use of Voxtral. Voice has to be something the game needs |
+| **Signature moment** | Needle after a call | Needle **plus** "What if I'd waited?" replay | The replay names the leader who flipped and why. A percentage alone can't |
+| **How the odds are computed** | 10 futures with, 10 without, each needing model calls (about 480 calls, up to 30 s) | Hundreds of rollouts in code with the same seeds on both sides | Answers in seconds, and the number is a real difference, not noise. Judges who are scientists will ask |
+| **How leaders decide** | Le Chonk picks actions freely | The engine advises, Le Chonk decides, and we show when a leader defies the advice | Still free and in character, but every decision can be explained on screen |
+| **Pace** | One month every 20 s for a year | Strategy months, then a crisis with a 24-hour clock | Gives a 90-second high point a judge can play inside a five-minute slot |
+| **Seats** | President of Valdoria | President, diplomat or mediator | Same engine, three ways to play |
+| **Team** | Four workstreams, A carrying four jobs | Four named roles sized to each person's AI usage | Integration moves off the critical-path seat |
+| **Docs fixes** | "threatening" emotion; shared batch key | Supported emotion tags only; batch on a separate account | "threatening" is not a Voxtral tag and is ignored silently. Rate limits are shared per workspace |
+
+Kept from the first draft: the five nations, two-faced leaders, Wiretap, the pure deterministic engine, the layered build, the fixed demo seed.
 
 ## 1. The idea in one breath
 
-A living world of five AI-run nations — each led by a Le Chonk agent with its own politics, secrets and ambitions — that a judge joins **as a head of state, by voice**. You phone other leaders, threaten, bargain and make deals out loud. Every decision you make **forks the world into parallel futures**, and a needle shows you, live, how much more or less likely war just became because of what you said.
+A living world of five AI-run nations, each led by a Le Chonk agent with its own politics, secrets and pressures. You join it by voice. In calm months you trade, ally and threaten like any strategy game. Then a crisis hits, the phones ring, and you have minutes to talk leaders down before their deadlines pass.
 
-**Tagline:** *"Can one sentence start a war? Let's find out."*
+**Tagline:** *"Every call is a move."*
 
 ## 2. Why this is different (say this in the first 20 seconds of the pitch)
 
 | Prior work | What it does | What we add |
 |---|---|---|
 | Hearts of Iron IV | Scripted AI, one timeline, you click menus | LLM leaders with real personalities, and you play by **talking** |
-| Mistralverse (Mistral London winner) | One agent society, one run, you watch | Many nations with internal politics, **you're inside it**, and we show **every timeline, not one** |
-| WarAgent (research) | Replays historical wars offline, in text | Live, playable, voiced, with counterfactual numbers |
-| Sim Francisco (Claude Build Day 2nd) | Polls a synthetic population | Puts a number on **every sentence the judge says** |
+| Mistralverse (March London winner) | One agent society, one timeline, humans join by typing | Many nations, played by **voice**, and we show the timeline you didn't take |
+| PerrySphere (March, online, unplaced) | Five nation-agents on a map, text, you watch | You're inside it, by voice, with timing that matters |
+| WarAgent (research) | Replays historical wars offline, in text | Live, playable, voiced, with counterfactuals |
 
-Our four signatures — protect these above everything else:
+Our five signatures — protect these above everything else:
 
-1. **Butterfly needle** — each decision is simulated across parallel futures; the screen shows "war odds 22% → 61%. You did that."
-2. **Two-faced leaders** — every AI leader has a public message *and* a private intent. You see both. ("We seek only peace." / *"Stall them three months until mobilisation finishes."*)
-3. **Voice diplomacy** — push-to-talk phone calls to other leaders, each with their own voice and temperament (Voxtral).
-4. **Wiretap** — listen in on AI leaders talking to each other about you.
+1. **Red Phone crisis mode** — a clock, deadlines, and calls where interrupting and hesitating count.
+2. **"What if I'd waited?"** — replay the same crisis with your offer arriving earlier or later; see who changes their decision and why.
+3. **War-odds needle** — "war odds 22% → 61%. You did that."
+4. **Two-faced leaders** — public statement and private intent, side by side, plus what their advisers recommended and what they chose.
+5. **Wiretap** — listen to two AI leaders talking about you.
 
-Framing: this is a **decision simulator**, not a war game. War is the failure state. The judge's job is to keep their nation standing and the world out of war.
+Framing: a **decision simulator**, not a war game. War is the failure state.
 
-## 3. What the judge experiences (the fun loop)
+## 3. The loop
 
-A session lasts ~4 minutes (about 12 in-game months, one month every ~20 s).
+1. **Pick a seat** (see §4). Default: President of Valdoria.
+2. **Strategy phase.** The world advances month by month. Leaders trade, set tariffs, form alliances, threaten. You act and make calls when you choose.
+3. **A crisis erupts.** The month clock stops. A 24-hour crisis clock starts. Phones ring. Each nation has a decision deadline.
+4. **You talk.** Hold to talk. Leaders answer in their own voices. You can cut them off. What you promise is recorded.
+5. **Resolution.** Each nation commits. The map and meters change.
+6. **Debrief.** The needle shows war odds before and after your deal. Then "What if I'd waited?" replays the crisis with your timing changed.
+7. **Back to the world**, changed by what happened, until the next crisis or the end screen with the historian's verdict.
 
-1. **Pick your seat.** Judge is made leader of Valdoria (default) — a democracy with an election coming. A one-line mission appears: *"Survive the election in month 6 and keep the world at peace for a year."*
-2. **The world moves without you.** Leaders trade, impose tariffs, form alliances, threaten. The news ticker and the map keep changing. You feel pressure.
-3. **Your phone rings.** Ostrava's general-turned-president calls: "Your grain tariff is an act of aggression. Lift it in two months or we close the strait." His portrait, his voice, angry.
-4. **You answer out loud.** Push-to-talk. Bargain, bluff, threaten, apologise. Le Chonk replies in character. What you agree becomes real actions in the world (a trade line appears on the map; a tariff drops).
-5. **The needle swings.** After the call, GAMBIT runs parallel futures with and without your deal and shows what changed: war odds, your re-election odds, your economy.
-6. **Intel.** You open Ostrava's card: public statement vs private intent. They're lying. You hit **Wiretap** and hear Ostrava and Kessaria discussing you.
-7. **Consequences.** Events hit (oil spill, harvest failure). Voter blocs riot. Month 6: election. You win — or the screen goes grey: *"You have been voted out."*
-8. **Verdict.** End screen: your score vs the AI-run worlds, the key moments, and a one-paragraph "historian's verdict" written by Le Chonk. You go on the leaderboard.
+A demo session is two crises in about five minutes.
 
-## 4. Screens and UI (must feel like a game, not a dashboard)
+## 4. Seats
 
-Design direction: dark situation-room aesthetic, bold nation colours, big readable numbers, everything animated. One screen, no page changes during play.
+| Seat | You control | You see | You win by |
+|---|---|---|---|
+| **President** | Your nation's actions and calls | Your own stats and intel | Staying in power and out of war |
+| **Diplomat** | Negotiations only; your AI president can overrule you | Less intel | Getting deals your president accepts |
+| **Mediator** | Nothing but your word | Both sides' public positions | Keeping the peace |
 
-- **World map (centre).** Five stylised regions. Lines: green = trade, blue = alliance, red pulsing = war front. Event icons pop on the map (oil drop, wheat, skull). Borders shift when territory is taken.
-- **Nation cards (left).** One per nation: flag colour, leader portrait + name, system (democracy/junta/…), and live meters — economy, army, stability, approval. **Turmoil** shows visually: card shakes, red border, "PROTESTS" stamp when stability is low.
-- **Butterfly needle (top right).** Big gauge: *War odds in 6 months*. After each decision it animates from old to new value with a short caption ("because you cut oil to Ostrava").
-- **Phone (bottom right).** Contacts = the other four leaders. Hold to talk. Live transcript of both sides. Incoming calls ring and flash.
-- **Intel drawer.** Click a leader: public statement vs private intent side by side; Wiretap button plays their latest private conversation.
-- **News ticker (bottom).** One headline per event, written by the agents ("Workers riot in Zarnia over bread prices").
-- **Turn clock (top).** Month counter + progress bar; pause button for the demo.
-- **End screen.** Outcome, score, leaderboard, historian's verdict.
+A seat is a small config: which decisions are human, what is visible, the win condition. Build president first, mediator second, diplomat third.
 
-## 5. The world
+## 5. How leaders decide: advised, but free
 
-Five fictional nations (no real countries or real leaders):
+- **The engine advises.** For each leader it scores every legal action from that nation's payoffs and current beliefs, and ranks them.
+- **Le Chonk decides.** The leader gets the ranking as "your advisers' assessment", plus personality and political pressures, and may choose any legal action.
+- **Deviations are shown.** "Advisers recommended waiting. He chose the blockade: pride." This is where personality shows, and it stays explainable.
+- **The engine validates.** An illegal action falls back to the top recommendation.
 
-| Nation | System | Strength | Weakness | Personality of leader |
+## 6. Red Phone crisis mode
+
+- **Clock:** 24 in-game hours in about 12 ticks.
+- **Deadlines:** each nation must commit by a fixed tick.
+- **Promises:** Le Chonk turns each thing you say into a structured promise (to whom, what, when, on what condition). Contradictory promises are caught in code when diplomats compare notes at a fixed tick.
+- **Public commitment rule:** once a threat is public, backing down costs that leader face (voters for a democracy, the general for a junta). Before it is public, conceding is cheap. This is why interrupting matters.
+- **Hesitation:** a long pause after an ultimatum lowers that leader's belief in your resolve.
+
+**First crisis: One Berth.** A storm closes Kessaria's port to a single berth for 24 hours. Two grain ships wait, both carrying Valdorian grain.
+
+| Nation | Why it must act | What it can do |
+|---|---|---|
+| **Ostrava** (junta) | Three days of bread left; riots mean a coup | Dock, wait, or blockade the strait |
+| **Zarnia** (one-party) | Also short of food; holds grudges | Dock, wait, or mobilise at the border |
+| **Kessaria** (monarchy) | Owns the port; wants a price | Give the berth to one side, split the day, or close the port |
+| **Valdoria** (democracy) | Sold grain to both; election coming | Honour both contracts, favour one, or split the cargo |
+| **Nordhaven** (technocracy) | Hates instability; owns the only tugs | Send tugs to open a second berth, if asked in time |
+
+The hard call: Ostrava's president learns you promised the berth to both sides and starts announcing a blockade. You have until he finishes the sentence. Tell the truth and offer half a day, breaking your word to Zarnia, or bluff about a second berth Nordhaven hasn't agreed to.
+
+Why waiting is a real choice: calling Nordhaven early buys capacity (the tugs need lead time); waiting buys information (a mid-round forecast says whether the storm clears).
+
+**Crisis deck** (each is a data file: who is affected, a clock, one or two special actions, payoff changes):
+
+- **One Berth** — storm, one dock, two hungry nations. *Build this one first.*
+- **Outbreak** — close borders or share Nordhaven's vaccine doses.
+- **Coup in Ostrava** — recognise the new leader or back the old one.
+- **Pipeline cut** — Nordhaven runs short of oil and blames someone.
+- **Border shots** — Zarnia and Kessaria, with a mobilisation deadline.
+
+## 6b. How strategy works (the numbers)
+
+All values below are starting points to tune in playtests. They live in data files, not code.
+
+**What each regime cares about.** A leader's score for an action is the weighted sum of the changes it expects, minus any cost of breaking a public commitment.
+
+| Weight on | Democracy | Junta | Monarchy | Technocracy | One-party |
+|---|---|---|---|---|---|
+| Economy (`gdp`) | 2 | 1 | 3 | 3 | 1 |
+| Supply (`food`, `oil`) | 2 | 3 | 1 | 2 | 3 |
+| `stability` | 1 | 3 | 2 | 3 | 3 |
+| `approval` | 3 | 0 | 1 | 1 | 0 |
+| `army`, `territory` | 1 | 3 | 1 | 0 | 2 |
+| Cost of backing down in public | 2 | 3 | 1 | 1 | 2 |
+
+`score(action) = Σ weight × expected change − public back-down cost (if it applies)`
+
+**Expected change depends on beliefs.** Each leader estimates what the others will do from relations, public commitments and what you promised:
+
+- A promise from you raises a leader's belief that it will happen by `0.5 × trust_in_player`.
+- A kept promise: `trust_in_player + 0.15`. A contradiction caught when diplomats compare notes: `trust_in_player × 0.4`.
+- Hesitating more than 2.5 s after an ultimatum: `resolve_of_player − 0.15`.
+- Interrupting: `resolve_of_player + 0.10`, and relations −5 with proud leaders (Ostrava, Zarnia).
+- A leader who believes your resolve is low rates escalation against you as cheaper.
+
+Trust and resolve carry over between crises. Lying can win one crisis and lose the next.
+
+**Levers in the strategy phase**
+
+| Lever | Effect on the maths | Use it to |
+|---|---|---|
+| Trade deal | Both sides gain `gdp` each month; war between them now costs that trade | Make war expensive for a rival |
+| Tariff | Both sides lose `gdp`; relations fall | Apply pressure, at a price |
+| Alliance | An attacker must expect to fight both armies | Deter a stronger neighbour |
+| Phone call | Changes trust, resolve and relations before a crisis | Bank goodwill you can spend later |
+| Wiretap, intel | Shows private intent and what advisers recommended | Find who is bluffing |
+
+**Ways to play** (the game should let all of these work, and each should have a counter):
+
+- **Honest broker:** keep every promise. Slow, but deals hold and trust compounds.
+- **Bluffer:** promise freely to buy time. Strong early, collapses when notes are compared.
+- **Deterrence:** alliances and army so rivals' advisers rank war last. Costs economy.
+- **Interdependence:** trade with everyone so war is costly for all. Weak against a leader who ignores advice.
+- **Divide:** use Wiretap and selective truth to split two rivals. High risk to trust.
+
+**How the AI picks in rollouts.** For the needle, leaders choose with probability proportional to `exp((score + personality_bias) / temperature)`. Personality bias is per leader: Ostrava +2 on escalation, Nordhaven +2 on waiting, Kessaria +1 on whoever paid most recently, Zarnia +2 against anyone who broke a promise.
+
+**Worked example, One Berth, Ostrava at its deadline.** Advisers score `wait` at +4 if Ostrava believes it gets the berth (belief 0.7) and `blockade` at +1. You are caught double-promising: trust drops, belief falls to 0.3, `wait` drops to −1 and `blockade` now leads. If the blockade is already public, backing down costs a further 3, so only a concrete offer (half a day now, or confirmed tugs) brings `wait` back on top. Interrupting before it is public removes that 3.
+
+**Score at the end**
+
+- **President:** months in power, peace months, change in `gdp` and `stability`, promises kept.
+- **Mediator:** wars avoided and average trust across leaders.
+- **Diplomat:** deals your president accepted.
+
+## 7. Two "what if" tools, one mechanism
+
+Both fork the world from a saved snapshot. This works because the engine is pure and seeded.
+
+- **War-odds needle.** Hundreds of rollouts in code, six months ahead, with and without your deal, using the same seeds on both sides. Leaders in rollouts follow their advisers plus a personality bias, so no model calls are needed. It is a forecast: the real leaders can defy it, and when they do, say so on screen.
+- **"What if I'd waited?"** One replay of the crisis with your offer moved earlier or later. Promises were already interpreted, so only leaders whose inputs changed are asked again (temperature 0, fixed `random_seed`). Output: which nation changed its decision, from what to what, and the payoff line that flipped it.
+
+## 8. Voice (Voxtral)
+
+- **Hold to talk** in the browser. Reliable in a noisy room.
+- **Live transcript** of both sides.
+- **Interrupting is a move.** Pressing talk while a leader speaks cuts the audio and sends `interrupted: true`.
+- **Hesitation is a signal.** The gap between the leader finishing and you starting is sent as `hesitation_ms`.
+- **One distinct voice per leader**, with an emotion tag that tracks the escalation level.
+- **Wiretap:** the latest messages between two AI leaders, played as a two-voice conversation. Can be rendered ahead of time.
+
+Checked against the Voxtral 3 docs on the day:
+
+- Speech to text: realtime WebSocket, model `voxtral-mini-transcribe-realtime-3`, 16-bit mono PCM, proxied through our backend so the key never reaches the browser. Simpler fallback: upload the clip to `/v1/audio/transcriptions` with `voxtral-mini-transcribe-3`. The docs do not list accepted upload formats, so test the browser's recording format and encode WAV if it fails.
+- Text to speech: `voxtral-mini-tts-3-0` on `/v1/audio/speech`. Emotion goes inline as `[emotion=angry]`. Use only supported values, as a schema enum: `angry, anxious, assertive, calm, confident, critical, determined, disappointed, frustrated, proud, sarcastic, skeptical, tense, urgent, warm` (34 exist in total). Unknown tags are ignored without an error. Pace: `[pace=slow]` or `[pace=fast]`. Set `stream: true` to play audio as it arrives. Style instructions are not available.
+- Mistral Large 4 takes text and images, not audio, so it only ever sees transcripts.
+- Rate limits are per workspace and shared by all its keys.
+
+## 9. The world
+
+Five fictional nations (no real countries or leaders):
+
+| Nation | System | Strength | Weakness | Leader |
 |---|---|---|---|---|
-| **Valdoria** (player default) | Parliamentary democracy | Food exporter, rich | Small army, election in month 6 | — (the judge) |
-| **Ostrava** | Military junta | Oil, large army | Food imports, unstable | Proud, expansionist, bluffs |
-| **Kessaria** | Constitutional monarchy | Controls the trade strait | Small economy | Opportunist, plays both sides; speaks French on calls (stretch) |
-| **Nordhaven** | Technocracy | Chips, money | Weak army, needs oil | Cold, data-driven, hates instability |
+| **Valdoria** (default seat) | Parliamentary democracy | Food exporter, rich | Small army, election in month 6 | The player, or an AI moderate |
+| **Ostrava** | Military junta | Oil, large army | Imports food, unstable | Proud, expansionist, bluffs |
+| **Kessaria** | Constitutional monarchy | Controls the trade strait and port | Small economy | Opportunist, plays both sides |
+| **Nordhaven** | Technocracy | Chips, money, tugs | Weak army, needs oil | Cold, data-driven, hates instability |
 | **Zarnia** | One-party state | Huge army, cheap labour | Poor, food shortages | Paranoid, ideological, holds grudges |
 
 Per-nation stats: `gdp, oil, food, chips, army, stability (0–100), approval (0–100), territory`.
 Relations: every pair has a score −100…+100.
-Voter blocs (Layer 3): 3 per nation — Workers, Business, Nationalists — each with a share and a mood; policies move their mood, which drives approval, protests, elections (democracy) and coups (junta).
+Beliefs: each leader holds `trust_in_player (0–1)` and `resolve_of_player (0–1)`.
 
-Random events (seeded): oil spill, harvest failure, border incident, chip shortage, pandemic scare, assassination attempt.
+## 10. Engine (pure code — the maths)
 
-## 6. Engine (pure code — the maths)
+- `step(state, actions, seed) -> new_state` — **pure and deterministic**. No hidden globals. This is what makes forking and replay possible.
+- `advise(state, nation) -> [{action, score}]` — ranked legal actions from payoffs and beliefs.
+- `snapshot()` / `fork(snapshot, changes, seed)` — used by both the needle and the replay.
+- Monthly rules (keep simple, tune for drama): trade deals move resources and raise relations; tariffs cut GDP on both sides; shortages cut stability; war compares army × morale + random; elections replace a democratic leader below 45 approval; a junta below 25 stability gets a coup.
+- Strategy actions (Layer 0, only these five): `set_tariff(target, pct)`, `propose_trade(target, give, get)`, `propose_alliance(target)`, `declare_war(target)`, `make_peace(target)`.
+- Crisis actions come from the crisis file (for One Berth: `dock`, `wait`, `blockade`, `mobilise`, `assign_berth`, `split_day`, `close_port`, `send_tugs`).
 
-- `step(state, actions, seed) -> new_state` — **pure and deterministic**. No hidden globals. This is what makes forking possible.
-- Monthly rules (keep simple, tune for drama):
-  - Trade deals move resources each month; both sides gain GDP and relations.
-  - Tariffs cut trade and GDP on both sides; relations fall.
-  - Shortage (food/oil < need) → stability drops, GDP drops.
-  - War: compare army × morale + random → territory/army change, both sides lose GDP and stability. Allies with relations > 60 may join.
-  - Peace deal ends war; relations reset upward a little.
-  - Elections (democracy, month 6/12): approval < 45 → leader replaced. Junta: stability < 25 → coup (new leader personality).
-- Actions the agents (and the judge's calls) can produce — **only these five in Layer 0**:
-  `set_tariff(target, pct)`, `propose_trade(target, give, get)`, `propose_alliance(target)`, `declare_war(target)`, `make_peace(target)`.
-  Later: `mobilize(n)`, `policy(type)`, `message(target, text)`.
+## 11. Agents (Le Chonk)
 
-## 7. Agents (Le Chonk)
-
-- **One leader agent per AI nation**, model `mistral-large-4`. Each turn it receives: its nation's state, relations, recent news, messages received, its personality card. It returns JSON:
+- **One leader per AI nation**, model `mistral-large-4`. Each turn it receives its nation's state, relations, recent news, messages received, its personality card and the advisers' ranking. It returns JSON:
 
 ```json
 {
   "public_statement": "We seek only peace and fair trade.",
   "private_intent": "Stall Valdoria until our mobilisation completes in month 4.",
   "actions": [{"type": "set_tariff", "target": "valdoria", "pct": 25}],
+  "followed_advice": false,
+  "reason": "Backing down after the general's speech would look weak.",
   "messages": [{"to": "kessaria", "text": "Close the strait to Valdorian grain and I will share oil."}]
 }
 ```
 
-- **Phone calls:** the same leader persona, in conversation mode. Input: transcript of the judge's speech + world state. Output: spoken reply text + any agreed actions (same action schema) + emotion tag for TTS.
-- **Historian:** one Le Chonk call at the end summarising the session.
-- **Futures mode:** forks use a cheaper/faster model (Mistral Small) or engine-only rules if that is too slow.
-- **Personality cards** live in `agents/personas/*.md` so they're easy to tune.
+- **Phone calls:** the same persona in conversation. Input: your transcript, `interrupted`, `hesitation_ms`, world state. Output: reply text, one emotion from the enum, structured promises, any agreed actions, and updated `trust_in_player` and `resolve_of_player`.
+- **Historian:** one call at the end summarising the session.
+- **Personality cards** live in `agents/personas/*.md`.
+- **Managed Agents:** each nation as an agent with its own session memory, only if a 20-minute test passes. Fallback: plain chat completions with the history we keep.
 
-## 8. Voice (Voxtral)
+## 12. Screens and UI (must feel like a game, not a dashboard)
 
-- **Push-to-talk** in the browser (reliable in a noisy room) → Voxtral speech-to-text → Le Chonk leader → Voxtral text-to-speech with that leader's voice and an emotion/pacing hint (angry, calm, threatening).
-- **One distinct voice per leader** so the judge recognises who's speaking.
-- **Wiretap:** TTS of the latest messages between two AI leaders, played as a two-voice conversation.
-- **Stretch:** Kessaria speaks French on calls, with on-screen interpretation.
+Dark situation-room look, bold nation colours, big readable numbers, everything animated. One screen, no page changes during play.
 
-## 9. Butterfly futures (the signature feature)
+- **World map (centre).** Five stylised regions. Green lines for trade, blue for alliance, red pulsing for a war front. Event icons pop on the map.
+- **Nation cards (left).** Leader portrait and name, system, live meters. Low stability shakes the card and stamps "PROTESTS".
+- **Phone (bottom right).** Contacts are the other leaders. Hold to talk. Live transcript. Incoming calls ring and flash.
+- **Crisis bar (top).** Appears in crisis mode: the 24-hour clock and each nation's deadline marker.
+- **Needle (top right).** War odds in six months, animating from old to new with a one-line caption.
+- **Intel drawer.** Public statement versus private intent; advisers' recommendation versus what the leader chose; Wiretap button.
+- **Replay panel.** After a crisis: a slider for when your offer arrived, and who changed their decision.
+- **News ticker (bottom).** One headline per event, written by the agents.
+- **End screen.** Outcome, key moments, historian's verdict.
 
-- Trigger: after every judge call that changes actions (and optionally every N turns).
-- Run **10 futures with the decision and 10 without**, each 6 months ahead, different seeds, in parallel.
-- Output: `war_probability`, `your_reelection_probability`, `your_gdp_delta` — with vs without.
-- UI animates the needle and writes the caption.
-- Must return in ≤ 30 s. If the model is too slow, futures use engine rules + each leader's last stated stance.
+## 13. Where each Mistral product is used (say this to the judges)
 
-## 10. Where each Mistral product is used (say this to the judges)
+- **Le Chonk (Mistral Large 4):** every leader's decisions and private intents, phone conversations, turning speech into promises, the historian.
+- **Voxtral:** live transcription of the player, a voice for every leader with emotion tags, Wiretap.
+- **Mistral Agents (bonus):** one Managed Agent per nation, if the test passes.
+- **Mistral Workflows (bonus, optional):** the headless batch that plays AI-only worlds for the stats slide. Start it as a plain script; wrap it in a Workflow only if there is time. Run it on a separate account.
+- **Vibe:** say honestly which parts Vibe built. Everyone has Vibe Pro from the event; use it when another tool's quota runs out.
 
-- **Le Chonk (Mistral Large 4):** every leader's decisions, private intents, phone conversations, the historian's verdict.
-- **Voxtral:** speech-to-text for the judge, text-to-speech for every leader, wiretap.
-- **Mistral Workflows (+£500 bonus):** a batch runner that plays the world headless all afternoon → stats slide ("in 47 AI-only worlds, tariffs preceded 61% of wars; Le Chonk kept peace in 18/50"). Optionally the futures fan-out too.
-- **Mistral Agents (optional, only if a 20-min test passes):** leader as an agent with ministers as subagents.
-- **Vibe:** built with Vibe (be honest about any other tools used). Stretch: god mode — a judge says "add a plague that spreads along trade routes", a headless Vibe run writes it as a new event file, engine loads it next turn.
+## 14. API contract (everyone codes against this)
 
-## 11. API contract (everyone codes against this)
+Backend: Python + FastAPI. Frontend: one web page polling the backend. Om puts one example response per endpoint on `main` first, so nobody waits on the engine.
 
-Backend: Python + FastAPI. Frontend: one web page (framework of C's choice) polling the backend.
-
-- `GET  /state` → full world state (shape in §5–6, plus `turn`, `events`, `news`, `last_futures`).
-- `POST /turn` → advance one month; returns new state.
-- `POST /start {seed, player_nation}` → new game with fixed seed (use the same seed for every demo).
-- `POST /call {from:"valdoria", to:"ostrava", audio}` → `{transcript, reply_text, reply_audio_url, emotion, actions}`.
-- `POST /futures {decision}` → `{with:{war_p, reelect_p, gdp}, without:{...}, caption}`.
+- `POST /start {seed, seat:{role, nation}}` → new game with a fixed seed.
+- `GET  /state` → full world state, plus `turn`, `events`, `news`, `crisis` (`id, clock, deadlines, public_commitments`) and `last_futures`.
+- `POST /turn` → advance one month, or one tick in crisis mode.
+- `POST /crisis/start {id}` → enter crisis mode.
+- `POST /call {to, audio, interrupted, hesitation_ms}` → `{transcript, reply_text, reply_audio_url, emotion, promises, actions}`.
+- `POST /futures {snapshot_id}` → `{before:{war_p}, after:{war_p}, caption}`.
+- `POST /replay {shift_ticks}` → `{changed:[{nation, was, now, why}]}`.
 - `GET  /wiretap?a=ostrava&b=kessaria` → `{lines:[{speaker, text, audio_url}]}`.
-- `GET  /leaders/{id}` → `{public_statement, private_intent, persona}`.
+- `GET  /leaders/{id}` → `{public_statement, private_intent, advice, chosen, reason, persona}`.
 
 State is the single source of truth. The frontend never computes game logic.
 
-## 12. Build plan — layers (each layer is a complete demo on its own)
+## 15. Build plan — layers (each layer is a complete demo on its own)
 
 | Layer | Done by | What exists | Pass test |
 |---|---|---|---|
-| **0 — Core** | 12:30 | 5 nations, pure `step()`, 5 actions, Le Chonk leaders with public/private output, terminal log | 20 turns produce readable drama incl. one two-faced moment |
-| **1 — Playable** | 14:00 | Map, nation cards, ticker, intel card; judge leads Valdoria and can phone a leader by voice; calls change the world | A teammate plays 3 minutes and something on the map changes because of what they said. **Record backup video.** |
-| **2 — Butterfly** | 15:30 | Futures runner + needle + caption | Needle moves sensibly on 3 rehearsed calls in ≤ 30 s |
-| **3 — Extras** | 16:00 | In this order: wiretap → random events → voter blocs + election → end screen + leaderboard | Each works or is cut |
-| Freeze | 16:00 | Polish, demo seed, Workflows stats slide | — |
+| **0 — World** | 12:45 | Five nations, pure `step()`, `advise()`, leaders with public/private output, terminal log | 20 turns of readable drama, including one leader defying advice |
+| **1 — Playable** | 14:15 | Map, cards, ticker, intel; president seat; voice calls that change the world; Wiretap | Everyone plays three minutes by voice. **Record backup video.** |
+| **2 — Red Phone** | 15:15 | One Berth: crisis clock, deadlines, promises, interruption, hesitation | The double-promise scene plays out and can be interrupted |
+| **3 — What if** | 16:00 | Snapshot and fork: needle and replay | Needle moves on three rehearsed calls; replay names who flipped |
+| **4 — More** | if time | Second crisis, mediator seat, diplomat seat, end screen | Each works or is cut |
+| Freeze | 16:15 | Polish, demo seed, stats slide | — |
 | Video | 17:00 | Record final demo video | Submitted by 17:45 |
 
-**Cut entirely (put on the "what's next" slide):** ministers, UN, god mode, marching armies, more nations, French calls.
+Whatever layer is finished at the freeze is what we show. Tamim calls the cuts at each checkpoint.
 
-## 13. Workstreams (assign by who has the most AI-tool headroom; heaviest UI work goes to whoever has most)
+**Cut first if time is short:** diplomat seat, extra crises, voter blocs, leaderboard, French calls, Workflows wrapper.
+
+## 16. Roles (sized to each person's AI usage)
 
 Each person owns one folder and never edits another's. Requests go in `COORD.md`.
 
-**A — Engine & futures (`/engine`)** — *integration lead*
-- 10:45: state model + pure `step()` + 5 actions + seeded events.
-- 12:30: 20-turn headless run with a log. FastAPI `/state`, `/turn`, `/start`.
-- 13:00: start the Workflows batch runner (AI-only worlds) and leave it running.
-- 14:30: `/futures` with 10+10 forks in parallel.
+| Person | Owns | Delivers | Backup |
+|---|---|---|---|
+| **Tamim** | Interface (`/web`), integration, cut decisions | 12:00 layout on fake state · 13:45 wired to `/state` · 15:30 crisis bar, needle, intel, replay panel | Om |
+| **Om** | Engine and futures (`/engine`), API | 12:00 example responses on `main` · 12:45 20-turn headless run with `advise()` · 15:00 crisis rules · 15:45 `fork`, `/futures`, `/replay` | Tamim |
+| **Abi** | Leaders (`/agents`), headless batch | 12:00 valid JSON 10/10, parallel-call test · 12:45 leaders act sensibly, headlines · 14:15 call prompt with promises · 15:30 historian, batch script | Ashish |
+| **Ashish** | Voice (`/voice`), demo | 12:00 talk-to-reply round trip timed · 13:30 leader voices and `/call` · 14:15 Wiretap, talk button with interruption and hesitation · then script, video, submission | Abi |
 
-**B — Agents (`/agents`)**
-- 10:45: five persona cards + leader prompt; test that Le Chonk returns valid JSON 10/10.
-- 11:30: test 10–20 parallel calls for rate limits (futures depend on it).
-- 12:30: leaders act sensibly; news headlines generated.
-- 14:00: call-mode prompt (in-character reply + agreed actions + emotion). Historian prompt.
+- The talk button is a self-contained module from Ashish that Tamim mounts without editing.
+- Protect the single-plan seats: work in one folder, avoid asking the agent to read the whole repo, switch to Vibe if the quota runs out.
 
-**C — UI (`/web`)** — *the part judges see; make it beautiful*
-- 10:45: layout with fake state JSON: map, cards, ticker, phone, needle placeholder.
-- 13:30: wired to `/state`, live updates, animations (turmoil shake, war pulse).
-- 15:00: needle animation, intel drawer, end screen.
-
-**D — Voice (`/voice`)**
-- 10:45: test push-to-talk → Voxtral STT → reply → Voxtral TTS round trip in the browser.
-- 13:00: five leader voices with emotion; `/call` endpoint end to end with B's call prompt.
-- 15:00: wiretap; then help C polish; then write the demo script and slides.
-
-## 14. Five-minute demo script
+## 17. Five-minute demo script
 
 | Time | Beat |
 |---|---|
-| 0:00 | "Can one sentence start a war?" World already running on screen. "You've seen agent societies and Hearts of Iron — one timeline. We show every timeline." |
-| 0:30 | Hand the judge the mic: "You're President of Valdoria. Election in month 6." |
-| 0:45 | Ostrava calls, angry about a tariff. Judge answers out loud. |
-| 1:45 | Needle swings: "War odds 22% → 61% — because of what you just said." |
-| 2:15 | Intel: Ostrava's public vs private. Wiretap: Ostrava and Kessaria plotting. |
-| 3:00 | Judge calls Nordhaven to fix it. Trade line appears; needle falls. |
-| 3:30 | Event hits; protests; election result. |
-| 4:00 | Stats from the batch runs (Workflows): "Le Chonk kept peace in 18/50 worlds. Judges today: 3/5." |
-| 4:40 | "Built on Le Chonk, Voxtral and Mistral Workflows, with Vibe." |
+| 0:00 | "Every call is a move." World already running. "You've seen agent societies with one timeline. We show the one you didn't take." |
+| 0:25 | Hand the judge the mic: "You're President of Valdoria." One quick call in the strategy phase; a trade line appears. |
+| 1:00 | The storm hits. Crisis clock starts. Ostrava calls, angry. |
+| 1:20 | Judge answers. Ostrava starts announcing a blockade; judge interrupts with an offer. |
+| 2:10 | Intel: public versus private, advisers versus choice. Wiretap: Ostrava and Kessaria discussing the judge. |
+| 2:50 | Deadlines pass. Outcome on the map. Needle: war odds before and after. |
+| 3:20 | "What if you'd waited?" Slide the offer later; Kessaria closes the port. |
+| 4:00 | Stats from the AI-only worlds. |
+| 4:30 | "Le Chonk runs every leader, Voxtral is every voice, each nation is a Mistral Agent." |
 
-## 15. Risks and the first tests
+## 18. Risks and the first tests
 
-| Risk | 30-min test (do before 11:30) | Fallback |
+| Risk | Test (before 12:00) | Fallback |
 |---|---|---|
-| Le Chonk JSON unreliable | 10 calls, validate schema | Retry + repair; fewer action types |
-| Rate limits kill futures | 20 parallel calls | Futures on Mistral Small, or engine-only |
-| Voice round trip slow | Time STT → reply → TTS | Shorter replies; play TTS as it arrives |
-| Demo not repeatable | Fixed seed run twice | Same seed + pause button |
-| Agents SDK unavailable | 20-min test | Bonus via Workflows only |
+| Le Chonk JSON unreliable | 10 calls, validate schema | Retry and repair; fewer action types |
+| Voice round trip slow | Time talk → reply → first audio | Shorter replies; stream speech |
+| Emotion tags make no audible difference | Same line with `angry`, `calm`, `tense` | Different voices carry the temper |
+| Browser recording format rejected | Upload one clip | Encode WAV in the page |
+| Rate limits during the demo | 8 parallel calls timed | Batch on a separate account, stopped before judging |
+| Demo not repeatable | Fixed seed run twice | Same seed and a pause button |
+| Managed Agents unavailable | 20-minute test | Plain chat completions |
+| Scope | Checkpoints in §15 | Show the last finished layer |
 
-## 16. Repo layout
+## 19. Repo layout
 
 ```
 ideas.md            ← this plan
-/engine   (A)
-/agents   (B)
-/web      (C)
-/voice    (D)
+/engine   (Om)
+/agents   (Abi)
+/web      (Tamim)
+/voice    (Ashish)
 COORD.md  ← requests between folders, status, blockers
 ```
 
