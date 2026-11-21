@@ -61,7 +61,7 @@ Runs the full playable game from deterministic cached replies, adviser-driven tu
 
 ### Voxtral in detail
 
-[`voice/VOXTRAL.md`](voice/VOXTRAL.md) is one page on every Voxtral feature the game uses (transcription with context bias, streamed speech, emotion tags, five cast voices, Wiretap, pre-rendered lines), where each one appears, and the measured timings: about 1.8 s from a typed line to the leader's voice, 13/13 spoken calls in the human playtest, and 98% word accuracy down to a busy room.
+[`voice/VOXTRAL.md`](voice/VOXTRAL.md) is one page on every Voxtral feature the game uses (transcription with context bias, streamed speech, emotion tags, five cast voices, Wiretap, pre-rendered lines), where each one appears, and the measured timings: about 1.8 s from a typed line to the leader's voice, 13/13 spoken calls in the human playtest, and 98.4% word accuracy with simulated busy-room noise (10 dB SNR, synthetic babble and hum, not a venue recording).
 
 *(Note: Mistral Managed Agents was evaluated in `agents/A0_RESULTS.md` and ruled no-go at 9.6 s/turn, so GAMBIT uses direct chat completions with structured JSON output and explicit session memory.)*
 
