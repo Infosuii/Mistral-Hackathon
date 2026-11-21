@@ -84,5 +84,5 @@ export function GameSession() {
     </div>
   )
 
-  return <App state={state} controls={controls} />
+  return <App state={state} controls={controls} online={online} />
 }
