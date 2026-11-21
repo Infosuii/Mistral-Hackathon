@@ -272,7 +272,10 @@ class State(Model):
     provinces: dict[str, NationId] = Field(default_factory=dict)
     fleets: dict[NationId, Fleet] = Field(default_factory=dict)
     buildings: list[Building] = Field(default_factory=list)
-    construction: Optional[BuildRequest] = None
+    construction: Optional[BuildRequest] = None  # legacy single slot, read from older saves only
+    construction_queue: list[BuildRequest] = Field(default_factory=list)  # paid when queued, opens next month
+    unrest: dict[str, int] = Field(default_factory=dict)  # captured province -> months of unrest left
+    disrupted: list[str] = Field(default_factory=list)  # provinces producing at reduced output this month
     rail_services: list[str] = Field(default_factory=list)
     rail_income: dict[NationId, dict[str, float]] = Field(default_factory=dict)
     news: list[NewsItem] = Field(default_factory=list)

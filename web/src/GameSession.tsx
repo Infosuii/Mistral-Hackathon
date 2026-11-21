@@ -196,7 +196,7 @@ export function GameSession() {
       </dialog>
       <Saves state={state} disabled={!online || pending || clockHeld} onOpen={() => setPaused(true)}
         onLoad={(slot) => void send('load', undefined, slot.id)} />
-      <Construction state={state} online={online} onQueued={(snapshot) => {
+      <Construction state={state} online={online} waiting={pending} onQueued={(snapshot) => {
         stateRequest.current?.abort()
         acceptState(snapshot)
       }} />

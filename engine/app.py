@@ -25,7 +25,7 @@ from contracts.models import (
     Action, BuildRequest, CallResult, Event, PlayerActions, NATION_IDS, CrisisStartRequest, FuturesRequest, FuturesResponse, LeaderDetail, StartRequest, State,
 )
 from engine import saves
-from engine.core import queue_project
+from engine.core import cancel_project, queue_project
 from engine.futures import futures
 from engine.snapshots import clear_snapshots, load
 from engine.game import GAME, allowed_crises, public_leader, public_view
@@ -58,6 +58,16 @@ async def construction(project: BuildRequest) -> State:
     async with GAME.lock:
         try:
             GAME.state = queue_project(GAME.state, project)
+        except ValueError as e:
+            raise HTTPException(409, str(e)) from e
+        return public_view(GAME.state)
+
+
+@router.post("/construction/cancel", response_model=State)
+async def construction_cancel(project: BuildRequest) -> State:
+    async with GAME.lock:
+        try:
+            GAME.state = cancel_project(GAME.state, project)
         except ValueError as e:
             raise HTTPException(409, str(e)) from e
         return public_view(GAME.state)
