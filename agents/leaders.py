@@ -276,7 +276,7 @@ Pick one emotion for your voice from: {emotions}."""
 
 SPEAK_JSON = """Reply with ONLY this JSON object: {"reply_text": str, "emotion": str}"""
 
-JUDGE_RULES = """"promises": what the PLAYER committed to YOU in what they just said, as {"what": short noun phrase, "when": short or "now", "condition": short or null}. Only record real commitments to you; usually none.{vocab}
+JUDGE_RULES = """"promises": what the PLAYER committed to YOU in what they just said, as {"what": short noun phrase, "when": short or "now", "condition": short or null}. Only record real commitments to you; usually none. A promise is something the player says THEY will do or give. A request or demand the player makes of YOU ("hold your ships", "stand down", "wait") is not a promise by the player: record nothing for it unless they offer something in return.{vocab}
 "action": the number of an option you agree to take right now, or null (usually null; only if you were persuaded).
 "trust_delta" in -0.3..0.3: how much more or less you trust the player after this. A contradiction of an earlier promise, or a promise you know they made to a rival, is strongly negative.
 "resolve_delta" in -0.2..0.2: how firm the player sounded (a credible threat or clear red line is positive; pleading or vagueness is negative).
@@ -320,7 +320,8 @@ def _judge_rules(state: dict, nation: str) -> str:
              f'\nIn this crisis "what" must be one of {vocab} (the berth itself, or a crisis action), and for the berth '
              f'"when" must be one of {list(SLOTS)} (all_day if no time was given). "condition" is null unless the player '
              "made it conditional. If the player asks you to take one of your own moves and offers something for it, "
-             "record a promise with \"what\" set to that move, even if you have not agreed yet.")
+             "record a promise with \"what\" set to that move, even if you have not agreed yet. If they only ask or demand "
+             "that move and offer nothing for it, record no promise.")
     return JUDGE_RULES.replace("{vocab}", extra)
 
 
@@ -458,6 +459,10 @@ def _parse_promises(data: dict, v: CallView, state: dict) -> list[dict]:
     """Only promises made to the leader on the line count: the other leaders did not hear
     them. In a crisis, what/when are mapped onto the engine's vocabulary or dropped."""
     vocab = _crisis_vocab(state, v.nation)
+    # "Hold your ships" is a demand, not a player promise: a promise whose subject is one of
+    # this leader's own moves only counts when the player offered something for it on this call.
+    player_said = " ".join([v.transcript or ""] + [t.text for t in (v.history or []) if t.role == "player"])
+    offered = bool(OFFER.search(player_said))
     out = []
     for p in data.get("promises") or []:
         if not isinstance(p, dict) or not str(p.get("what") or "").strip():
@@ -467,9 +472,9 @@ def _parse_promises(data: dict, v: CallView, state: dict) -> list[dict]:
         what, when = str(p["what"]).strip(), str(p.get("when") or "").strip()
         if vocab is not None:
             norm = _norm_what(what, vocab)
-            if norm is None:
+            if norm is None or (norm != "berth" and not offered):
                 continue
-            when = _norm_when(when, what) if norm == "berth" else (when if when in SLOTS else "now")
+            when =_norm_when(when, what) if norm == "berth" else (when if when in SLOTS else "now")
             what = norm
         cond = p.get("condition")
         cond = str(cond).strip() if cond and str(cond).strip().lower() not in ("none", "null", "no") else None
@@ -649,27 +654,98 @@ async def headline(event: dict) -> str:
         return f"{str(event.get('type', 'event')).replace('_', ' ').title()} in {str(event.get('nation') or 'the region').title()}"
 
 
+def _promise_text(p: dict) -> str:
+    when = p.get("when") or "now"
+    cond = f", on condition: {p['condition']}" if p.get("condition") else ""
+    return f"{p.get('what')} ({when}{cond})"
+
+
+def _why_facts(change: dict) -> list[str]:
+    """The replay inputs as plain sentences, so the model can only cite what the calls contained."""
+    n = str(change.get("nation", ""))
+    inputs = change.get("inputs") or {}
+    facts = [f"{n.title()} first chose {change.get('was')}; with the calls moved it chose {change.get('now')}."]
+    if inputs.get("original_decision_tick") is not None:
+        facts.append(f"{n.title()} originally decided at tick {inputs['original_decision_tick']}"
+                     + (f" (deadline tick {inputs['deadline_tick']})." if inputs.get("deadline_tick") is not None else "."))
+    for c in inputs.get("calls") or []:
+        to = str(c.get("to", "")).title()
+        line = f"The player's call to {to} moved from tick {c.get('original_tick')} to tick {c.get('shifted_tick')}."
+        promises = [_promise_text(p) for p in c.get("promises") or []]
+        line += (" In it the player promised " + to + ": " + "; ".join(promises) + "." if promises
+                 else " The player made no promise in it.")
+        if c.get("actions"):
+            line += f" {to} agreed on the call to: {', '.join(map(str, c['actions']))}."
+        facts.append(line)
+    if not inputs.get("calls"):
+        facts.append("No player calls are on record for this crisis.")
+    return facts
+
+
+WHY_RULES = ("In one sentence of at most 18 words, say why this leader changed their crisis decision when the "
+             "player's calls arrived at a different time. Use ONLY the facts listed: mention no offer, deal, good, "
+             "fund or event that is not in them, and name a promise only by what the facts say was promised. "
+             "The persona below is for the leader's motive and voice only, not a source of facts.")
+
+
 async def why(change: dict) -> str:
-    """One line for the replay panel. change = {nation, was, now, inputs?}."""
+    """One line for the replay panel. change = {nation, was, now, shift_ticks?, inputs?}."""
     n = str(change.get("nation", ""))
     fallback = f"{n.title()} switched from {change.get('was')} to {change.get('now')}."
     try:
         return await _one_field(
-            "In one sentence of at most 18 words, say why this leader changed their crisis decision when the "
-            "player's offer arrived at a different time. Use the inputs given; be concrete; name the leader's motive.",
-            card(n) + "\n\n" + _j(change), "why", 8.0, 120)
+            WHY_RULES + "\n\nPersona:\n" + card(n),
+            _j({"facts": _why_facts(change), "change": change}), "why", 8.0, 120)
     except Exception:  # noqa: BLE001
         return fallback
 
 
-async def historian(log: list[dict]) -> str:
-    """One paragraph judging the player's session, for the end screen."""
+def _historian_context(log: list[dict], state: Optional[dict]) -> tuple[str, dict]:
+    """(who-did-what rule, payload) for the historian. Each logged entry with a `by` gets an
+    `actor` label so a nation's AI decision is never read as the player's."""
+    seat = (state or {}).get("seat") or {}
+    role, nid = seat.get("role", "president"), seat.get("nation")
+    mediator = role == "mediator"
+    if not mediator and not nid:  # seat unknown (no live game): say nothing rather than guess
+        rule, player = "", "the player"
+    elif mediator:
+        rule = ("The player was an independent mediator. They controlled NO nation: all five nations, including "
+                "Valdoria, were run by AI leaders, and every nation's action, offer, acceptance or rejection was that "
+                "nation's own choice. Credit or blame the player only for their own phone calls and promises "
+                "(entries whose actor is the player). Never call the player a leader of any nation.")
+        player = "an independent mediator"
+    else:
+        name = ((state or {}).get("nations", {}).get(nid) or {}).get("name", nid.title())
+        rule = (f"The player was the {role} of {name}: {name}'s actions were the player's. The other four nations "
+                "were run by AI leaders, and their actions were their own, not the player's.")
+        player = f"the {role} of {name}"
+
+    def actor(by: Any) -> Optional[str]:
+        if by == "player" or (not mediator and nid and by == nid):
+            return "the player"
+        return f"{by} (AI leader, not the player)" if by in NATION_IDS else None
+
+    entries = []
+    for e in log[-60:]:
+        e = dict(e) if isinstance(e, dict) else {"entry": e}
+        a = actor(e.get("by"))
+        if a:
+            e["actor"] = a
+        entries.append(e)
+    return rule, {"the_player": player, "who_did_what": rule, "log": entries}
+
+
+async def historian(log: list[dict], state: Any = None) -> str:
+    """One paragraph judging the player's session, for the end screen. state (for the seat)
+    defaults to the live game."""
     try:
+        st = _dump(state) if state is not None else (_game_context()[0] or {})
+        rule, payload = _historian_context(log, st)
         return await _one_field(
             "You are a historian writing, years later, one paragraph (80-120 words) judging the player's time "
-            "as a leader in this fictional world. Name the turning point and one leader who was deceived or "
+            "in this fictional world. " + (rule + " " if rule else "") + "Name the turning point and one leader who was deceived or "
             "betrayed, if any. Wry and specific; no bullet points.",
-            _j(log[-60:]), "verdict", 40.0, 600)
+            _j(payload), "verdict", 40.0, 600)
     except Exception:  # noqa: BLE001
         return ("History records a short and turbulent tenure, the details of which "
                 "the archives have not yet released.")
