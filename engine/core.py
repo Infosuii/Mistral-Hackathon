@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from contracts.models import (
-    NATION_IDS, Action, Advice, Event, Fleet, Link, NewsItem, Seat, State, relation_key,
+    NATION_IDS, Action, Advice, Building, BuildRequest, Event, Fleet, Link, NewsItem, Seat, State, relation_key,
 )
 
 DATA = Path(__file__).resolve().parent.parent / "data"
@@ -42,6 +42,12 @@ def world() -> dict[str, Any]:
 # --- setup -------------------------------------------------------------------
 
 
+def starting_buildings() -> list[Building]:
+    return [Building(province=province, kind=kind, built_turn=0)
+            for starts in _load("buildings.json")["start"].values()
+            for kind, province in starts.items()]
+
+
 def new_game(seed: int, seat: Seat) -> State:
     w = world()
     nations = {}
@@ -53,8 +59,8 @@ def new_game(seed: int, seat: Seat) -> State:
     state = State.model_validate({
         "turn": 0, "phase": "strategy", "seed": seed, "seat": seat.model_dump(),
         "nations": nations, "relations": w["relations"], "links": w["links"],
-        "provinces": w["provinces"],
-        "news": [{"turn": 0, "text": "Five nations, one continent. The year begins."}],
+        "provinces": w["provinces"], "buildings": starting_buildings(),
+        "news": [{"turn": 0, "text": "Five nations, three landmasses. The year begins."}],
     })
     _refresh_status(state, weights())
     return state
@@ -78,7 +84,7 @@ def allies(state: State, nation: str) -> list[str]:
 
 @lru_cache(maxsize=4096)
 def _border_pairs(owners: tuple[tuple[str, str], ...]) -> frozenset[tuple[str, str]]:
-    nb, own = world()["neighbours"], dict(owners)
+    nb, own = _load("atlas_adjacency.json"), dict(owners)
     return frozenset((own[p], own[q]) for p in own for q in nb[p] if q in own and own[p] != own[q])
 
 
@@ -363,7 +369,7 @@ def _apply(s: State, a: Action, w: dict, log: _Log) -> None:
 
 def _fight(s: State, rng: random.Random, w: dict, log: _Log) -> None:
     wr = w["war"]
-    nb = world()["neighbours"]
+    nb = _load("atlas_adjacency.json")
     for link in sorted([l for l in s.links if l.type == "war"], key=lambda l: (l.a, l.b)):
         a, b = link.a, link.b
         if not borders(s, a, b):
@@ -399,6 +405,64 @@ def _county_yields() -> dict[str, tuple[str, float]]:
                    county["output"] / len(county["provinces"]))
         for county in _load("counties.json") for province in county["provinces"]
     }
+
+
+def _build_check(s: State, project: BuildRequest) -> str | None:
+    if s.phase != "strategy":
+        return "construction is available during strategy"
+    player = s.seat.nation
+    if not player or s.provinces.get(project.province) != player:
+        return "choose a province your nation controls"
+    existing = [building.kind for building in s.buildings if building.province == project.province]
+    if project.kind in existing:
+        return "that facility already exists here"
+    if len(existing) >= 3:
+        return "this province already has three facilities"
+    cost = _load("buildings.json")["kinds"][project.kind]["cost"]
+    if any(getattr(s.nations[player].stats, resource) < price for resource, price in cost.items()):
+        return "your nation cannot afford this project"
+    return None
+
+
+def queue_project(s: State, project: BuildRequest) -> State:
+    error = _build_check(s, project)
+    if error:
+        raise ValueError(error)
+    return s.model_copy(update={"construction": project})
+
+
+def _advance_construction(s: State, log: _Log) -> None:
+    project = s.construction
+    s.construction = None
+    if project is None or s.seat.nation is None:
+        return
+    player = s.seat.nation
+    spec = _load("buildings.json")["kinds"][project.kind]
+    name = spec["name"]
+    error = _build_check(s, project)
+    if error:
+        log.add("construction_cancelled", player, f"{name} cancelled: {error}", province=project.province)
+        return
+    for resource, price in spec["cost"].items():
+        _bump(s, player, resource, -price)
+    s.buildings.append(Building(**project.model_dump(), built_turn=s.turn))
+    log.add("construction_completed", player, f"{_name(s, player)} opens a new {name.lower()}",
+            province=project.province, action=project.kind)
+
+
+def _facility_production(s: State) -> None:
+    definitions = _load("buildings.json")
+    for building in s.buildings:
+        owner = s.provinces.get(building.province)
+        if not owner:
+            continue
+        original = world()["provinces"][building.province]
+        if building.built_turn == 0 and owner == original:
+            continue  # opening facilities already contribute to the baseline
+        for resource, output in definitions["kinds"][building.kind]["output"].items():
+            _bump(s, owner, resource, output)
+            if building.built_turn == 0:
+                _bump(s, original, resource, -output)
 
 
 def _patrols(s: State, log: _Log) -> None:
@@ -447,6 +511,7 @@ def _monthly(s: State, rng: random.Random, w: dict, log: _Log) -> None:
             _bump(s, n, "stability", mo["food_high_stability"])
         if st.oil < mo["oil_low"]:
             _bump(s, n, "gdp", mo["oil_low_gdp"])
+    _facility_production(s)
     _patrols(s, log)
     for k in sorted(s.relations):
         v = s.relations[k]
@@ -511,6 +576,7 @@ def step(state: State, actions: list[Action], seed: int, check: bool = True) -> 
         _apply(s, a, w, log)
     start = {n: s.nations[n].stats.model_copy() for n in NATION_IDS}
     _fight(s, rng, w, log)
+    _advance_construction(s, log)
     _monthly(s, rng, w, log)
     mo = w["monthly"]
     for n in NATION_IDS:

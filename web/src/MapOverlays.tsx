@@ -1,4 +1,4 @@
-import map from './map.json'
+import map from './atlas.json'
 import type { GameState } from './state'
 
 const capitals: Record<string, number[]> = map.capitals

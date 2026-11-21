@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import map from '../map.json'
+import map from '../atlas.json'
+import { TankSprite } from './Infrastructure'
 import sea from '../../../data/sea_routes.json'
 import type { GameState, MapEvent } from '../state'
 import { nationStyle } from '../theme'
@@ -25,13 +26,15 @@ const provinces = new Map(map.provinces.map((p) => [p.id, p]))
 const lifetime = 3700
 const cueLimit = 10
 
-export const kessarPort = [612, 548]
+export const kessarPoint = (x: number, y: number) =>
+  [x + map.capitalOffsets.kessaria[0], y + map.capitalOffsets.kessaria[1]]
+export const kessarPort = kessarPoint(612, 548)
 export const grainShips: Record<string, { waiting: Point; approach: Point; berth: Point }> = {
-  ostrava: { waiting: [693, 577], approach: [644, 554], berth: [629, 548] },
-  zarnia: { waiting: [614, 592], approach: [615, 574], berth: [611, 558] },
+  ostrava: { waiting: kessarPoint(693, 577), approach: kessarPoint(644, 554), berth: kessarPoint(629, 548) },
+  zarnia: { waiting: kessarPoint(614, 592), approach: kessarPoint(615, 574), berth: kessarPoint(611, 558) },
 }
-export const tugBerth = [662, 564]
-export const straitPatrol = [743, 582]
+export const tugBerth = kessarPoint(662, 564)
+export const straitPatrol = kessarPoint(743, 582)
 
 const labels: Record<string, string> = {
   tariff: 'Tariff imposed',
@@ -93,6 +96,8 @@ function eventCues(event: MapEvent, state: GameState, before: GameState): Cue[] 
   const { type, nation, target, province } = event
   const at = (province && provinces.get(province)?.center) || (nation && capitals[nation])
   const targetAt = target && capitals[target]
+  if (type === 'construction_completed' && at && nation)
+    return [{ kind: 'trade_deal', label: `${(event.action ?? 'Facility').replaceAll('_', ' ')} opened`, at, nation }]
   const oneBerth = (state.crisis?.id ?? before.crisis?.id) === 'one_berth'
   if (nation && target && ['fleet_deployed', 'fleet_recalled', 'fleet_returned', 'blockade_started', 'blockade_lifted'].includes(type)) {
     const port = ports[type === 'fleet_deployed' || type === 'fleet_returned' ? nation : target]
@@ -216,10 +221,10 @@ export function ShipSilhouette({ kind = 'grain' }: { kind?: 'grain' | 'tug' | 'p
 
 function Symbol({ mark }: { mark?: Mark }) {
   if (mark === 'ship') return <ShipSilhouette />
+  if (mark === 'infantry') return <TankSprite />
   return (
     <>
       <rect className="motion-counter" x="-11" y="-8" width="22" height="16" rx="2" />
-      {mark === 'infantry' && <path d="M-6,-4 H6 V4 H-6 Z M-6,-4 L6,4 M6,-4 L-6,4" />}
       {mark === 'cargo' && <path d="M-5,-4 H5 V4 H-5 Z M0,-4 V4 M-5,0 H5" />}
       {mark === 'signal' && <path d="M-6,-4 H6 V4 H-6 Z M-6,-4 L0,1 L6,-4" />}
     </>

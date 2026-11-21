@@ -2,6 +2,7 @@ import { useCallback, useEffect, type FormEvent, useRef, useState } from 'react'
 import startRequest from '../../contracts/examples/start.request.json'
 import { api, post } from './api'
 import { App } from './App'
+import { Construction } from './Construction'
 import { History } from './History'
 import { Saves, type SaveSlot } from './Saves'
 import './session-navigation.css'
@@ -195,6 +196,10 @@ export function GameSession() {
       </dialog>
       <Saves state={state} disabled={!online || pending || clockHeld} onOpen={() => setPaused(true)}
         onLoad={(slot) => void send('load', undefined, slot.id)} />
+      <Construction state={state} online={online} onQueued={(snapshot) => {
+        stateRequest.current?.abort()
+        acceptState(snapshot)
+      }} />
       <History state={state} online={online} onLocate={(event) => setHistoryFocus({ ...event })} />
       {state.phase !== 'ended' && (
         <>

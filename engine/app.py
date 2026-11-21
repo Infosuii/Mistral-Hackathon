@@ -20,9 +20,10 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
 from contracts.models import (
-    Action, Event, PlayerActions, NATION_IDS, CrisisStartRequest, FuturesRequest, FuturesResponse, LeaderDetail, StartRequest, State,
+    Action, BuildRequest, Event, PlayerActions, NATION_IDS, CrisisStartRequest, FuturesRequest, FuturesResponse, LeaderDetail, StartRequest, State,
 )
 from engine import saves
+from engine.core import queue_project
 from engine.futures import futures
 from engine.snapshots import load
 from engine.game import GAME, allowed_crises, public_leader, public_view
@@ -48,6 +49,16 @@ async def get_state() -> State:
     return public_view(GAME.state)
 
 
+@router.post("/construction", response_model=State)
+async def construction(project: BuildRequest) -> State:
+    async with GAME.lock:
+        try:
+            GAME.state = queue_project(GAME.state, project)
+        except ValueError as e:
+            raise HTTPException(409, str(e)) from e
+        return public_view(GAME.state)
+
+
 @router.get("/saves", response_model=list[saves.SaveInfo])
 async def list_saves() -> list[saves.SaveInfo]:
     return saves.list_slots()
@@ -71,6 +82,11 @@ async def load_save(slot: UUID) -> State:
             raise HTTPException(404, str(e)) from e
         except ValueError as e:
             raise HTTPException(409, str(e)) from e
+
+
+@router.get("/news", response_model=list[Event])
+async def news() -> list[Event]:
+    return [Event.model_validate(entry) for entry in GAME.session_log if entry["type"] == "news"]
 
 
 @router.get("/history", response_model=list[Event])

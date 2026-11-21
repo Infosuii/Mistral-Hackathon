@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field, ValidationError
 
 from contracts.models import Action, Advice, CallOutput, CrisisPromise, Decision, LeaderDetail, ReceivedMessage, State
+from engine.core import starting_buildings
 from engine.game import Game, allowed_crises, available_crises, available_roles
 from engine.snapshots import snapshot
 
@@ -109,6 +110,8 @@ def restore(game: Game, slot: UUID) -> State:
         raise ValueError("the saved role is disabled in this server")
     if record.state.crisis and record.state.crisis.id not in allowed_crises():
         raise ValueError("the saved crisis is disabled in this server")
+    if "buildings" not in record.state.model_fields_set:
+        record.state.buildings = starting_buildings()
     game.epoch += 1
     game.call_count = 0
     game.latest_call_id = None

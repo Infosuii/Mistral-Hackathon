@@ -1,0 +1,10 @@
+.local-road { stroke: #c6ac82; stroke-width: 1.9; fill: none; opacity: .48; }
+.rail-bed { stroke: #2a3e38; stroke-width: 2.8; fill: none; opacity: .68; }
+.rail-track { stroke: #d8c496; stroke-width: 1.35; stroke-dasharray: 2 3; fill: none; }
+.rivers path { stroke: #68a6aa; stroke-width: 3.2; stroke-linecap: round; fill: none; opacity: .82; }
+.rivers .tributary { stroke-width: 1.8; opacity: .72; }
+.static-sprite { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .mobile-sprite { display: none; }
+  .static-sprite { display: inline; }
+}

@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
-import map from './map.json'
+import map from './atlas.json'
 import counties from '../../data/counties.json'
 import { MapOverlays } from './MapOverlays'
+import { Facilities, Transport } from './hud/Infrastructure'
 import { NavalFleets } from './hud/NavalFleets'
-import { DecisionMotion } from './hud/DecisionMotion'
+import { DecisionMotion, kessarPort } from './hud/DecisionMotion'
 import './hud/world-map.css'
 import { relationBetween, statLabels, type GameState, type MapEvent } from './state'
 import { nationStyle } from './theme'
 import { CapitalMarkers, CrisisFocus, flagOf, LeaderMedallions, NationalBorders, TerritoryLabels, UnitCounters } from './hud/MapLayers'
 import { OrdersBar } from './hud/OrdersBar'
 import { BreakingNews, RelationPops } from './hud/Reactions'
-import { Biomes, coastPath, OffshoreIslands, Relief, Sea, TerrainDefs, TerrainFeatures, terrainLabel, terrainOf } from './hud/Terrain'
+import { Biomes, coastPath, OffshoreIslands, Relief, Rivers, Sea, TerrainDefs, TerrainFeatures, terrainLabel, terrainOf } from './hud/Terrain'
 
 interface Props {
   state: GameState
@@ -20,16 +21,18 @@ interface Props {
   onSelect: (id: string) => void
 }
 
-// The sea runs past the continent to fill the window; the land stays centred between the rails.
-const VB = { x: -330, y: -80, w: 1660, h: 840 }
-const homeView = { zoom: 1, x: 0, y: 0 }
-const maxZoom = 3
+const VB = { x: -80, y: 30, w: 1240, h: 860 }
+const centerX = VB.x + VB.w / 2
+const centerY = VB.y + VB.h / 2
+const homeView = { zoom: 1.45, x: centerX - 446 * 1.45, y: centerY - 547 * 1.45 }
+const maxZoom = 4
+const minZoom = .7
 
 function limitView(view: typeof homeView) {
   return {
     zoom: view.zoom,
-    x: Math.min(0, Math.max(map.width * (1 - view.zoom), view.x)),
-    y: Math.min(0, Math.max(map.height * (1 - view.zoom), view.y)),
+    x: Math.max(centerX + 120 - map.width * view.zoom, Math.min(centerX - 120, view.x)),
+    y: Math.max(centerY + 100 - map.height * view.zoom, Math.min(centerY - 100, view.y)),
   }
 }
 
@@ -67,6 +70,7 @@ function ProvinceCard({ state, id, x, y }: { state: GameState; id: string; x: nu
   const controlled = county?.provinces.filter((province) => state.provinces[province] === owner).length ?? 0
   const contested = !!county && controlled < county.provinces.length
   const morale = county ? Math.min(100, Math.max(0, Math.round(nation.stats.stability + county.morale - (contested ? 8 : 0)))) : 0
+  const facilities = (state.buildings ?? []).filter((site) => site.province === id)
   const atWar = state.links.some((l) => l.type === 'war' && (l.a === owner || l.b === owner))
   return (
     <div className="province-card" style={{ ...nationStyle(owner), left: x + 18, top: y + 18 } as CSSProperties} role="tooltip">
@@ -89,6 +93,7 @@ function ProvinceCard({ state, id, x, y }: { state: GameState; id: string; x: nu
         {rel !== undefined && <div><dt>Relations</dt><dd data-sign={Math.sign(rel)}>{rel > 0 ? `+${rel}` : rel}</dd></div>}
       </dl>
       <p>{atWar ? 'At war. ' : ''}{nation.status.includes('PROTESTS') ? 'Protests in the streets. ' : ''}{nation.leader}</p>
+      {facilities.length > 0 && <p>{facilities.map((site) => site.kind.replaceAll('_', ' ')).join(' · ')}</p>}
       <footer>Click for orders: call, intel, diplomacy</footer>
     </div>
   )
@@ -114,17 +119,25 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
     const zoom = 2
     setMode('political')
     setHover(null)
-    setView(limitView({ zoom, x: 500 - center[0] * zoom, y: 340 - center[1] * zoom }))
+    setView(limitView({ zoom, x: centerX - center[0] * zoom, y: centerY - center[1] * zoom }))
   }, [historyFocus])
+
+  const crisisId = state.crisis?.id
+  useEffect(() => {
+    if (crisisId !== 'one_berth') return
+    const zoom = 1.45
+    setMode('political')
+    setView(limitView({ zoom, x: centerX - kessarPort[0] * zoom, y: centerY - kessarPort[1] * zoom }))
+  }, [crisisId])
 
   function zoom(delta: number) {
     setView((current) => {
-      const next = Math.max(1, Math.min(maxZoom, current.zoom + delta))
+      const next = Math.max(minZoom, Math.min(maxZoom, current.zoom + delta))
       const factor = next / current.zoom
       return limitView({
         zoom: next,
-        x: map.width / 2 + (current.x - map.width / 2) * factor,
-        y: map.height / 2 + (current.y - map.height / 2) * factor,
+        x: centerX + (current.x - centerX) * factor,
+        y: centerY + (current.y - centerY) * factor,
       })
     })
   }
@@ -132,7 +145,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
   function startDrag(event: PointerEvent<SVGSVGElement>) {
     if (event.button !== 0 || !event.isPrimary) return
     suppressClick.current = false
-    if (!globe && view.zoom > 1) {
+    if (!globe) {
       drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, view, moved: false }
     }
   }
@@ -166,10 +179,16 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
 
   return (
     <div className="map-window" ref={windowRef} onPointerLeave={() => setHover(null)}>
-      <svg className="political-map" data-zoomed={view.zoom > 1} viewBox={`${VB.x} ${VB.y} ${VB.w} ${VB.h}`}
+      <svg className="political-map" data-zoomed={!globe} viewBox={`${VB.x} ${VB.y} ${VB.w} ${VB.h}`}
         preserveAspectRatio="xMidYMid slice"
         aria-label={`${modeLabels[shownMode]} map`} onPointerDown={startDrag}
-        onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
+        tabIndex={0} onKeyDown={(event) => {
+          const offset = { ArrowLeft: [55, 0], ArrowRight: [-55, 0], ArrowUp: [0, 55], ArrowDown: [0, -55] }[event.key]
+          if (!globe && offset) {
+            event.preventDefault()
+            setView((current) => limitView({ ...current, x: current.x + offset[0], y: current.y + offset[1] }))
+          }
+        }} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
         onPointerLeave={(event) => { if (!drag.current?.moved) endDrag(event) }}
         onClickCapture={(event) => {
           if (suppressClick.current) {
@@ -180,7 +199,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
         <defs>
           <clipPath id="land"><path d={coastPath} /></clipPath>
           <TerrainDefs />
-          <clipPath id="globe-disc"><ellipse cx="500" cy="340" rx="445" ry="355" /></clipPath>
+          <clipPath id="globe-disc"><ellipse cx="540" cy="460" rx="530" ry="377" /></clipPath>
           <radialGradient id="globe-ocean" cx="39%" cy="30%" r="72%">
             <stop offset="0%" stopColor="#307487" />
             <stop offset="65%" stopColor="#123c57" />
@@ -189,14 +208,14 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
         </defs>
         {globe && (
           <g className="world-disc map-decoration" clipPath="url(#globe-disc)">
-            <ellipse cx="500" cy="340" rx="445" ry="355" fill="url(#globe-ocean)" />
+            <ellipse cx="540" cy="460" rx="530" ry="377" fill="url(#globe-ocean)" />
             {[120, 200, 270, 410, 480, 560].map((y) => (
-              <path key={y} d={`M55 340 Q500 ${2 * y - 340} 945 340`} />
+              <path key={y} d={`M10 460 Q540 ${2 * y - 260} 1070 460`} />
             ))}
-            {[95, 190, 295, 390].map((rx) => <ellipse key={rx} cx="500" cy="340" rx={rx} ry="355" />)}
+            {[95, 190, 295, 390].map((rx) => <ellipse key={rx} cx="540" cy="460" rx={rx} ry="377" />)}
           </g>
         )}
-        <g data-map-camera transform={globe ? 'translate(165 112) scale(.67)' : `translate(${view.x} ${view.y}) scale(${view.zoom})`}>
+        <g data-map-camera transform={globe ? 'translate(90 185) scale(.51)' : `translate(${view.x} ${view.y}) scale(${view.zoom})`}>
           {!globe && <Sea x={VB.x - 1200} y={VB.y - 900} width={VB.w + 2400} height={VB.h + 1800} />}
           <OffshoreIslands />
           <path d={coastPath} className="coast-halo" />
@@ -220,15 +239,19 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
             <Biomes />
             <Relief />
             <TerrainFeatures />
+            <Rivers />
+            <Transport state={state} />
             {shownMode === 'regions' && <g className="county-borders map-decoration">
               {countyEdges.map(({ between, path }) => <path key={between.join('|')} d={path} />)}
             </g>}
             <NationalBorders state={state} />
           </g>
           <path d={coastPath} className="coastline map-decoration" />
-          <text className="water-label map-decoration" x="500" y="45">North Sea</text>
-          <text className="water-label map-decoration" x="665" y="625">Kessar Strait</text>
-          <text className="water-label map-decoration" x="120" y="640">Western Ocean</text>
+          <text className="water-label map-decoration" x="655" y="210">North Sea</text>
+          <text className="water-label map-decoration" x="878" y="508">Meridian Ocean</text>
+          <text className="water-label map-decoration" x="431" y="359">Northern Passage</text>
+          <text className="water-label map-decoration" x="788" y="866">Kessar Strait</text>
+          <text className="water-label map-decoration" x="151" y="906">Western Ocean</text>
           {shownMode === 'regions' ? (
             <g className="county-labels map-decoration">
               {counties.map((county) => {
@@ -238,17 +261,18 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
                 return <text key={county.name} x={x} y={y + 18}>{county.name}</text>
               })}
             </g>
-          ) : <TerritoryLabels state={state} selected={selected} />}
+          ) : <TerritoryLabels state={state} selected={selected} zoom={globe ? 1 : view.zoom} />}
           <MapOverlays state={state} onSelect={onSelect} />
           <NavalFleets state={state} />
           <CrisisFocus state={state} />
+          <Facilities state={state} />
           <CapitalMarkers state={state} />
           <UnitCounters state={state} />
           <LeaderMedallions state={state} selected={selected} onSelect={onSelect} />
           <RelationPops state={state} />
           <DecisionMotion state={state} online={online} />
         </g>
-        {globe && <ellipse className="world-limb map-decoration" cx="500" cy="340" rx="445" ry="355" />}
+        {globe && <ellipse className="world-limb map-decoration" cx="540" cy="460" rx="530" ry="377" />}
         <rect className="map-decoration" x={VB.x} y={VB.y} width={VB.w} height={VB.h} fill="url(#vignette)" />
       </svg>
       {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} />}
@@ -285,8 +309,8 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
             )}
           </div>
           <div className="map-zoom" role="group" aria-label="Map zoom">
-            <button onClick={() => zoom(-0.5)} disabled={globe || view.zoom === 1} aria-label="Zoom out">−</button>
-            <button onClick={() => setView(homeView)} disabled={globe || view.zoom === 1} aria-label="Reset map view">{view.zoom}×</button>
+            <button onClick={() => zoom(-0.5)} disabled={globe || view.zoom === minZoom} aria-label="Zoom out">−</button>
+            <button onClick={() => setView(homeView)} disabled={globe} aria-label="Centre on the western continent">Home</button>
             <button onClick={() => zoom(0.5)} disabled={globe || view.zoom === maxZoom} aria-label="Zoom in">+</button>
           </div>
         </div>

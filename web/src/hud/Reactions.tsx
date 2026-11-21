@@ -1,7 +1,7 @@
 // Moments that make the world feel live: a breaking-news card when a new month's news
 // arrives, and floating relation changes over a capital when a leader warms or cools.
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import map from '../map.json'
+import map from '../atlas.json'
 import { relationBetween, type GameState } from '../state'
 import { nationStyle } from '../theme'
 

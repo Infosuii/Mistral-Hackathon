@@ -1,7 +1,7 @@
 // Procedural terrain for the political map: relief shading, mountains, forests and the
 // sea graticule. Everything is generated from fixed seeds, so the map never changes
 // between renders. Purely decorative: no pointer events.
-import map from '../map.json'
+import map from '../atlas.json'
 
 export type TerrainKind = 'mountains' | 'forest' | 'hills' | 'plains' | 'coast'
 
@@ -15,20 +15,14 @@ function rng(seed: number) {
 
 // One terrain kind per province, fixed by its id. Provinces near the coast lean to
 // plains and coast; inland ones to hills, forests and mountains.
-const coastPoints = map.coast.match(/\d+(\.\d+)?,\d+(\.\d+)?/g)!.map((p) => p.split(',').map(Number))
-// Round the corners of the authored shoreline along the original edges.
-const midpoint = (a: number[], b: number[]) => a.map((v, axis) => (v + b[axis]) / 2).join(',')
-const coastline = coastPoints.map((point, i) => {
-  const next = coastPoints[(i + 1) % coastPoints.length]
-  return `Q${point.join(',')} ${midpoint(point, next)}`
-}).join(' ')
-export const coastPath = `M${midpoint(coastPoints.at(-1)!, coastPoints[0])} ${coastline} Z`
+const coastPoints = map.coast.match(/-?\d+(\.\d+)?,-?\d+(\.\d+)?/g)!.map((p) => p.split(',').map(Number))
+export const coastPath = map.coast
 
 const islands = [
-  'M112,98 q-9,-15 6,-23 q12,-4 21,6 q8,8 -5,16 q-7,8 -22,1Z',
-  'M91,116 q-9,-7 -4,-13 q8,-6 14,1 q7,5 0,12 q-6,3 -10,0Z',
-  'M801,621 q-15,-8 -7,-25 q13,-14 30,-10 q12,3 11,15 q-3,8 -12,11 q-11,12 -22,9Z',
-  'M844,627 q-8,-5 -2,-12 q7,-5 15,0 q4,5 -1,9 q-6,5 -12,3Z',
+  'M765,330 q-9,-15 6,-23 q12,-4 21,6 q8,8 -5,16 q-7,8 -22,1Z',
+  'M740,351 q-9,-7 -4,-13 q8,-6 14,1 q7,5 0,12 q-6,3 -10,0Z',
+  'M956,802 q-15,-8 -7,-25 q13,-14 30,-10 q12,3 11,15 q-3,8 -12,11 q-11,12 -22,9Z',
+  'M1005,818 q-8,-5 -2,-12 q7,-5 15,0 q4,5 -1,9 q-6,5 -12,3Z',
 ]
 
 export function OffshoreIslands() {
@@ -112,10 +106,19 @@ export function Sea({ x, y, width, height }: { x: number; y: number; width: numb
 export function Biomes() {
   return (
     <g className="terrain-biomes map-decoration">
-      <path fill="#c7d8c0" d="M150 0H920V150q-100 52-172 5t-160 12q-75 35-136-9t-154 19q-100 27-148-22Z" />
-      <path fill="#285e31" d="M62 291q83-78 174-45t133 29q73 14 68 64t-97 46q-82 39-164 11t-114-35Z" />
-      <path fill="#35623c" d="M666 259q80-49 162 14t91 115q10 48-73 41t-133-58q-80-40-47-112Z" />
-      <path fill="#d6b879" d="M299 574q58-50 149-57t128-59q40-32 52 19t11 146H299Z" />
+      <g transform="translate(55 20)">
+        <path fill="#d5ebdb" d="M0 20h500v175q-79 54-174 5t-163 16Q74 199 0 235Z" />
+        <path fill="#50775a" d="M41 205q93-88 172-23t119 9q67-28 110 26v160H51Z" />
+      </g>
+      <g transform="translate(120 230)">
+        <path fill="#326642" d="M33 275q111-72 212-31t151 56q33 56-50 80q-173 58-313-14Z" />
+        <path fill="#e2bb73" d="M229 566q89-72 199-75t172-85v223H228Z" />
+        <path fill="#b8a475" d="M89 456q131-47 234-28t114 56v86H91Z" />
+      </g>
+      <g transform="translate(690 245)">
+        <path fill="#d0bb99" d="M507 50h441v273q-96 28-160-17t-155-8q-64 13-126-37Z" />
+        <path fill="#2c5c38" d="M503 312q91-43 174 29t168 15q81-46 114 1v220H503Z" />
+      </g>
     </g>
   )
 }
@@ -150,15 +153,32 @@ function Hill({ x, y, s }: { x: number; y: number; s: number }) {
   return <path className="glyph-line" transform={`translate(${x} ${y}) scale(${s})`} d="M-8,3 Q0,-7 8,3" />
 }
 
-// Small terrain glyphs scattered around each province centre.
+function Field({ x, y, s }: { x: number; y: number; s: number }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${s})`}>
+      <path fill="#8c8950" d="M-7-2h12l3 5H-5Z" />
+      <path stroke="#d6c48c" strokeWidth=".8" d="m-5-1 2 3m1-3 2 3m1-3 2 3m1-3 2 3" />
+    </g>
+  )
+}
+
+function Wetland({ x, y, s }: { x: number; y: number; s: number }) {
+  return (
+    <g transform={`translate(${x} ${y}) scale(${s})`}>
+      <path fill="#57837a" d="M-6 1h4v-2h8v2h2v3H-6Z" />
+      <path stroke="#b6b481" strokeWidth=".85" d="M-4 2v-4m2 3-1-3m7 2v-4m2 4 1-3" />
+    </g>
+  )
+}
+
+// Detail is sparse in fields and denser in forest belts and ridges.
 export function TerrainFeatures() {
   return (
     <g className="terrain-features map-decoration">
       {map.provinces.map(({ id, center: [cx, cy] }) => {
         const kind = terrainOf[id]
-        if (kind === 'plains' || kind === 'coast') return null
         const r = rng(Number(id.slice(1)) * 104729)
-        const count = kind === 'forest' ? 9 : kind === 'mountains' ? 6 : 4
+        const count = kind === 'forest' ? 12 : kind === 'mountains' ? 8 : 5
         const glyphs = []
         for (let i = 0; i < count; i += 1) {
           const a = r() * Math.PI * 2
@@ -166,11 +186,31 @@ export function TerrainFeatures() {
           const x = cx + Math.cos(a) * d
           const y = cy + Math.sin(a) * d * 0.75 + 10
           const s = 0.75 + r() * 0.6
-          const Glyph = kind === 'forest' ? Tree : kind === 'mountains' ? Mountain : Hill
+          const Glyph = kind === 'forest' ? Tree : kind === 'mountains' ? Mountain
+            : kind === 'plains' ? Field : kind === 'coast' ? Wetland : Hill
           glyphs.push(<Glyph key={i} x={x} y={y} s={s} />)
         }
         return <g key={id} data-terrain={kind}>{glyphs}</g>
       })}
+    </g>
+  )
+}
+
+export function Rivers() {
+  return (
+    <g className="rivers map-decoration">
+      <g transform="translate(120 230)">
+        <path d="M250 296q41 30 39 56t40 35q-13 20 22 37t39 70q-17 26-18 63" />
+        <path className="tributary" d="M187 358q28 18 58 10t59 8" />
+      </g>
+      <g transform="translate(55 20)">
+        <path d="M332 163q-42 32-82 20t-63 24q-26 14-45 8t-81 6" />
+        <path className="tributary" d="M222 147q7 34 37 38" />
+      </g>
+      <g transform="translate(690 245)">
+        <path d="M755 143q18 44 1 76t11 75q-24 47-4 84t3 63q16 36-6 62t-11 68" />
+        <path className="tributary" d="M591 351q47-27 89-2t74 8M865 276q-39 18-95 18" />
+      </g>
     </g>
   )
 }

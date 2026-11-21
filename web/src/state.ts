@@ -88,6 +88,8 @@ export interface GameState {
   relations: Record<string, number>
   links: { type: string; a: string; b: string }[]
   provinces: Record<string, string>
+  buildings?: { province: string; kind: string; built_turn: number }[]
+  construction?: { province: string; kind: string } | null
   fleets?: Record<string, { target: string; arrival_turn: number; returning: boolean }>
   news: { turn: number; text: string }[]
   events: MapEvent[]

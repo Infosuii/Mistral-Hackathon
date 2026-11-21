@@ -1,9 +1,10 @@
 // Grand-strategy map layers drawn from the live state: national borders, territory
 // labels, unit counters, and each leader's medallion with mood ring and speech bubble.
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import map from '../map.json'
+import map from '../atlas.json'
+import { CityArt } from './Infrastructure'
 import oneBerth from '../../../data/crises/one_berth.json'
-import { grainShips, kessarPort, ShipSilhouette, straitPatrol, tugBerth } from './DecisionMotion'
+import { grainShips, kessarPoint, kessarPort, ShipSilhouette, straitPatrol, tugBerth } from './DecisionMotion'
 import { relationBetween, type GameState } from '../state'
 import { nationStyle } from '../theme'
 
@@ -27,7 +28,7 @@ export function NationalBorders({ state }: { state: GameState }) {
 }
 
 /** Large spaced nation names across each nation's territory; they follow conquests. */
-export function TerritoryLabels({ state, selected }: { state: GameState; selected?: string }) {
+export function TerritoryLabels({ state, selected, zoom }: { state: GameState; selected?: string; zoom: number }) {
   const owned = new Map<string, number[][]>()
   for (const [pid, owner] of Object.entries(state.provinces)) {
     const c = centers.get(pid)
@@ -43,7 +44,7 @@ export function TerritoryLabels({ state, selected }: { state: GameState; selecte
         const cap = capitals[id]
         // The capital carries the leader, units and star: put the name clear of them.
         if (cap && Math.abs(cap[1] - y) < 55 && Math.abs(cap[0] - x) < 150) y = cap[1] + (y >= cap[1] ? 62 : -62)
-        const size = Math.max(22, Math.min(44, 12 + Math.sqrt(pts.length) * 9))
+        const size = Math.max(22, Math.min(44, 12 + Math.sqrt(pts.length) * 9)) / Math.max(1, zoom * .84)
         return (
           <text key={id} x={x} y={y + 6} style={{ ...nationStyle(id), fontSize: size } as CSSProperties}
             data-selected={id === selected}>{nation.name}</text>
@@ -191,12 +192,8 @@ export function CapitalMarkers({ state }: { state: GameState }) {
       {Object.entries(capitals).map(([id, [x, y]]) => state.nations[id] && (
         <g key={id} className="capital-settlement" data-home={id === state.seat.nation} transform={`translate(${x} ${y})`} style={nationStyle(id)}>
           <title>{state.nations[id].name} capital</title>
-          <ellipse cy="5" rx="13" ry="4" fill="#122d2d" opacity=".65" />
-          <path fill="#655041" d="M-11 5V-2h4v-4h4v-3h5v3h5v4h4v7Z" />
-          <path fill="#dcc49b" d="M-10 4V-1h5v5Zm7-9h5v9h-5Zm7 4h6v5H4Z" />
-          <path fill="var(--nation-accent)" d="M-11-2h6v-2h-4v1h-2ZM-4-6h7v-3H1v-2h-3v2h-2ZM4-2h7v-1H9v-1H5v1H4Z" />
-          <path fill="#59473a" d="M-1 1h2v3h-2Z" />
-          {id === state.seat.nation && <text className="home-map-label" y="-19">YOUR NATION</text>}
+          <CityArt economy={state.nations[id].stats.gdp} />
+          {id === state.seat.nation && <text className="home-map-label" y="-28">YOUR NATION</text>}
         </g>
       ))}
     </g>
@@ -246,9 +243,9 @@ export function CrisisFocus({ state }: { state: GameState }) {
         return <Ship key={id} id={id} at={approaching ? ship.approach : ship.waiting}
           label={`${name} grain ship · ${approaching ? 'approaching port' : 'offshore'}`} />
       })}
-      {secondBerth && <Ship id="nordhaven" kind="tug" at={tugBerth} from={[780, 649]} label="Nordhaven tugs · second berth available" />}
-      {blockade && <Ship id="ostrava" kind="patrol" at={straitPatrol} from={[782, 633]} label="Ostrava blockade patrol" />}
-      <path className="storm" d="M700,520 q14,-12 28,0 q14,12 28,0 M712,536 q12,-10 24,0 q12,10 24,0" />
+      {secondBerth && <Ship id="nordhaven" kind="tug" at={tugBerth} from={kessarPoint(780, 649)} label="Nordhaven tugs · second berth available" />}
+      {blockade && <Ship id="ostrava" kind="patrol" at={straitPatrol} from={kessarPoint(782, 633)} label="Ostrava blockade patrol" />}
+      <path className="storm" transform={`translate(${map.capitalOffsets.kessaria.join(" ")})`} d="M700,520 q14,-12 28,0 q14,12 28,0 M712,536 q12,-10 24,0 q12,10 24,0" />
     </g>
   )
 }

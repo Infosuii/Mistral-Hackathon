@@ -243,6 +243,18 @@ class CrisisOption(Model):
 # --- 4.2 State (continued) ---------------------------------------------------
 
 
+BuildingKind = Literal["army_base", "arms_factory", "airfield", "factory", "farm", "chip_works", "freight_yard"]
+
+
+class BuildRequest(Model):
+    province: str
+    kind: BuildingKind
+
+
+class Building(BuildRequest):
+    built_turn: int = Field(ge=0)
+
+
 class Fleet(Model):
     target: NationId
     arrival_turn: int = Field(ge=0)
@@ -259,6 +271,8 @@ class State(Model):
     links: list[Link] = Field(default_factory=list)
     provinces: dict[str, NationId] = Field(default_factory=dict)
     fleets: dict[NationId, Fleet] = Field(default_factory=dict)
+    buildings: list[Building] = Field(default_factory=list)
+    construction: Optional[BuildRequest] = None
     news: list[NewsItem] = Field(default_factory=list)
     events: list[Event] = Field(default_factory=list)
     incoming_call: Optional[IncomingCall] = None
