@@ -320,10 +320,13 @@ Run this loop until 17:45 without waiting for me:
    - A NEED or BLOCKED older than 10 minutes: check whether the thing asked for is
      already on main. If it is, post READY to the asker pointing at it. If not, post
      NEED to the owner by name. If it is still open 10 minutes later, tell Tamim.
-   - A status card marked STALE with no commits or messages from that person: their
-     agent has probably stopped, and a stopped agent cannot be woken from here. Tell
-     Tamim "ask <name> to check their agent" and quote the one-line paste from that
-     person's starter issue.
+   - A status card marked QUIET means silent on the board, not stopped. Look at the
+     Branches section first. If that person has pushed a branch in the last 15
+     minutes, their agent is working: post NEED asking them by name to open a PR and
+     update their card, and say what is on the branch. Only if there are no pushes
+     either should you tell Tamim "ask <name> to check their agent", quoting the
+     one-line paste from that person's starter issue. A stopped agent cannot be woken
+     from here.
    - Two agents about to change the same file, or doing the same task: post NEED to
      both, naming who owns it under MASTER_PLAN.md section 3.
 
