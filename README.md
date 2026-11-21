@@ -1,126 +1,148 @@
 ![GAMBIT](e2e/assets/gambit-wordmark.svg)
 
-# GAMBIT — *Every call is a move*
+# GAMBIT: every call is a move
 
-A voice-played grand-strategy and crisis-negotiation game built for the Mistral London Hackathon (21 Nov 2026).
+GAMBIT is a strategy game you play by voice. Five fictional nations share one continent, and each is run by an AI leader with a public line and a private plan. You govern by picking up the Red Phone and talking to them. What you promise, when you call, whether you cut a leader off mid-sentence and how long you hesitate all change what the nations do next.
 
-Five fictional nations share one continent, each run by an AI leader with its own political system, public statement, and private agenda. You govern by picking up the **Red Phone** and speaking directly to the other leaders. When a crisis erupts, a 24-hour clock starts — and **what you promise, when you call, whether you interrupt mid-sentence, and how long you hesitate** change what every nation does.
+Built in one day for Le Chonk in London, the Mistral hackathon, on 21 November 2026. Every model call at runtime goes to Mistral: Voxtral for all speech in and out, Mistral Large 4 and its smaller siblings for the leaders.
 
-After the crisis resolves, GAMBIT shows the timeline you did **not** take:
-- **War-Odds Needle** — 200 matched-seed Monte Carlo rollouts six months ahead comparing war probability before and after your deal (the displayed odds can rise or fall).
-- **"What if I'd waited?" Replay** — slide your calls earlier or later in pure deterministic code to see which leader flips and why.
-- **Two-Faced Leaders & Wiretap** — inspect public statements vs. private strategy, adviser rankings vs. actual choices, and listen to two AI leaders talking about you.
+## What you do in the game
 
----
+- **Run a country for a three-year term.** Each month you set tariffs, propose trade and alliances, queue buildings, and decide who to call. Approval, stability, GDP, food, oil, chips and army all move. A democracy that loses its yearly election is out; a country that falls below the stability floor has a coup.
+- **Phone the other leaders.** Hold the red button and speak. The leader answers in their own voice within a couple of seconds, and the game records what you committed to. Leaders compare notes with each other, so two promises that contradict are found out.
+- **Handle a crisis against the clock.** A crisis card starts a 12-tick clock with a deadline for each leader. Four cards ship: **One Berth** (a storm leaves one berth for two grain ships), **Grey Fever** (one vaccine batch, two countries), **Colonels' Coup** (tanks in Ostrava's capital) and **Pipeline Cut** (Ostrava shuts the northern oil line).
+- **See what your deal did.** After a crisis the war-odds needle compares the chance of war in the next six months before and after your moves, from matched-seed rollouts of the same deterministic engine.
+- **Ask "what if I'd waited?"** A slider moves your calls up to five ticks earlier or later and reruns the crisis in pure code. It shows which leaders would have decided differently, and why.
+- **Look behind the public line.** The Intel drawer shows each leader's public statement next to their private intent and what their advisers ranked. Wiretap plays two leaders talking about you.
+- **Go to war, or stop one.** The War Room lets you declare war, march troops province by province, recruit, reinforce a front, and offer peace, tribute or a pact. AI leaders declare wars of their own. War fronts and captured provinces produce at half output.
+- **Build an economy.** Queue factories, farms, chip works, rail yards, airfields and bases. You pay when you order, the site opens next month, and the dialog tells you why an order is refused.
+- **Face the voters.** The term ends with an election count and a historian's verdict on what you did, written from the session log.
 
-## Run it in two minutes
+You can also sit as an **independent mediator** with no country and no army: you see public positions only and are judged on your calls alone.
 
-### Prerequisites
-- Python 3.12+ (with `uv` or `pip`)
-- Node.js 20.19+ or 22.12+ and `npm`
-- A `MISTRAL_API_KEY` (for live mode)
+## Run it
 
-### 1. Clone and add your key
+You need Python 3.12 or newer, Node.js 20.19+ or 22.12+, and a Mistral API key for live play.
 
 ```bash
 git clone https://github.com/Infosuii/Mistral-Hackathon.git
 cd Mistral-Hackathon
 echo "MISTRAL_API_KEY=your_key_here" > .env
-```
-
-### 2. Start everything with one command
-
-```bash
 ./scripts/demo.sh
 ```
 
-`scripts/demo.sh` checks your API key, bootstraps `.venv` and `web/node_modules` on a fresh clone, verifies/warms pre-rendered crisis and Wiretap audio, starts the FastAPI backend (`http://127.0.0.1:8000`) with the stage defaults (`GAMBIT_DECIDE_MODEL=mistral-medium-latest`, `GAMBIT_PRIVATE_STRATEGY=1`, `GAMBIT_PLAYER_ACTIONS=1`, `GAMBIT_EXTRA_CRISES=1`, `GAMBIT_MEDIATOR=1`, `GAMBIT_ROLLOUTS=120`, `VOICE_WIRETAP=demo`), and starts the web app at **`http://localhost:5173`**. Activate the launcher’s environment (normally `source .venv/bin/activate` on macOS/Linux or `source .venv/Scripts/activate` in Windows Git Bash), then run `python scripts/preflight.py` before going on stage to verify your key, models, speech and transcription (if the war-odds needle takes >4 s on a slower laptop, start with `GAMBIT_ROLLOUTS=80 ./scripts/demo.sh`).
+The launcher sets up `.venv` and `web/node_modules` on a fresh clone, starts the backend on port 8000 and the web app on port 5173. Open **http://localhost:5173 in Chrome** and allow the microphone. Hold the red talk button to speak; press it while a leader is talking to interrupt them. A text box under the button does the same job in a noisy room.
 
-Open **`http://localhost:5173`** in **Chrome** (allow microphone access when prompted). Hold the red talk button to speak — or press it while a leader is speaking to interrupt them mid-sentence. A typed fallback box sits directly underneath for noisy rooms.
+To check your key, the models, speech and transcription before a demo:
 
-### Offline mode (no API key or Wi-Fi)
+```bash
+source .venv/bin/activate
+python scripts/preflight.py
+```
+
+No key or no network:
 
 ```bash
 ./scripts/demo.sh --offline
 ```
 
-Provision Python and web dependencies once while online. In offline mode, type your own lines. Microphone input uses a fixed transcript. Leaders give deterministic written replies, with audio for lines that have an exact recording. Scripted rings and recorded Wiretap pairs play from `voice/prerendered/`.
+Offline mode needs the dependencies installed once while online. Leaders give fixed written replies, the microphone returns a fixed transcript, and the pre-recorded crisis calls and Wiretap lines play from `voice/prerendered/`.
 
----
+Other ports: `./scripts/demo.sh --backend-port 8010 --web-port 5180`.
 
-## Where each Mistral product is used
+## Where Mistral is used
 
-| Mistral product | Model / feature | Role in GAMBIT |
+| Product | Model | What it does in GAMBIT |
 |---|---|---|
-| **Le Chonk (Mistral Large 4)** | `mistral-large-4` | Writes each leader's private strategy at game & crisis start (`GAMBIT_PRIVATE_STRATEGY=1`); interprets every phone call in the background (`agents.interpret`) into structured promises, agreed actions, and trust/resolve updates; writes live Wiretap dialogues, replay `"why"` explanations, and the end-of-session Historian verdict. |
-| **Mistral Large 2512** | `mistral-large-2512` | Fast spoken phone replies (`agents.speak_fast`, 1.39 s median, two sentences max with Voxtral emotion tags; races `mistral-medium-latest` after 2.5 s under a 6 s deadline so voice never stalls). |
-| **Mistral Medium** | `mistral-medium-latest` | Strategy & crisis turn decisions (`GAMBIT_DECIDE_MODEL=mistral-medium-latest`, keeping 2512's 30 RPM quota dedicated to voice) and hedge race model. |
-| **Voxtral STT** | `voxtral-mini-transcribe-3` | Transcribes hold-to-talk browser audio (`webm/opus`, `wav`, `mp3`, `ogg`, `flac`) via `POST /call` and `POST /transcribe`, biased with `context_bias` for nation names and crisis terms. |
-| **Voxtral TTS** | `voxtral-mini-tts-3-0` | Five distinct cast leader voices with inline `[emotion=...]` tags (`angry`, `tense`, `proud`, `warm`, `assertive`, etc.) and streamed first-chunk playback (`stream: true`, 0.39 s median), plus pre-rendered crisis rings and Wiretap audio. |
-| **Mistral Vibe & MCP** | `gambit_mcp/`, `.vibe/skills/` | Built self-contained game data, persona cards, SVG artwork, and unit tests; ships a live-verified MCP server (`gambit_mcp.server`, 8 tools) and Vibe skills (`/gambit-brief`, `/gambit-crisis-card`) so Mistral Vibe can inspect and play live games (`vibe mcp add gambit --transport stdio --command "$(pwd)/.venv/bin/python" --arg=-m --arg gambit_mcp.server --env PYTHONPATH="$(pwd)" --tool-timeout-sec 120`). |
+| **Voxtral transcription** | `voxtral-mini-transcribe-3` | Turns each hold-to-talk clip into text. Every request carries `context_bias` with the nations, leaders and crisis words, so "Ostrava" and "Port Kessar" are spelled right and the promise reaches the right leader. |
+| **Voxtral speech** | `voxtral-mini-tts-3-0` | Speaks every leader line in one of five cast voices, streamed so playback starts on the first chunk. The leader model picks an inline `[emotion=...]` tag with each reply. Crisis calls and the demo Wiretap are rendered ahead so they play instantly. |
+| **Mistral Large 4** | `mistral-large-4` | Writes each leader's private strategy. After every call it works out, in the background, what was promised, what was agreed and how trust moved. It also writes live Wiretap dialogue, the replay explanations and the historian's verdict. |
+| **Mistral Large 2512** | `mistral-large-2512` | The fast spoken reply on the phone: two sentences at most, in character. If it is slow, `mistral-medium-latest` races it so the line never goes quiet. |
+| **Mistral Medium** | `mistral-medium-latest` | Each leader's monthly and crisis decisions. |
+| **Mistral Vibe** | `gambit_mcp/`, `.vibe/skills/` | An MCP server with eight tools lets Vibe read and play a running game. Two skills ship with it: `/gambit-brief` (who is lying, the next deadline, what to say) and `/gambit-crisis-card` (drafts a new crisis file from one sentence). Setup is in [`gambit_mcp/README.md`](gambit_mcp/README.md). |
 
-### Voxtral in detail
+The leaders are advised by the engine but choose freely: each sees a ranked list of legal moves and may pick any of them. In a crisis the engine holds them to within a set distance of their advisers' ranking, and escalations (blockade, mobilise, close the port) need the advisers' support.
 
-[`voice/VOXTRAL.md`](voice/VOXTRAL.md) is one page on every Voxtral feature the game uses (transcription with context bias, streamed speech, emotion tags, five cast voices, Wiretap, pre-rendered lines), where each one appears, and the measured timings: about 1.8 s from a typed line to the leader's voice, 13/13 spoken calls in the human playtest, and 98.4% word accuracy with simulated busy-room noise (10 dB SNR, synthetic babble and hum, not a venue recording).
+[`voice/VOXTRAL.md`](voice/VOXTRAL.md) lists every Voxtral feature the game uses, where it appears, and what we measured.
 
-*(Note: Mistral Managed Agents was evaluated in `agents/A0_RESULTS.md` and ruled no-go at 9.6 s/turn, so GAMBIT uses direct chat completions with structured JSON output and explicit session memory.)*
+We tried Mistral Managed Agents for the leaders and did not use them: a turn took 9.6 seconds ([`agents/A0_RESULTS.md`](agents/A0_RESULTS.md)). The game uses chat completions with JSON output and keeps each leader's memory itself.
 
----
+## How voice changes the game
 
-## Rehearsed One Berth demo & counterfactual replay
+- **Promises** you speak are recorded per leader and checked against what you later do. At tick 5 of One Berth the leaders compare notes; a double promise costs you most of their trust.
+- **Interrupting** a leader takes effect the moment you press the button. Cut General Dravic off while he announces a blockade and the threat never becomes a public commitment, though a proud leader likes you less for it.
+- **Hesitating** before you answer is measured by the talk button and passed to the leader. Proud leaders read it as weakness.
+- **Timing** matters because each leader decides at their own deadline. A request that arrives after the deadline arrives too late, which is what the replay slider shows.
 
-On seed `7` as President of Valdoria:
-1. **Strategy phase:** Call Kessaria to negotiate a trade deal (or open One Berth directly).
-2. **Tick 1:** Ostrava rings (pre-rendered angry audio). Promise Ostrava the berth.
-3. **Tick 2:** Call Nordhaven before its tick-6 deadline: *"I need your tugs at Port Kessar today to open a second berth. Valdoria pays the full cost."*
-4. **Resolution & Needle:** Nordhaven sends tugs at tick 6, both ships dock in peace, and the War-Odds Needle shows the 6-month war probability shift (200 matched-seed rollouts, 3.5 s median).
-5. **Counterfactual Replay (`POST /replay`):**
-   - `shift_ticks = 0`: **0 flips** (reproduces the exact crisis timeline).
-   - `shift_ticks = +5` (moving the Nordhaven tug call past its tick-6 deadline): flips **Nordhaven** `send_tugs → stay_out` and **Zarnia** `dock → mobilise`, with Mistral Large 4 explaining why.
+## A five-minute run to try
 
-*(Alternatively, double-promising Ostrava and Zarnia triggers the tick-5 `compare_notes` betrayal and Ostrava's tick-7 blockade call — pressing talk mid-sentence cuts Ostrava off before the blockade becomes a public commitment.)*
+On seed 7 as President of Valdoria:
 
----
+1. Call Queen Isolde of Kessaria and offer a trade deal.
+2. Start **One Berth**. General Dravic of Ostrava rings at once. Promise him the berth.
+3. Call Chairman Oryn of Zarnia and promise him the same berth.
+4. Call Chancellor Lindqvist of Nordhaven and ask for tugs to open a second berth before her deadline.
+5. At tick 5 the leaders compare notes and catch the double promise. Open Intel and play the Wiretap.
+6. At tick 7 Dravic rings to announce a blockade. Press talk while he is speaking and offer him the morning slot.
+7. Let the deadlines resolve, read the war-odds needle, then drag the replay slider to +3 and see who flips.
+8. End the session for the election count and the verdict.
 
-## Measured live timings (`python -m e2e.timings`)
+This is the path `e2e/demo_path.py` plays against live models.
 
-Across 10 live WAV voice calls on `main` (0 fallbacks, uncached streaming TTS):
-- **Spoken reply (`speak_fast`):** 1.39 s median / 3.11 s worst
-- **TTS first chunk (`voxtral-mini-tts-3-0`):** 0.39 s median / 1.27 s worst (~1.78 s typed → first audio)
-- **STT (`voxtral-mini-transcribe-3`):** **0.25–0.37 s** on live Chrome mic WebM/Opus clips (14:45 playtest); **3.32 s** median / **8.72 s** worst on uncompressed ~220 KB WAV uploads (first audio total 4.98 s median for WAV)
-- **Call interpretation (`mistral-large-4`, async):** 13.10 s median / 21.44 s worst
-- **`POST /futures` (200 rollouts):** 3.52 s median / 4.69 s worst
-- **`POST /replay`:** 0.03 s pure code / 3.95 s with live `agents.why()`
+## What we measured
 
----
+On the final build (17:23, live models, the launcher's settings), the automated demo path passed all 11 steps in 139 seconds. The spoken reply to a typed line came back in 1.4 to 3.4 seconds, the war-odds forecast took 2.5 seconds for 120 rollouts, and the replay took 4.6 seconds including the written explanations.
 
-## Verify end to end
+Earlier in the day, on an earlier build, across 10 live voice calls (`python -m e2e.timings`):
+
+| Step | Median | Worst |
+|---|---|---|
+| Spoken reply text | 1.39 s | 3.11 s |
+| First chunk of speech | 0.39 s | 1.27 s |
+| Transcription, Chrome microphone clip | 0.25 to 0.37 s | |
+| Transcription, 220 KB WAV upload | 3.32 s | 8.72 s |
+| Working out what a call agreed (background) | 13.10 s | 21.44 s |
+
+A human playtest of One Berth by voice had 13 of 13 transcriptions and 13 of 13 spoken replies succeed. Word accuracy held at 98% down to a 10 dB signal-to-noise ratio in a **simulated** noisy room (synthetic babble and hum, not a recording of the venue).
+
+## Check it yourself
 
 ```bash
-# Fast smoke check (~5 s, stub turns)
-scripts/smoke.sh
-
-# Full 5-minute demo path against a live backend (typed + WAV speech-to-text + honest split)
-python -m e2e.demo_path --mode both --scenario both
-
-# Live latency benchmark (10 voice calls + /futures + /replay)
-python -m e2e.timings
-
-# Verify against a running `./scripts/demo.sh` instance
-python -m e2e.demo_path --url http://127.0.0.1:8000
+python -m pytest -q                      # 167 tests, no network
+scripts/smoke.sh                         # a few seconds, stub leaders
+python -m e2e.demo_path                  # the demo path against live models
+python -m e2e.demo_path --url http://127.0.0.1:8000   # against a running game
+python -m e2e.timings                    # live latency benchmark
 ```
 
----
+The browser walkthroughs (`python -m e2e.walkthrough --offline`, `python -m e2e.crisis_cards`) need Playwright: `python -m pip install playwright` then `python -m playwright install chromium`.
 
-The optional browser walkthrough uses Python Playwright. With the project environment active, run `python -m pip install playwright` (or `uv pip install playwright`), then `python -m playwright install chromium` and `python -m e2e.walkthrough --offline`.
+## How it is built
 
-## Architecture
+| Folder | What is in it |
+|---|---|
+| `engine/` | The simulation. `step()` is pure and deterministic: same seed and same moves give the same world, which is what makes the forecast and the replay possible. Also the crisis clock, the rollouts, saves, construction, transport and the FastAPI app. |
+| `agents/` | The five leader personas and every model call: monthly decisions, the fast phone reply, call interpretation, private strategy, Wiretap, replay explanations, the historian. |
+| `voice/` | Voxtral transcription and streamed speech, `POST /call`, `GET /wiretap`, the talk button with interruption and hesitation timing, the cast voices and the pre-rendered lines. |
+| `war/` | The War Room: garrisons, marching armies, battles, recruitment, peace terms. |
+| `replay/` | `POST /replay`: reruns the last crisis with your calls shifted in time. |
+| `web/` | The React app: the campaign map with terrain, cities, rail, sea routes and fleets, the crisis clock, the Red Phone, Intel and Wiretap, the War Room, construction, the replay panel and the election finale. |
+| `contracts/` | Pydantic models and example payloads for every endpoint. |
+| `data/` | Nations, tuning weights, buildings, the map, and one JSON file per crisis card. A new crisis is a new file. |
+| `gambit_mcp/`, `.vibe/` | The MCP server and skills for Mistral Vibe. |
+| `e2e/` | The demo-path test, the offline server, timings and browser walkthroughs. |
 
-- **`/engine`** — Pure deterministic simulation (`step`, `advise`, `crisis_step`, `snapshot`, `fork`, 200-rollout `futures`, FastAPI `engine.app:app`).
-- **`/agents`** — Five leader personas (`agents/personas/*.md`), `decide`, `strategize_all`, split phone path (`speak_fast` + `interpret`), `wiretap`, `why`, and `historian`.
-- **`/voice`** — Voxtral `transcribe` & streaming `speak`, `POST /call`, `GET /wiretap`, `GET /audio/{file}`, pre-rendered demo clips, and standalone `talk-button.js` (interruption + hesitation tracking).
-- **`/web`** — Full-bleed Voronoi political map, top resource bar, crisis clock with deadline markers, war-odds needle, Red Phone, Intel drawer + Wiretap, Replay slider, and Historian end screen.
-- **`/replay`** — `POST /replay` counterfactual crisis rerun from cached decisions + `agents.why`.
-- **`/contracts`** — Pydantic schemas and validated JSON fixtures for every API endpoint.
-- **`/data`** — Tunable game data (`nations.json`, `weights.json`, `crises/one_berth.json`, `crises/outbreak.json`).
-- **`/e2e`** — Demo-path test (`demo_path.py`), offline ASGI server (`offline_app.py`), timings, and browser walk-through.
+The five nations: **Valdoria** (democracy, Prime Minister Elena Varga), **Ostrava** (junta, General Marek Dravic), **Zarnia** (one-party state, Chairman Tomas Oryn), **Kessaria** (monarchy, Queen Isolde of Kessar) and **Nordhaven** (technocracy, Chancellor Aino Lindqvist).
+
+## Known limits
+
+- The War Room runs on a real-time clock, so battles are not part of the deterministic replay. The replay covers crisis decisions.
+- The war, economy and election features were merged in the last hour of the hackathon. They pass their tests and an offline browser check, but have had far less live play than the phone and One Berth.
+- Three of the four crisis cards (all but One Berth) have been played through offline; only One Berth has been run end to end against live models many times.
+- Interruption and hesitation come from the talk button's timing. Audio is transcribed after you let go, not while you speak.
+- The End session button is not shown while a crisis is running.
+- All leaders share one API key, and the fast phone model allows 30 requests a minute. Several people playing at once on one key will see slower replies.
+
+## Team
+
+Tamim Atiqur, Om Dhande, Abi and Ashish Kadari.
