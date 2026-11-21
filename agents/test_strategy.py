@@ -76,7 +76,7 @@ async def main() -> None:
     print(f"5. crisis strategy kessaria ({time.perf_counter() - t:.1f}s): {cs[:200]}...")
 
     m = s.model_copy(deep=True)
-    m.seat = Seat(role="mediator", nation="valdoria")  # the contract still needs a nation until Om's change
+    m.seat = Seat(role="mediator", nation=None)
     mv = fixtures.call_view("zarnia", "I speak for no one. What would Zarnia need to stand its troops down?", s=m)
     spoken = await leaders.speak_fast(mv)
     judged = await leaders.interpret(mv, spoken["reply_text"])
