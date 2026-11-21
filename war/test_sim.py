@@ -137,3 +137,28 @@ def test_hostile_ai_declares_on_player():
     room.advance(s)
     assert room.at_war("ostrava", "valdoria")
     assert any(e["kind"] == "declare" and e["attacker"] == "ostrava" for e in room.log)
+
+
+def test_reinforce_marches_hop_by_hop_to_the_front():
+    s, clock = game(), Clock()
+    room = WarRoom(s, clock=clock)
+    room.declare(s, "valdoria", "kessaria")
+    front = {p for p, o in s.provinces.items() if o == "valdoria"
+             and any(s.provinces.get(q) == "kessaria" for q in NEIGHBOURS[p])}
+    before = sum(room.garrison[p] for p in front)
+    sent = room.reinforce(s, "valdoria", "kessaria")
+    assert sent > 0 and room.armies
+    for _ in range(10):
+        clock.t += 10
+        room.advance(s)
+    assert not [a for a in room.armies if a.owner == "valdoria"]
+    assert sum(room.garrison[p] for p in front if s.provinces[p] == "valdoria") > before
+
+
+def test_marches_do_not_flood_the_news():
+    s, clock = game(), Clock()
+    room = WarRoom(s, clock=clock)
+    n = len(s.news)
+    room.declare(s, "valdoria", "kessaria")
+    room.recruit(s, "valdoria", 500)
+    assert len(s.news) == n + 1  # only the declaration

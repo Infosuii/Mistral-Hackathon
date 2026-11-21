@@ -190,13 +190,14 @@ export function PoliticalMap({ state, selected, onSelect }: Props) {
           <CrisisFocus state={state} />
           <CapitalMarkers state={state} />
           <UnitCounters state={state} />
-          <WarMapLayer state={state} controls={warCtl} />
+          <WarMapLayer state={state} controls={warCtl} showAll={shownMode === 'military'} />
           <LeaderMedallions state={state} selected={selected} onSelect={onSelect} />
           <RelationPops state={state} />
         </g>
         <rect className="map-decoration" x={VB.x} y={VB.y} width={VB.w} height={VB.h} fill="url(#vignette)" />
       </svg>
       {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} />}
+      <WarRoomPanel state={state} selected={selected} controls={warCtl} />
       <div className="map-hud-top">
         <div className="map-mode" role="group" aria-label="Map view">
           {(Object.keys(modeLabels) as MapMode[])
@@ -204,7 +205,6 @@ export function PoliticalMap({ state, selected, onSelect }: Props) {
             .map((m) => <button key={m} aria-pressed={shownMode === m} onClick={() => setMode(m)}>{modeLabels[m]}</button>)}
         </div>
         <BreakingNews state={state} />
-        <WarRoomPanel state={state} selected={selected} controls={warCtl} />
       </div>
       <div className="map-bottom">
         <div className="map-footer">
