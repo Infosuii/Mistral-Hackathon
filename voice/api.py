@@ -11,20 +11,49 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import binascii
 import json
 import os
 import time
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.routing import APIRoute
 from fastapi.responses import FileResponse, StreamingResponse
 
 from contracts.models import CallOutput, CallRequest, CallView
 
 from . import mock_agents
-from .audio import EMOTIONS, FALLBACK_LINE, JOBS, find_audio, speak, transcribe
+from .audio import BadAudio, EMOTIONS, FALLBACK_LINE, JOBS, find_audio, speak, transcribe
 
-router = APIRouter()
+MAX_AUDIO = 5 * 1024 * 1024
+
+
+class AudioUploadRoute(APIRoute):
+    """Bound uploads as they arrive, including clients using chunked transfer."""
+    def get_route_handler(self):
+        handler = super().get_route_handler()
+        if self.methods != {"POST"}:
+            return handler
+        limit = MAX_AUDIO if self.path.endswith("/transcribe") else 4 * ((MAX_AUDIO + 2) // 3) + 16384
+
+        async def bounded(request: Request):
+            size = 0
+
+            async def receive():
+                nonlocal size
+                message = await request.receive()
+                size += len(message.get("body", b""))
+                if size > limit:
+                    raise HTTPException(413, "Recording is too large.")
+                return message
+
+            return await handler(Request(request.scope, receive))
+
+        return bounded
+
+
+router = APIRouter(route_class=AudioUploadRoute)
 CASTING = json.loads((Path(__file__).parent / "casting.json").read_text())
 
 
@@ -135,11 +164,16 @@ async def call(req: CallRequest):
             interrupt(req.to)
     if req.text is not None:
         transcript = req.text.strip()
+        if not transcript:
+            raise HTTPException(422, "Type a line to the leader.")
     elif req.audio:
         try:
-            transcript = await transcribe(base64.b64decode(req.audio))
-        except Exception as e:
-            raise HTTPException(502, f"transcription failed: {e}")
+            clip = base64.b64decode(req.audio, validate=True)
+        except (binascii.Error, ValueError) as e:
+            raise HTTPException(422, "Invalid base64 audio.") from e
+        if len(clip) > MAX_AUDIO:
+            raise HTTPException(413, "Recording is too large.")
+        transcript = await _transcript(clip)
     else:
         raise HTTPException(422, "send audio or text")
     t_stt = time.perf_counter()
@@ -279,6 +313,18 @@ async def wiretap(a: str, b: str):
     return {"lines": out}
 
 
+async def _transcript(body: bytes, mime: str | None = None) -> str:
+    try:
+        text = await transcribe(body, mime) if mime else await transcribe(body)
+    except BadAudio as e:
+        raise HTTPException(e.status, str(e)) from e
+    except Exception as e:
+        raise HTTPException(502, "Transcription service unavailable.") from e
+    if not text.strip():
+        raise HTTPException(422, "No speech detected. Try again or type your line.")
+    return text
+
+
 @router.post("/transcribe")
 async def transcribe_raw(request: Request):
     """Raw audio body in, {"text"} out. Used by the talk button's live transcript and V0."""
@@ -286,10 +332,7 @@ async def transcribe_raw(request: Request):
     if not body:
         raise HTTPException(422, "empty body")
     t0 = time.perf_counter()
-    try:
-        text = await transcribe(body, request.headers.get("content-type"))
-    except Exception as e:
-        raise HTTPException(502, str(e))
+    text = await _transcript(body, request.headers.get("content-type"))
     return {"text": text, "seconds": round(time.perf_counter() - t0, 2), "bytes": len(body)}
 
 
@@ -312,6 +355,11 @@ async def audio(name: str):
     job = JOBS.get(name)
     if job is None:
         raise HTTPException(404, "unknown audio")
+
+    async with job.cond:
+        await job.cond.wait_for(lambda: job.chunks or job.done)
+        if not job.chunks:
+            raise HTTPException(503, "Speech audio is unavailable.")
 
     async def chunks():
         i = 0

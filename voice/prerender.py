@@ -24,7 +24,9 @@ def demo_lines() -> list[tuple[str, str, str, str]]:
     """(label, nation, text, emotion) for every fixed line in the demo."""
     out = []
     drafts = sorted((Path(__file__).parent / "crises").glob("*.json"))  # V4 files before they move to data/crises
-    for f in sorted((ROOT / "data" / "crises").glob("*.json")) + drafts:
+    shipped = sorted((ROOT / "data" / "crises").glob("*.json"))
+    shipped_names = {f.name for f in shipped}
+    for f in shipped + [draft for draft in drafts if draft.name not in shipped_names]:
         crisis = json.loads(f.read_text(encoding="utf-8"))
         for e in crisis.get("scripted", []):
             if e.get("type") == "incoming_call" and e.get("opening_line"):

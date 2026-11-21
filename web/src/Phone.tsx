@@ -132,7 +132,8 @@ export function Phone({ state, selected, online, onActivity }: {
 
   useEffect(() => {
     const desired = online ? target : null
-    if (!talk.current || talkState === 'recording' || talkState === 'thinking' || desired === contactId) return
+    if (!talk.current || desired === contactId) return
+    if (desired && (talkState === 'recording' || talkState === 'thinking')) return
     talk.current.setTo(desired)
     setContactId(desired)
   }, [target, online, talkState, contactId])

@@ -164,6 +164,7 @@ export function PoliticalMap({ state, selected, onSelect }: Props) {
                   data-province={id} data-owner={owner} data-selected={Boolean(nation && owner === selected)}
                   data-hover={hover?.id === id}
                   onPointerMove={(event) => hoverProvince(id, event)}
+                  onPointerLeave={() => setHover(null)}
                   onClick={() => nation && onSelect(owner)}>
                   <title>{nation?.name ?? 'Unclaimed'} · {id.toUpperCase()}</title>
                 </path>
