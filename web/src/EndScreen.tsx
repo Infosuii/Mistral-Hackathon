@@ -1,3 +1,4 @@
+import { ElectionFinale } from './Election'
 import type { GameState } from './state'
 
 const scoreLabels = {
@@ -42,6 +43,7 @@ export function EndScreen({ state, online }: { state: GameState; online: boolean
           <h2 id="ending-heading">Session complete</h2>
           {ending?.reason && <p className="ending-reason">{endReasons[ending.reason] ?? ending.reason.replaceAll('_', ' ')}</p>}
         </header>
+        <ElectionFinale state={state} />
         {metrics.length > 0 && (
           <dl className="ending-score" data-mediator={state.seat.role === 'mediator'}>
             {metrics.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
