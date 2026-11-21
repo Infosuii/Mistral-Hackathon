@@ -14,6 +14,18 @@ command -v "$PY" >/dev/null 2>&1 || PY=python3
 export GAMBIT_AGENTS="${GAMBIT_AGENTS:-stub}"
 
 "$PY" -m contracts.validate >/dev/null || { echo "FAIL contracts: run python -m contracts.validate"; exit 1; }
+# Every router a folder ships (voice/api.py, replay/api.py) must mount.
+"$PY" - 2>/dev/null <<'PYEOF' || exit 1
+import sys
+try:
+    import engine.app as a
+except Exception as e:
+    print(f"FAIL engine.app does not import: {type(e).__name__}: {e}")
+    sys.exit(1)
+for m, e in a.MOUNT_ERRORS.items():
+    print(f"FAIL mount {m}: {e} (pip install -r requirements.txt?)")
+sys.exit(1 if a.MOUNT_ERRORS else 0)
+PYEOF
 
 "$PY" -m uvicorn engine.app:app --port "$PORT" --log-level warning &
 SERVER=$!
@@ -57,8 +69,9 @@ try:
     r = call("POST", "/call", json.load(open("contracts/examples/call.request.text.json")))
     CallResponse.model_validate(r); print("ok   /call typed")
 except urllib.error.HTTPError as e:
-    if e.code != 404:
+    import os
+    if e.code != 404 or os.path.exists("voice/api.py"):
         sys.exit(f"FAIL /call: HTTP {e.code} {e.read()[:300]!r}")
-    print("skip /call (not mounted yet)")
+    print("skip /call (voice/api.py does not exist yet)")
 print("SMOKE OK")
 EOF
