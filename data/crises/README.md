@@ -1,6 +1,8 @@
 # Crisis files
 
-One JSON file per crisis, named by its id (`one_berth.json` loads as `POST /crisis/start {"id": "one_berth"}`). The shape is `CrisisFile` in `contracts/models.py`, §4.8 of the plan. A new file needs no code changes.
+One JSON file per crisis, named by its id. Only One Berth is offered unless the backend runs with `GAMBIT_EXTRA_CRISES=1`; then `state.available_crises` lists every file here that loads, and `/crisis/start` accepts only those (DECIDED 13:12).
+
+Each file is named by its id (`one_berth.json` loads as `POST /crisis/start {"id": "one_berth"}`). The shape is `CrisisFile` in `contracts/models.py`, §4.8 of the plan. A new file needs no code changes.
 
 ```jsonc
 {
