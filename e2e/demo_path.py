@@ -602,10 +602,122 @@ def run_demo_path(
     return results
 
 
+def run_honest_path(
+    client: Client,
+    *,
+    mode: str = "typed",
+    seed: int = 7,
+    allow_fallback_reply: bool = False,
+) -> list[BeatResult]:
+    """Verify the honest split-day branch (Coordinator DECIDED 13:20):
+    morning to Ostrava, evening to Zarnia -> compare_notes holds (contradiction=False),
+    tick-7 uses the non-accusatory line, and shift=0 replay reports 0 flips."""
+    results: list[BeatResult] = []
+    ctx: dict[str, Any] = {}
+
+    def send_call(to: str, line_key: str):
+        text = DEMO_LINES[line_key]
+        if mode == "audio":
+            wav = _ensure_wav_clip(line_key, text)
+            resp, st, call_s, interp_s = client.call_leader(to, audio_wav=wav)
+            if not resp.transcript.strip():
+                raise AssertionError(f"STT returned empty transcript for audio clip {line_key}")
+        else:
+            resp, st, call_s, interp_s = client.call_leader(to, text=text)
+        if not allow_fallback_reply and resp.reply_text == "The line is breaking up. Say that again.":
+            raise AssertionError(f"/call {to} returned fallback line (API key missing or model error)")
+        return resp, st, call_s, interp_s
+
+    def beat(name: str, fn: Callable[[], str]) -> bool:
+        t0 = time.perf_counter()
+        try:
+            detail = fn()
+            elapsed = time.perf_counter() - t0
+            results.append(BeatResult(name, True, elapsed, detail))
+            print(f"PASS  {elapsed:6.2f}s  {name:<20}  {detail}")
+            return True
+        except Exception as e:  # noqa: BLE001
+            elapsed = time.perf_counter() - t0
+            msg = f"{type(e).__name__}: {e}"
+            results.append(BeatResult(name, False, elapsed, msg))
+            print(f"FAIL  {elapsed:6.2f}s  {name:<20}  {msg}")
+            return False
+
+    def b_start() -> str:
+        client.start(seed=seed, role="president", nation="valdoria")
+        st = client.start_crisis("one_berth")
+        st1 = client.turn()
+        assert st1.crisis is not None and st1.crisis.tick == 1
+        ctx["state"] = st1
+        return "seed=7 one_berth tick=1"
+
+    if not beat("honest_start", b_start):
+        return results
+
+    def b_split() -> str:
+        _, st_o, co, io = send_call("ostrava", "honest_ostrava")
+        o_p = [p for p in st_o.crisis.promises if p.by == "player" and p.to == "ostrava" and p.what == "berth"]
+        assert o_p and o_p[-1].when == "morning", f"expected morning berth promise to ostrava, got {o_p}"
+        st = st_o
+        while st.crisis and st.crisis.tick < 3:
+            st = client.turn()
+        _, st_z, cz, iz = send_call("zarnia", "honest_zarnia")
+        z_p = [p for p in st_z.crisis.promises if p.by == "player" and p.to == "zarnia" and p.what == "berth"]
+        assert z_p and z_p[-1].when in ("afternoon", "evening"), (
+            f"expected afternoon/evening berth promise to zarnia, got {z_p}"
+        )
+        ctx["state"] = st_z
+        ctx["trust_before"] = {
+            "ostrava": st_z.nations["ostrava"].beliefs.trust_in_player,
+            "zarnia": st_z.nations["zarnia"].beliefs.trust_in_player,
+        }
+        return (
+            f"ostrava={o_p[-1].when} ({co:.2f}s+{io:.2f}s) "
+            f"zarnia={z_p[-1].when} ({cz:.2f}s+{iz:.2f}s)"
+        )
+
+    beat("honest_split", b_split)
+
+    def b_compare_holds() -> str:
+        st: State = ctx["state"]
+        while st.crisis and st.crisis.tick < 5:
+            st = client.turn()
+        cn = [e for e in st.events if e.type == "compare_notes"]
+        assert cn, "missing compare_notes at tick 5"
+        assert (cn[-1].model_extra or {}).get("contradiction") is False, f"expected contradiction=False, got {cn[-1]}"
+        for n in ("ostrava", "zarnia"):
+            after = st.nations[n].beliefs.trust_in_player
+            assert after >= ctx["trust_before"][n], f"trust dropped on honest split for {n}: {ctx['trust_before'][n]}->{after}"
+        ctx["state"] = st
+        return "contradiction=False; story holds"
+
+    beat("honest_compare", b_compare_holds)
+
+    def b_tick7_line() -> str:
+        st: State = ctx["state"]
+        while st.crisis and st.crisis.tick < 7:
+            st = client.turn()
+        assert st.incoming_call is not None and st.incoming_call.from_ == "ostrava"
+        line = st.incoming_call.opening_line
+        assert "same berth" not in line.lower(), f"honest path got accusatory tick-7 line: {line!r}"
+        if st.incoming_call.audio_url:
+            code, raw = client.fetch_bytes(st.incoming_call.audio_url)
+            assert code == 200 and len(raw) > 256, f"honest tick-7 audio failed: {code}"
+        while st.phase == "crisis":
+            st = client.turn()
+        zero = ReplayResponse.model_validate(client.request_json("POST", "/replay", {"shift_ticks": 0}, timeout=30.0))
+        assert not zero.changed, f"zero-shift replay flipped on honest path: {zero.changed}"
+        return f"tick7_line={line[:60]!r} zero_shift=0_flips"
+
+    beat("honest_tick7_replay0", b_tick7_line)
+    return results
+
+
 def main(argv: list[str] | None = None) -> int:
     _load_env(ROOT / ".env")
     ap = argparse.ArgumentParser(description="GAMBIT end-to-end demo-path test (N1)")
     ap.add_argument("--mode", choices=["typed", "audio", "both"], default="typed")
+    ap.add_argument("--scenario", choices=["demo", "honest", "both"], default="demo")
     ap.add_argument("--url", help="Already-running backend URL (starts a temporary server if omitted)")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--shift", type=int, default=3, help="shift_ticks for POST /replay")
@@ -617,6 +729,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     modes = ["typed", "audio"] if args.mode == "both" else [args.mode]
+    scenarios = ["demo", "honest"] if args.scenario == "both" else [args.scenario]
     proc: subprocess.Popen | None = None
     log_file: Path | None = None
     try:
@@ -630,17 +743,21 @@ def main(argv: list[str] | None = None) -> int:
         client.wait_ready(20.0)
 
         all_ok = True
-        for mode in modes:
-            print(f"=== GAMBIT demo_path (mode={mode}, seed={args.seed}, url={base}) ===")
-            t0 = time.perf_counter()
-            beats = run_demo_path(client, mode=mode, seed=args.seed, shift_ticks=args.shift)
-            total = time.perf_counter() - t0
-            passed = sum(1 for b in beats if b.passed)
-            failed = sum(1 for b in beats if not b.passed)
-            status = "PASS" if failed == 0 and passed > 0 else "FAIL"
-            print(f"--- {status}: {passed}/{len(beats)} beats passed in {total:.2f}s ---")
-            if failed > 0:
-                all_ok = False
+        for scenario in scenarios:
+            for mode in modes:
+                print(f"=== GAMBIT {scenario} (mode={mode}, seed={args.seed}, url={base}) ===")
+                t0 = time.perf_counter()
+                if scenario == "demo":
+                    beats = run_demo_path(client, mode=mode, seed=args.seed, shift_ticks=args.shift)
+                else:
+                    beats = run_honest_path(client, mode=mode, seed=args.seed)
+                total = time.perf_counter() - t0
+                passed = sum(1 for b in beats if b.passed)
+                failed = sum(1 for b in beats if not b.passed)
+                status = "PASS" if failed == 0 and passed > 0 else "FAIL"
+                print(f"--- {status}: {passed}/{len(beats)} beats passed in {total:.2f}s ---")
+                if failed > 0:
+                    all_ok = False
         if not all_ok and log_file and log_file.exists():
             tail = log_file.read_text(encoding="utf-8", errors="replace").splitlines()[-40:]
             print("\n--- backend log tail ---")
