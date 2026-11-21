@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from contracts.models import CallOutput, CallRequest, CallView
 
 from . import mock_agents
-from .audio import EMOTIONS, JOBS, find_audio, speak, transcribe
+from .audio import EMOTIONS, FALLBACK_LINE, JOBS, find_audio, speak, transcribe
 
 router = APIRouter()
 CASTING = json.loads((Path(__file__).parent / "casting.json").read_text())
@@ -108,8 +108,8 @@ def _history(nation: str, state: dict) -> list[dict]:
 
 
 FALLBACK_REPLY = {
-    "reply_text": "The line is breaking up. Say that again.",
-    "emotion": "tense", "promises": [], "actions": [],
+    "reply_text": FALLBACK_LINE[0],
+    "emotion": FALLBACK_LINE[1], "promises": [], "actions": [],
     "belief_updates": {"trust_in_player": 0, "resolve_of_player": 0}, "ends_call": False,
 }
 
