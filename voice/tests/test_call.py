@@ -100,7 +100,9 @@ def test_pending_call_fills_last_call(client):
     assert last["promises"][0]["what"] == "berth"
 
 
-def test_failing_reply_still_speaks_and_records_promises(client):
+def test_failing_reply_still_speaks_and_records_promises(client, monkeypatch):
+    # A keyed server whose model failed: the keyless "setup problem" reply is a separate case.
+    monkeypatch.setenv("MISTRAL_API_KEY", "test-dummy-not-used")
     seen = {}
 
     async def speak_fast(view):
