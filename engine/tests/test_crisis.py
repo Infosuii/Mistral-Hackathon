@@ -64,3 +64,26 @@ def test_crisis_start_endpoint():
     assert c.post("/crisis/start", json={"id": "one_berth"}).status_code == 409
     t = c.post("/turn").json()
     assert t["crisis"]["tick"] == 1 and t["incoming_call"]["from"] == "ostrava"
+
+
+def test_incoming_call_gets_audio_from_voice(monkeypatch):
+    import sys, types
+    fake = types.ModuleType("voice")
+    fake.audio_url_for = lambda nation, text, emotion=None: f"/audio/{nation}-{emotion}.mp3"
+    monkeypatch.setitem(sys.modules, "voice", fake)
+    g = Game(seed=7, use_agents=False, needle=False)
+    g.start_crisis("one_berth")
+    s = asyncio.run(g.turn())
+    assert s.incoming_call.audio_url == "/audio/ostrava-angry.mp3"
+
+
+def test_incoming_call_without_voice_still_works(monkeypatch):
+    import sys, types
+    fake = types.ModuleType("voice")
+    def boom(*a, **k):
+        raise RuntimeError("no loop")
+    fake.audio_url_for = boom
+    monkeypatch.setitem(sys.modules, "voice", fake)
+    g = Game(seed=7, use_agents=False, needle=False)
+    g.start_crisis("one_berth")
+    assert asyncio.run(g.turn()).incoming_call.audio_url is None
