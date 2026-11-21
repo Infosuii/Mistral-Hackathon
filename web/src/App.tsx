@@ -2,7 +2,7 @@ import { useState, type CSSProperties } from 'react'
 import callRequest from '../../contracts/examples/call.request.text.json'
 import callResponse from '../../contracts/examples/call.response.json'
 import { PoliticalMap } from './PoliticalMap'
-import { statLabels, systemLabels, type GameState, type Nation, type Stats } from './state'
+import { relationBetween, statLabels, systemLabels, type GameState, type Nation, type Stats } from './state'
 import { nationStyle, theme } from './theme'
 
 const resourceKeys = ['gdp', 'oil', 'food', 'chips', 'army', 'stability', 'approval'] as const
@@ -60,7 +60,7 @@ function NationRail({ state, selected, onSelect }: {
       <ul>
         {Object.entries(state.nations).map(([id, nation]) => (
           <li key={id} style={nationStyle(id)}>
-            <button className="nation-button" onClick={() => onSelect(id)} aria-pressed={id === selected}>
+            <button className="nation-button" data-protests={nation.status.includes('PROTESTS')} onClick={() => onSelect(id)} aria-pressed={id === selected}>
               <span className="nation-mark" aria-hidden="true" />
               <span className="nation-contact">
                 <strong>{nation.name}</strong>
@@ -88,6 +88,9 @@ function NationDetail({ nation, id, relation }: { nation: Nation; id: string; re
           <div key={key}>
             <dt>{statLabels[key]}</dt>
             <dd>{nation.stats[key]}</dd>
+            {(key === 'stability' || key === 'approval') && (
+              <meter min={0} max={100} value={nation.stats[key]} aria-label={statLabels[key]} />
+            )}
           </div>
         ))}
       </dl>
@@ -168,7 +171,7 @@ export function App({ state }: { state: GameState }) {
   const [selection, setSelection] = useState(firstContact ?? nationIds[0])
   const selected = state.nations[selection] ? selection : nationIds[0]
   const nation = state.nations[selected]
-  const relation = seat && selected !== seat ? state.relations[[seat, selected].sort().join('|')] : undefined
+  const relation = relationBetween(state, seat, selected)
   const news = [...state.news].reverse()
   const headline = news[0]
 
@@ -176,7 +179,7 @@ export function App({ state }: { state: GameState }) {
     <div className="game-screen" style={theme as CSSProperties}>
       <ResourceBar state={state} />
       <main className="theatre">
-        <div className="map-window"><PoliticalMap state={state} selected={selected} onSelect={setSelection} /></div>
+        <PoliticalMap state={state} selected={selected} onSelect={setSelection} />
         <div className="left-rail">
           <NationRail state={state} selected={selected} onSelect={setSelection} />
           <Dispatches news={news.slice(0, 2)} />
