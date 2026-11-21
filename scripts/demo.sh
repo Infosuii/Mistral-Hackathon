@@ -70,8 +70,12 @@ pick_python() {
   if [ -n "${PYTHON:-}" ] && command -v "$PYTHON" >/dev/null 2>&1; then
     echo "$PYTHON"; return
   fi
-  if [ -x "$ROOT/.venv/bin/python" ]; then
-    echo "$ROOT/.venv/bin/python"; return
+  local venv_python="$ROOT/.venv/bin/python"
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) venv_python="$ROOT/.venv/Scripts/python.exe" ;;
+  esac
+  if [ -x "$venv_python" ]; then
+    echo "$venv_python"; return
   fi
   for cand in python3.12 python3 python; do
     if command -v "$cand" >/dev/null 2>&1; then
@@ -88,13 +92,13 @@ pick_python() {
   echo "[demo] Bootstrapping .venv and installing requirements.txt..." >&2
   if command -v uv >/dev/null 2>&1; then
     uv venv "$ROOT/.venv" >&2
-    uv pip install --python "$ROOT/.venv/bin/python" -r "$ROOT/requirements.txt" >&2
+    uv pip install --python "$venv_python" -r "$ROOT/requirements.txt" >&2
   else
     base_py="$(command -v python3.12 || command -v python3 || command -v python)"
     "$base_py" -m venv "$ROOT/.venv" >&2
-    "$ROOT/.venv/bin/pip" install -q -r "$ROOT/requirements.txt" >&2
+    "$venv_python" -m pip install -q -r "$ROOT/requirements.txt" >&2
   fi
-  echo "$ROOT/.venv/bin/python"
+  echo "$venv_python"
 }
 
 PY="$(pick_python)"

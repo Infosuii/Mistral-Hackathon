@@ -12,6 +12,7 @@ def test_audio_errors_are_actionable(monkeypatch):
         raise audio.BadAudio(422, "No decodable speech.")
     monkeypatch.setattr(api, "transcribe", rejected)
     with TestClient(app) as client:
+        assert client.post("/start", json={"seed": 7, "seat": {"role": "president", "nation": "valdoria"}}).status_code == 200
         assert client.post("/transcribe", content=b"").status_code == 422
         assert client.post("/transcribe", content=b"broken").status_code == 422
         assert client.post("/call", json={"to": "ostrava", "audio": "!!"}).status_code == 422
