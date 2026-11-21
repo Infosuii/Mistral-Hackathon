@@ -39,6 +39,20 @@ Decide = Callable[[LeaderView], Awaitable[LeaderOutput]]
 HISTORIAN_TIMEOUT_S = float(os.environ.get("GAMBIT_HISTORIAN_TIMEOUT", "30"))
 
 
+PRIVATE_STRATEGY = os.environ.get("GAMBIT_PRIVATE_STRATEGY", "").lower() in ("1", "true", "on", "yes")
+
+
+def _load_strategize():
+    """agents.strategize_all, only when GAMBIT_PRIVATE_STRATEGY is on (DECIDED 13:07)."""
+    if not PRIVATE_STRATEGY or os.environ.get("GAMBIT_AGENTS", "").lower() == "stub":
+        return None
+    try:
+        from agents import strategize_all  # type: ignore
+        return strategize_all
+    except Exception:
+        return None
+
+
 def _load_historian():
     if os.environ.get("GAMBIT_AGENTS", "").lower() == "stub":
         return None
@@ -136,13 +150,49 @@ class Game:
         self.months_in_power = self.peace_months = 0
         self.promises_kept = self.promises_broken = 0
         self.original_leader = self.state.nations[self.state.seat.nation].leader
+        # Private strategies by phase: "" for the game, a crisis id for that crisis.
+        self.strategies: dict[str, dict[str, str]] = {}
+        self._strategize("")
         return self.state
 
     def start_crisis(self, crisis_id: str) -> State:
         self.state = start_crisis(self.state, crisis_id)
         self.pending_announce, self.crisis_log = None, [self.state]
         self.crisis_advice, self.crisis_announces, self.crisis_calls, self.last_crisis = {}, [], [], None
+        self._strategize(crisis_id)
         return self.state
+
+    # --- private strategy (DECIDED 13:07, behind GAMBIT_PRIVATE_STRATEGY) ---------
+
+    def _strategize(self, phase: str) -> None:
+        """Ask the leaders for their private strategies in the background, off the turn path.
+        A result that arrives after a reset is dropped."""
+        fn = self._strategize_fn() if self._decide_fn is not None else None
+        if fn is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return  # only inside the server
+        epoch, snapshot_ = self.epoch, self.state
+
+        async def run() -> None:
+            try:
+                out = await fn(snapshot_)
+            except Exception as e:
+                log.warning("strategize failed: %s", e)
+                return
+            if epoch == self.epoch:
+                self.strategies[phase] = {n: str(t) for n, t in (out or {}).items() if t}
+        self._strategy_task = loop.create_task(run())
+
+    def _strategize_fn(self):
+        return _load_strategize()
+
+    def strategy_for(self, nation: str) -> Optional[str]:
+        """This crisis's strategy if written, else the game's."""
+        c = self.state.crisis
+        return (self.strategies.get(c.id, {}) if c else {}).get(nation) or self.strategies.get("", {}).get(nation)
 
     def ai_nations(self) -> list[str]:
         return [n for n in NATION_IDS if n != self.state.seat.nation]
@@ -152,7 +202,8 @@ class Game:
         out: Optional[LeaderOutput] = None
         if self._decide_fn is not None:
             view = LeaderView(nation=nation, state=s, advice=advice,
-                              messages_received=self.inbox[nation])
+                              messages_received=self.inbox[nation],
+                              private_strategy=self.strategy_for(nation))
             try:
                 raw = await asyncio.wait_for(self._decide_fn(view), timeout=DECIDE_TIMEOUT_S)
                 out = raw if isinstance(raw, LeaderOutput) else LeaderOutput.model_validate(raw)
@@ -325,11 +376,12 @@ class Game:
                 for n in NATION_IDS if n in was and now.get(n, was[n]) != was[n]]
 
     def leader(self, nation: str) -> LeaderDetail:
+        strategy = self.strategy_for(nation)
         if nation in self.leaders:
-            return self.leaders[nation]
+            return self.leaders[nation].model_copy(update={"private_strategy": strategy})
         n = self.state.nations[nation]
         return LeaderDetail(public_statement=n.public_statement, private_intent="", advice=advise(self.state, nation),
-                            chosen=[], reason="", persona=_persona(nation))
+                            chosen=[], reason="", persona=_persona(nation), private_strategy=strategy)
 
     def begin_call(self, to: str) -> str:
         """For split replies: call when the spoken reply goes out. state.last_call shows
