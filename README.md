@@ -1,3 +1,5 @@
+![GAMBIT](e2e/assets/gambit-wordmark.svg)
+
 # GAMBIT — *Every call is a move*
 
 A voice-played grand-strategy and crisis-negotiation game built for the Mistral London Hackathon (21 Nov 2026).
@@ -55,7 +57,7 @@ Runs the full playable game from deterministic cached replies, adviser-driven tu
 | **Mistral Medium** | `mistral-medium-latest` | Strategy & crisis turn decisions (`GAMBIT_DECIDE_MODEL=mistral-medium-latest`, keeping 2512's 30 RPM quota dedicated to voice) and hedge race model. |
 | **Voxtral STT** | `voxtral-mini-transcribe-3` | Transcribes hold-to-talk browser audio (`webm/opus`, `wav`, `mp3`, `ogg`, `flac`) via `POST /call` and `POST /transcribe`, biased with `context_bias` for nation names and crisis terms. |
 | **Voxtral TTS** | `voxtral-mini-tts-3-0` | Five distinct cast leader voices with inline `[emotion=...]` tags (`angry`, `tense`, `proud`, `warm`, `assertive`, etc.) and streamed first-chunk playback (`stream: true`, 0.39 s median), plus pre-rendered crisis rings and Wiretap audio. |
-| **Mistral Vibe & MCP** | `gambit_mcp/`, `.vibe/skills/` | Built self-contained game data, persona cards, SVG artwork, and unit tests; ships an MCP server (`gambit_mcp.server`) and Vibe skills (`/gambit-brief`, `/gambit-crisis-card`) so Mistral Vibe can inspect and play live games. |
+| **Mistral Vibe & MCP** | `gambit_mcp/`, `.vibe/skills/` | Built self-contained game data, persona cards, SVG artwork, and unit tests; ships a live-verified MCP server (`gambit_mcp.server`, 8 tools) and Vibe skills (`/gambit-brief`, `/gambit-crisis-card`) so Mistral Vibe can inspect and play live games (`vibe mcp add gambit --transport stdio --command "$(pwd)/.venv/bin/python" --arg=-m --arg gambit_mcp.server --env PYTHONPATH="$(pwd)" --tool-timeout-sec 120`). |
 
 *(Note: Mistral Managed Agents was evaluated in `agents/A0_RESULTS.md` and ruled no-go at 9.6 s/turn, so GAMBIT uses direct chat completions with structured JSON output and explicit session memory.)*
 
