@@ -442,6 +442,9 @@ OFFER = re.compile(r"\b(pay|pays|paying|paid|cover|covers|in return|in exchange|
                    r"reward|cost of|we will|i will|i'll|we'll|you'll get|you will get)\b", re.I)
 
 
+HOLD_BACK = {"wait", "stay_out", "hold_batch"}  # moves that mean "do nothing for now"
+
+
 def _requested_moves(transcript: str, nation: str, state: dict) -> list[str]:
     """Crisis moves of `nation` that the player asked for while offering something."""
     c = state.get("crisis")
@@ -459,8 +462,9 @@ def _parse_promises(data: dict, v: CallView, state: dict) -> list[dict]:
     """Only promises made to the leader on the line count: the other leaders did not hear
     them. In a crisis, what/when are mapped onto the engine's vocabulary or dropped."""
     vocab = _crisis_vocab(state, v.nation)
-    # "Hold your ships" is a demand, not a player promise: a promise whose subject is one of
-    # this leader's own moves only counts when the player offered something for it on this call.
+    # "Hold your ships" is a demand, not a player promise: asking the leader to hold back only
+    # counts when the player offered something for it on this call. Requests for help (tugs)
+    # are still recorded as before: the demo's own tug line names no payment.
     player_said = " ".join([v.transcript or ""] + [t.text for t in (v.history or []) if t.role == "player"])
     offered = bool(OFFER.search(player_said))
     out = []
@@ -472,9 +476,9 @@ def _parse_promises(data: dict, v: CallView, state: dict) -> list[dict]:
         what, when = str(p["what"]).strip(), str(p.get("when") or "").strip()
         if vocab is not None:
             norm = _norm_what(what, vocab)
-            if norm is None or (norm != "berth" and not offered):
+            if norm is None or (norm in HOLD_BACK and not offered):
                 continue
-            when =_norm_when(when, what) if norm == "berth" else (when if when in SLOTS else "now")
+            when = _norm_when(when, what) if norm == "berth" else (when if when in SLOTS else "now")
             what = norm
         cond = p.get("condition")
         cond = str(cond).strip() if cond and str(cond).strip().lower() not in ("none", "null", "no") else None
