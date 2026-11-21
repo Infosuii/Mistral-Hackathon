@@ -212,7 +212,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 routers = [router]
 MOUNT_ERRORS: dict[str, str] = {}  # scripts/smoke.sh fails if this is not empty
-for module in ("voice.api", "replay.api"):
+for module in ("voice.api", "replay.api", "war.api"):
     try:
         routers.append(importlib.import_module(module).router)
         log.info("mounted %s", module)
