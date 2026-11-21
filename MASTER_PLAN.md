@@ -35,14 +35,15 @@ How Tamim carries both jobs: three seats. **Tamim's build agent** does the inter
 |---|---|---|
 | 12:15 | First tests done (§6). `contracts/` on `main` | Fix the failing test before anything else |
 | 12:45 | **Layer 0.** The world runs 20 turns in a terminal | Fewer action types |
-| 14:15 | **Layer 1.** Someone plays three minutes by voice. All four play once. Backup video recorded | Typed input; cut Wiretap |
+| 14:15 | **Voice playtest.** One person plays One Berth by voice for five minutes and reports what felt wrong | Prioritise the playtest fixes |
 | 15:15 | **Layer 2.** One Berth plays through and can be interrupted | Cut hesitation; keep interruption |
 | 16:00 | **Layer 3.** Needle moves; replay names who flipped | Cut replay, keep needle |
 | 16:15 | **Freeze.** Polish and demo seed only | — |
-| 17:00 | Final video recorded | Use the backup video |
+| 16:30 | Record the finished build and play back the saved video | Use typed input if the room mic fails |
+| 17:00 | Final video ready. The 16:30 recording can serve as the submission video | Check the saved backup |
 | 17:45 | Submitted | — |
 
-The first checkpoint is 12:15, not the 12:00 in `ideas.md`, because approval ran late. The others are unchanged.
+The first checkpoint moved from 12:00 in `ideas.md` to 12:15 when approval ran late.
 
 ## 3. Stack and layout
 
@@ -281,7 +282,7 @@ Response to the page: `{transcript, reply_text, reply_audio_url, emotion, promis
 | V2 | 14:15 | `talk-button.js`: hold to talk, reports `interrupted` and `hesitation_ms`, emits transcript events, typed fallback. `/wiretap` audio | Tamim mounts it without editing | Main |
 | V3 | 15:00 | Pre-render opening lines and Wiretap for the demo seed | Plays with the network off | Main |
 | V4 | 15:30 | More crisis files: `outbreak.json`, `coup.json` | Load without code changes | Vibe |
-| D1 | 14:15 | Run the playtest and record the backup video | File saved | — |
+| D1 | 14:15 / 16:30 | One five-minute One Berth voice playtest, then record the backup after the freeze | Feedback posted at 14:15 and video saved and replayed at 16:30 | — |
 | D2 | 16:15 | Demo script and who says what | Rehearsed twice | — |
 | D3 | 17:00 / 17:45 | Final video; submission | Submitted | — |
 
@@ -382,7 +383,7 @@ The directions written in this plan are starting points. Each person keeps steer
 - **Someone else's area:** post a `DESIGN` note on their work issue. Say what you want it to feel like, name a reference (a screenshot, a link, another game), and say which screen or leader. Screenshots can be dropped straight into the issue.
 - **When the owner is unsure between two looks,** their agent shows two quick variants and the owner picks. No guessing.
 - **Direction changes must be cheap.** Colours, type and spacing live in one theme file; personalities and voices live in data files. A new direction is an edit to those, not a rewrite.
-- **Two design looks, five minutes each, all four people:** after W1 (first screen up) and at the 14:15 checkpoint. After the 16:15 freeze the design is locked.
+- **Two design looks, five minutes each, all four people:** after W1 (first screen up). The design locks at the 16:15 freeze.
 
 Example:
 
