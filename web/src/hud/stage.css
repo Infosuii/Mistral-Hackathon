@@ -14,7 +14,8 @@
   background: radial-gradient(ellipse at 50% 50%, transparent 58%, rgb(0 0 0 / .5) 100%);
 }
 .map-markers .leader, .map-markers .city-marker, .map-markers .map-event,
-.map-markers .site-label { pointer-events: auto; }
+.map-markers .site-label, .map-markers .unit { pointer-events: auto; }
+.map-markers .unit { cursor: help; }
 @media (max-width: 68rem) { .map-stage { height: auto; } }
 
 /* --- sea: depth gradient, rolling swell and drifting glints --- */

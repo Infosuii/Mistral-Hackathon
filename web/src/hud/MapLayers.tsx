@@ -55,22 +55,32 @@ export function TerritoryLabels({ state, selected }: { state: GameState; selecte
   )
 }
 
-function Counter({ x, y, army, id }: { x: number; y: number; army: number; id: string }) {
-  const stack = Math.max(1, Math.min(4, Math.ceil(army / 25)))
-  const m = useMarkerScale()
+/** An army badge: a shield in the nation's colours with a tank, one chevron per 25 army
+ *  (up to four) and the army strength underneath. Front-line badges are smaller. */
+function Counter({ x, y, army, id, name, front = false }: {
+  x: number; y: number; army: number; id: string; name: string; front?: boolean
+}) {
+  const rank = Math.max(1, Math.min(4, Math.ceil(army / 25)))
+  const m = useMarkerScale() * (front ? .8 : 1)
+  const strength = Math.round(army)
   return (
-    <g className="unit" transform={`translate(${x} ${y}) scale(${m})`} style={nationStyle(id)} filter="url(#unit-shadow)">
-      {Array.from({ length: stack }, (_, i) => stack - 1 - i).map((i) => (
-        <g key={i} transform={`translate(${i * 3} ${-i * 3})`}>
-          <rect x="-15" y="-10" width="30" height="20" rx="2" className="unit-body" />
-          <rect x="-11" y="-7" width="14" height="10" className="unit-symbol" />
-          <path d="M-11,-7 L3,3 M3,-7 L-11,3" className="unit-symbol-x" />
-          <rect x="5" y="-7" width="7" height="10" className="unit-pip" />
-        </g>
+    <g className="unit" data-front={front} transform={`translate(${x} ${y}) scale(${m})`} style={nationStyle(id)} filter="url(#unit-shadow)">
+      <title>{front ? `${name} troops on the front line · ${strength}` : `${name} army · strength ${strength}`}</title>
+      {Array.from({ length: rank }, (_, i) => (
+        <path key={i} className="unit-rank" d={`M-6 ${-20 - i * 3.6}L0 ${-23.5 - i * 3.6}L6 ${-20 - i * 3.6}`} />
       ))}
-      <g transform="translate(0 16)">
-        <rect x="-13" y="-6" width="26" height="12" rx="6" className="unit-plate" />
-        <text y="3.5" className="unit-strength">{Math.round(army)}</text>
+      <path className="unit-body" d="M0-17L14-12V-1C14 9 7 15 0 18C-7 15-14 9-14-1V-12Z" />
+      <path className="unit-inset" d="M0-13.5L10.5-9.6V-1C10.5 6.6 5.3 11.2 0 13.6C-5.3 11.2-10.5 6.6-10.5-1V-9.6Z" />
+      <g className="unit-tank" transform="translate(0 1)">
+        <path d="M-4-4.5h7l1.2 4.5h-9.4Z" />
+        <path d="M3.4-3.3h7.6v1.5H3.4Z" />
+        <path d="M-8.5-.2h15.5l2 3.4h-19.5Z" />
+        <path d="M-9.4 3.4h18.6a2.3 2.3 0 0 1 0 4.6H-9.4a2.3 2.3 0 0 1 0-4.6Z" />
+        {[-6.6, -3.3, 0, 3.3, 6.6].map((cx) => <circle key={cx} className="unit-wheel" cx={cx} cy="5.7" r="1.2" />)}
+      </g>
+      <g transform="translate(0 25)">
+        <rect x="-14" y="-6.5" width="28" height="13" rx="6.5" className="unit-plate" />
+        <text y="3.6" className="unit-strength">{strength}</text>
       </g>
     </g>
   )
@@ -96,7 +106,7 @@ export function UnitCounters({ state }: { state: GameState }) {
     <g className="unit-layer">
       {Object.entries(state.nations).map(([id, n]) => {
         const c = capitals[id]
-        return c ? <Counter key={id} id={id} x={c[0] + 34 * m} y={c[1] + 18 * m} army={n.stats.army} /> : null
+        return c ? <Counter key={id} id={id} name={n.name} x={c[0] + 34 * m} y={c[1] + 18 * m} army={n.stats.army} /> : null
       })}
       {front.filter(({ id, at }) => {
         const k = `${id}${at}`
@@ -104,7 +114,8 @@ export function UnitCounters({ state }: { state: GameState }) {
         seen.add(k)
         return true
       }).slice(0, 8).map(({ id, at }) => (
-        <Counter key={`f${id}${at}`} id={id} x={at[0]} y={at[1]} army={state.nations[id]?.stats.army / 3} />
+        <Counter key={`f${id}${at}`} id={id} name={state.nations[id]?.name ?? id} x={at[0]} y={at[1]}
+          army={state.nations[id]?.stats.army / 3} front />
       ))}
     </g>
   )
