@@ -57,17 +57,17 @@ rather than relying on memory, because these models are new.
 Coordination is on GitHub (MASTER_PLAN.md section 8):
 - Read the pinned "Team message board" issue before you start and before you open a PR.
 - Post a board comment only when another teammate needs to act on it. Keep it to one
-  or two lines and start with READY, CHANGED, BLOCKED or DECIDED, then my name and
+  or two lines and start with READY, CHANGED, BLOCKED, DECIDED or NEED, then my name and
   role (given in the role block), since several agents may share one GitHub login.
   Say who needs to act and link the issue, PR or example. No progress updates.
-- Read the board at task boundaries: before starting a task and before opening a PR.
-  Do not poll it in between.
+- Read the board at task boundaries: before starting a task, before opening a PR and
+  after finishing one. While waiting, use scripts/wait_for_tag.sh instead of polling by hand.
 - Keep implementation detail in your own work issue, not on the board.
 - Every PR links its issue, gives a verification command or demo result, and names
   the teammate who can now integrate it.
 - If you are blocked, say which other task can continue against a fixture, and tag
   Tamim. Tamim is the lead coordinator: scope, ownership and contract changes are
-  Tamim's call, and Tamim merges PRs. Do not resolve those yourself.
+  Tamim's call, and Tamim merges drive-by and contract PRs. Do not resolve those yourself.
 
 I will keep asking for changes while we build, and so will my teammates. Handle them
 like this (MASTER_PLAN.md section 8b):
@@ -95,8 +95,34 @@ said. When you are unsure between two directions, show me two quick variants and
 me pick instead of guessing. Keep style in data (a theme file, persona cards, a casting
 file, weights) so a change of direction is a small edit, not a rewrite.
 
-When you finish a task or get blocked, tell me in two or three sentences what works,
-what you ran to check it, and anything that does not work yet.
+Work autonomously. I should not have to tell you to carry on (MASTER_PLAN.md
+section 8d). Run this loop until my task table is finished or it is 16:15:
+1. Update my status card, then do the next task in my table:
+   scripts/board.sh status <my name> --now "..." --done "..." --next "..." --needs "..."
+   Check the task's "done when" by running the code.
+2. Open a PR that links my work issue and states the check you ran. If the PR only
+   touches my own folders and the check passes (and scripts/smoke.sh passes once it
+   exists), merge it yourself and pull main. Drive-by PRs and contract changes are
+   never self-merged.
+3. Tell whoever can now use it, by name. Their agent is waiting for exactly this:
+   scripts/board.sh say READY <my name> "<who>" "<what is ready and where>"
+   If I need something from someone but can keep working, use NEED instead of READY.
+   If an interface changed, use CHANGED.
+4. Run scripts/board.sh read (everyone's status card plus the latest messages) and
+   check my work issue. Handle anything addressed to me first.
+5. Start the next task straight away. If it needs something that is not on main yet,
+   build against the example or mock named in my starter issue and keep going.
+6. If there is nothing at all you can do, post BLOCKED naming who you need and what,
+   then run: scripts/wait_for_tag.sh <my name> <my issue number> 15 <path you need>
+   It returns when someone addresses me on the board, comments on my issue, or the
+   path changes on main. Then pull main and continue. If it times out twice in a row,
+   stop and tell me.
+Stop and ask me only for: a contract change, a scope or ownership conflict, a choice
+between two design directions, anything destructive (force-push, deleting someone's
+work), or the same failure three times. Otherwise keep going. After 16:15, fixes only.
+
+Each time you finish a task, leave me a two-line note of what now works and what you
+ran to check it, then continue without waiting for a reply.
 ```
 
 ---
@@ -297,7 +323,7 @@ Finish by giving us the board link, each person's starter issue, and the exact f
 
 ---
 
-## Kickoff prompts (draft — issue numbers filled in when the board is set up)
+## Kickoff prompts
 
 The first message each person pastes into their coding agent. It points at the files in the repo, so it stays short.
 
@@ -306,10 +332,12 @@ The first message each person pastes into their coding agent. It points at the f
 ```text
 You are working with Tamim on GAMBIT in Infosuii/Mistral-Hackathon. Pull main first.
 Read MASTER_PROMPT.md (the shared brief and the "Tamim" role block), MASTER_PLAN.md,
-the pinned "Team message board" issue, and my starter issue #__.
+the pinned "Team message board" issue #25, and my starter issue #26.
 Start task W1 now: render contracts/examples/state.json as the game screen. If
 contracts/ is not on main yet, use the example in MASTER_PLAN.md section 4.2.
-Sign board comments "Tamim / lead". Re-read the board before opening a PR.
+Sign board comments "Tamim / lead". Work autonomously as the shared brief describes:
+finish, merge, post READY, check the board, start the next task, and wait for my tag
+only when there is nothing left to do.
 ```
 
 **Om**
@@ -317,11 +345,13 @@ Sign board comments "Tamim / lead". Re-read the board before opening a PR.
 ```text
 You are working with Om on GAMBIT in Infosuii/Mistral-Hackathon. Pull main first.
 Read MASTER_PROMPT.md (the shared brief and the "Om" role block), MASTER_PLAN.md,
-the pinned "Team message board" issue, and my starter issue #__.
+the pinned "Team message board" issue #25, and my starter issue #27.
 Start task E0 now: pydantic models for MASTER_PLAN.md section 4 and one example JSON
 per endpoint in contracts/examples/. Three people are waiting on it, so push it to
 main as soon as it validates and post on the board that it is ready.
-Sign board comments "Om / engine". Re-read the board before opening a PR.
+Sign board comments "Om / engine". Work autonomously as the shared brief describes:
+finish, merge, post READY, check the board, start the next task, and wait for my tag
+only when there is nothing left to do.
 ```
 
 **Abi**
@@ -329,10 +359,12 @@ Sign board comments "Om / engine". Re-read the board before opening a PR.
 ```text
 You are working with Abi on GAMBIT in Infosuii/Mistral-Hackathon. Pull main first.
 Read MASTER_PROMPT.md (the shared brief and the "Abi" role block), MASTER_PLAN.md,
-the pinned "Team message board" issue, and my starter issue #__.
+the pinned "Team message board" issue #25, and my starter issue #28.
 Start task A0 now: the three model tests. Post the results on the board, including
 go or no-go on Managed Agents. Then start A1 with a mocked advisers' ranking.
-Sign board comments "Abi / leaders". Re-read the board before opening a PR.
+Sign board comments "Abi / leaders". Work autonomously as the shared brief describes:
+finish, merge, post READY, check the board, start the next task, and wait for my tag
+only when there is nothing left to do.
 ```
 
 **Ashish**
@@ -340,8 +372,10 @@ Sign board comments "Abi / leaders". Re-read the board before opening a PR.
 ```text
 You are working with Ashish on GAMBIT in Infosuii/Mistral-Hackathon. Pull main first.
 Read MASTER_PROMPT.md (the shared brief and the "Ashish" role block), MASTER_PLAN.md,
-the pinned "Team message board" issue, and my starter issue #__.
+the pinned "Team message board" issue #25, and my starter issue #29.
 Start task V0 now: the three voice tests. Post the timings on the board. Then start
 V1, mocking agents.call_reply() with the example in MASTER_PLAN.md section 4.6.
-Sign board comments "Ashish / voice". Re-read the board before opening a PR.
+Sign board comments "Ashish / voice". Work autonomously as the shared brief describes:
+finish, merge, post READY, check the board, start the next task, and wait for my tag
+only when there is nothing left to do.
 ```
