@@ -43,6 +43,8 @@ async def one(c: httpx.AsyncClient, model: str) -> None:
 
 
 async def main() -> None:
+    if not os.environ.get("MISTRAL_API_KEY"):
+        raise SystemExit("Set MISTRAL_API_KEY before running the model probe.")
     models = sys.argv[1:] or ["mistral-large-4", "mistral-large-2512"]
     async with httpx.AsyncClient() as c:
         await asyncio.gather(*[one(c, m) for m in models])

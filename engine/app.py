@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import importlib
 import logging
+import sys
+from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -135,7 +137,17 @@ async def leader(nation: str) -> LeaderDetail:
     return public_leader(GAME.state, GAME.leader(nation))
 
 
-app = FastAPI(title="GAMBIT")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        yield
+    finally:
+        agents_client = sys.modules.get("agents.llm")
+        if agents_client is not None:
+            await agents_client.close_client()
+
+
+app = FastAPI(title="GAMBIT", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 routers = [router]
