@@ -97,10 +97,10 @@ CALL_IDLE_S = 180
 _calls: dict[str, dict] = {}
 
 
-def _history(nation: str, state: dict) -> list[dict]:
+def _history(nation: str, state: dict, epoch: int | None) -> list[dict]:
     call = _calls.get(nation)
-    if call is None or time.time() - call["at"] > CALL_IDLE_S:
-        call = _calls[nation] = {"at": time.time(), "turns": []}
+    if call is None or call["epoch"] != epoch or time.time() - call["at"] > CALL_IDLE_S:
+        call = _calls[nation] = {"at": time.time(), "turns": [], "epoch": epoch}
         ring = state.get("incoming_call") or {}
         if ring.get("from") == nation and ring.get("opening_line"):
             call["turns"].append({"role": "leader", "text": ring["opening_line"]})
@@ -120,6 +120,14 @@ FALLBACK_REPLY = {
 @router.post("/call")
 async def call(req: CallRequest):
     voice_id = voice_for(req.to)
+    game = _game()
+    generation = game.call_generation if game else None
+
+    def check_session():
+        if game and (game.call_generation != generation or game.state.phase == "ended"):
+            raise HTTPException(409, "The game or crisis changed during this call.")
+
+    check_session()
     t0 = time.perf_counter()
     if req.interrupted:  # takes effect now, not when the reply has been worked out
         interrupt = getattr(_game(), "interrupt", None)
@@ -136,8 +144,9 @@ async def call(req: CallRequest):
         raise HTTPException(422, "send audio or text")
     t_stt = time.perf_counter()
 
+    check_session()
     state = _current_state()
-    history = _history(req.to, state)
+    history = _history(req.to, state, game.epoch if game else None)
     view = {"nation": req.to, "transcript": transcript, "interrupted": req.interrupted,
             "hesitation_ms": req.hesitation_ms, "state": state,
             "history": list(history) or None}
@@ -154,6 +163,7 @@ async def call(req: CallRequest):
         print(f"[voice] leader reply failed, using fallback line: {e}")
         raw = dict(FALLBACK_REPLY)  # the player still said it: interpret below records their promises
         failed = True
+    check_session()
     t_llm = time.perf_counter()
 
     # A live server with no key cannot reach any leader. Say so in plain words instead of
@@ -167,10 +177,11 @@ async def call(req: CallRequest):
 
     # Speech first: the TTS request goes out before anything else happens.
     url = await speak(raw["reply_text"], voice_id, raw["emotion"])
+    check_session()
     history += [{"role": "player", "text": transcript}, {"role": "leader", "text": raw["reply_text"]}]
     # The previous turn's interpret() may have ended this call meanwhile (ends_call pops
     # it), so put the conversation back instead of assuming it is still there.
-    _calls.setdefault(req.to, {"at": 0.0, "turns": history})["at"] = time.time()
+    _calls.setdefault(req.to, {"at": 0.0, "turns": history, "epoch": game.epoch if game else None})["at"] = time.time()
 
     response = {
         "transcript": transcript,
@@ -180,13 +191,14 @@ async def call(req: CallRequest):
         "promises": [],
         "actions": [],
     }
+    call_id = _begin_call(req.to)
+    _calls[req.to]["latest_id"] = call_id
     if interp is None:  # one call did everything: apply it now
         result = _to_output(raw)
-        _apply(req, result)
+        _apply(req, result, call_id)
         done = result.model_dump(mode="json")
         response["promises"], response["actions"] = done["promises"], done["actions"]
     else:  # Large 4 works out what was agreed; the page sees it in state.last_call
-        call_id = _begin_call(req.to)
         if call_id:
             response.update(call_id=call_id, pending=True)
         task = asyncio.create_task(_interpret(req, arg, raw, interp, call_id))
@@ -209,7 +221,10 @@ def _to_output(raw: dict) -> CallOutput:
 
 
 def _apply(req: CallRequest, result: CallOutput, call_id: str | None = None) -> None:
-    if result.ends_call:
+    game = _game()
+    if game and (game.state.phase == "ended" or (call_id and call_id not in game.call_results)):
+        return
+    if result.ends_call and _calls.get(req.to, {}).get("latest_id") == call_id:
         _calls.pop(req.to, None)
     _apply_to_engine(req, result, call_id)
 
@@ -245,6 +260,12 @@ async def wiretap(a: str, b: str):
     if seat is not None and seat.role == "mediator":
         raise HTTPException(403, "a mediator has no wiretap: public positions only")
     lines = demo_wiretap(a, b) if os.environ.get("VOICE_WIRETAP") == "demo" else None
+    if not lines and os.environ.get("VOICE_WIRETAP") == "demo":
+        voice_for(a)
+        voice_for(b)
+        statements = _current_state()["nations"]
+        return {"lines": [{"speaker": n, "text": statements[n]["public_statement"], "audio_url": None}
+                          for n in (a, b)]}
     if not lines:
         try:
             import agents  # type: ignore
