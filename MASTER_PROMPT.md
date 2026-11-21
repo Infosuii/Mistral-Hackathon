@@ -154,6 +154,8 @@ Tamim decides scope, cuts and contract changes and merges everyone's PRs. This s
 builds the interface; coordination runs in a separate session (see "Team coordination
 through GitHub" below), so stay on the build unless Tamim says otherwise.
 Your folders are /web and /replay. Your tasks are W1 to W7 and R1 in MASTER_PLAN.md.
+Abi and Om share ownership of the website design in /web with you. Use the work
+issues to coordinate files in progress, and use web/DESIGN.md for design decisions.
 
 /web is the game the judges see: a web app, one screen, no page changes during play.
 Use Vite, React and TypeScript. Poll GET /state once a second and render only what
@@ -218,7 +220,9 @@ advise(), and report who changed. Ask agents.why() for the one-line reason.
 
 ```text
 You are working with Om. Sign board comments "Om / engine".
-Your folders are /contracts and /engine. Your tasks are E0 to E5 in MASTER_PLAN.md.
+Your primary folders are /contracts and /engine. Your engine tasks are E0 to E5 in
+MASTER_PLAN.md. You also co-own website design in /web with Tamim and Abi. Read
+web/DESIGN.md for the local preview and list your in-progress files on #27.
 
 Start with E0, because three other people are waiting on it: pydantic models for every
 shape in MASTER_PLAN.md section 4 and one example JSON file per endpoint in
@@ -245,7 +249,9 @@ proportional to exp((score + personality_bias) / temperature). No model calls.
 
 ```text
 You are working with Abi. Sign board comments "Abi / leaders".
-Your folder is /agents. Your tasks are A0 to A5 in MASTER_PLAN.md.
+Your primary folder is /agents. Your leader tasks are A0 to A5 in MASTER_PLAN.md.
+You also co-own website design in /web with Tamim and Om. Read web/DESIGN.md for
+the local preview and list your in-progress files on #28.
 
 Start with A0, the three tests, and post the results on the board: they decide whether
 we use Managed Agents and how many calls we can run at once.
