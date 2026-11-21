@@ -134,7 +134,19 @@ class WarRoom:
         return held + sum(a.troops for a in self.armies if a.owner == nation)
 
     def _sync(self, state: State) -> None:
-        """Follow changes the engine made on its own (monthly war rolls, army drift)."""
+        """Follow changes the engine made on its own (monthly war rolls, army drift, and wars
+        the engine started or ended in a normal month), so /war and /state always agree."""
+        linked = {relation_key(l.a, l.b): l for l in state.links if l.type == "war"}
+        for key in [k for k in self.wars if k not in linked]:  # the engine made peace
+            war = self.wars.pop(key)
+            self._send_home(state, war)
+            self.log.append({"t": round(self.clock(), 2), "turn": state.turn, "kind": "peace",
+                             "text": f"{self._name(state, war.a)} and {self._name(state, war.b)} are at peace"})
+        for key, l in linked.items():  # the engine (an AI leader, a crisis outcome) started one
+            if key not in self.wars:
+                self.wars[key] = War(a=l.a, b=l.b, started_turn=state.turn, started_at=self.clock())
+                for n in (l.a, l.b):
+                    self.next_ai.setdefault(n, self.clock() + 2.0)
         for nation, n in state.nations.items():
             seen = self.army_seen.get(nation)
             if seen and abs(n.stats.army - seen) > 0.5:
@@ -185,6 +197,8 @@ class WarRoom:
             from contracts.models import Link
             state.links.append(Link(type="war", a=by, b=target))
         state.relations[key] = max(-100, state.relations.get(key, 0) - 40)
+        from contracts.models import Event
+        state.events.append(Event(turn=state.turn, type="war", nation=by, target=target, text=f"{by} declares war on {target}"))
         for n in (by, target):
             if "WAR" not in state.nations[n].status:
                 state.nations[n].status.append("WAR")
@@ -329,16 +343,19 @@ class WarRoom:
                              "demand": f"; {name} pays tribute"}[kind])
         return {"accepted": ok, "reply": reply}
 
+    def _send_home(self, state: State, war: War) -> None:
+        """Armies marching against each other go home to their source province."""
+        for army in [x for x in self.armies if {x.owner, x.target} == {war.a, war.b}]:
+            if state.provinces.get(army.src) == army.owner:
+                self.garrison[army.src] = self.garrison.get(army.src, 0) + army.troops
+            self.armies.remove(army)
+
     def _end_war(self, state: State, key: str, text: str, kind: str = "peace") -> None:
         war = self.wars.pop(key, None)
         if not war:
             return
         state.links[:] = [l for l in state.links if not (l.type == "war" and {l.a, l.b} == {war.a, war.b})]
-        # Armies marching against each other go home to their source province.
-        for army in [x for x in self.armies if {x.owner, x.target} == {war.a, war.b}]:
-            if state.provinces.get(army.src) == army.owner:
-                self.garrison[army.src] = self.garrison.get(army.src, 0) + army.troops
-            self.armies.remove(army)
+        self._send_home(state, war)
         state.relations[key] = min(100, state.relations.get(key, 0) + 15)
         for n in (war.a, war.b):
             if not self.enemies(n) and "WAR" in state.nations[n].status:
