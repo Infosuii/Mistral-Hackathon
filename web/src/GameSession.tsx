@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import crisisRequest from '../../contracts/examples/crisis_start.request.json'
 import startRequest from '../../contracts/examples/start.request.json'
 import { api, post } from './api'
 import { App } from './App'
 import type { PhoneActivity } from './Phone'
-import { exampleState, type GameState } from './state'
+import { defaultCrisis, exampleState, type GameState } from './state'
 
 const pollInterval = 1_000
 const turnInterval = 20_000
@@ -19,7 +18,7 @@ const gameRequests = {
   start: { path: '/start', body: startRequest, error: 'Could not start the game.' },
   turn: { path: '/turn', body: undefined, error: 'Could not advance. Try again.' },
   end: { path: '/end', body: undefined, error: 'Could not end the session.' },
-  crisis: { path: '/crisis/start', body: crisisRequest, error: 'Could not start One Berth.' },
+  crisis: { path: '/crisis/start', body: undefined, error: 'Could not start the crisis.' },
 }
 
 
@@ -29,6 +28,7 @@ export function GameSession() {
   const phone = useRef(idlePhone)
   const [phoneActivity, setPhoneActivity] = useState(idlePhone)
   const [connection, setConnection] = useState<'connecting' | 'online' | 'offline'>('connecting')
+  const [newCrisis, setNewCrisis] = useState(defaultCrisis.id)
   const [newSeat, setNewSeat] = useState<'president' | 'mediator'>('president')
   const [session, setSession] = useState(0)
   const [paused, setPaused] = useState(true)
@@ -120,6 +120,8 @@ export function GameSession() {
   const startBody = canMediate && newSeat === 'mediator'
     ? { ...startRequest, seat: { role: 'mediator', nation: null } }
     : startRequest
+  const crisisOptions = state.available_crises?.length ? state.available_crises : [defaultCrisis]
+  const selectedCrisis = crisisOptions.find((scenario) => scenario.id === newCrisis) ?? crisisOptions[0]
   const controls = (
     <div className="session-controls" aria-label="Session controls">
       {canMediate && (
@@ -136,7 +138,15 @@ export function GameSession() {
           <button onClick={() => void send('turn')} disabled={!canAdvance || pending || clockHeld}>{state.crisis ? 'Next tick' : 'Next turn'}</button>
           {online && state.phase === 'strategy' && (
             <>
-              <button onClick={() => void send('crisis')} disabled={pending}>Start One Berth</button>
+              {crisisOptions.length > 1 && (
+                <select aria-label="Crisis scenario" className="plain-control" value={selectedCrisis.id}
+                  onChange={(event) => setNewCrisis(event.target.value)} disabled={pending}>
+                  {crisisOptions.map(({ id, title }) => <option key={id} value={id}>{title}</option>)}
+                </select>
+              )}
+              <button onClick={() => void send('crisis', { id: selectedCrisis.id })} disabled={pending}>
+                Start {selectedCrisis.title}
+              </button>
               {state.ending !== undefined && <button onClick={() => void send('end')} disabled={pending}>End session</button>}
             </>
           )}
