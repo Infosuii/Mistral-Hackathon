@@ -59,6 +59,10 @@ Runs the full playable game from deterministic cached replies, adviser-driven tu
 | **Voxtral TTS** | `voxtral-mini-tts-3-0` | Five distinct cast leader voices with inline `[emotion=...]` tags (`angry`, `tense`, `proud`, `warm`, `assertive`, etc.) and streamed first-chunk playback (`stream: true`, 0.39 s median), plus pre-rendered crisis rings and Wiretap audio. |
 | **Mistral Vibe & MCP** | `gambit_mcp/`, `.vibe/skills/` | Built self-contained game data, persona cards, SVG artwork, and unit tests; ships a live-verified MCP server (`gambit_mcp.server`, 8 tools) and Vibe skills (`/gambit-brief`, `/gambit-crisis-card`) so Mistral Vibe can inspect and play live games (`vibe mcp add gambit --transport stdio --command "$(pwd)/.venv/bin/python" --arg=-m --arg gambit_mcp.server --env PYTHONPATH="$(pwd)" --tool-timeout-sec 120`). |
 
+### Voxtral in detail
+
+[`voice/VOXTRAL.md`](voice/VOXTRAL.md) is one page on every Voxtral feature the game uses (transcription with context bias, streamed speech, emotion tags, five cast voices, Wiretap, pre-rendered lines), where each one appears, and the measured timings: about 1.8 s from a typed line to the leader's voice, 13/13 spoken calls in the human playtest, and 98.4% word accuracy with simulated busy-room noise (10 dB SNR, synthetic babble and hum, not a venue recording).
+
 *(Note: Mistral Managed Agents was evaluated in `agents/A0_RESULTS.md` and ruled no-go at 9.6 s/turn, so GAMBIT uses direct chat completions with structured JSON output and explicit session memory.)*
 
 ---
