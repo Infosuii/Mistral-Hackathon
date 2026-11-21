@@ -305,14 +305,21 @@ class CallOutput(Model):
     ends_call: bool = False
 
 
+class CallTurn(Model):
+    role: Literal["player", "leader"]
+    text: str
+
+
 class CallView(Model):
-    """Input to agents.call_reply. Not specified in section 4; proposed minimal shape."""
+    """Input to agents.call_reply (confirmed by Tamim, 12:14)."""
 
     nation: NationId
     transcript: str
     interrupted: bool
     hesitation_ms: Optional[int] = None
     state: State
+    # Earlier turns of this call, oldest first, so the leader remembers them. /call keeps it.
+    history: Optional[list[CallTurn]] = None
 
 
 class CallResponse(Model):

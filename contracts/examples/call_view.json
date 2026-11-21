@@ -295,5 +295,15 @@
       },
       "caption": "Two promises of one berth: Ostrava and Zarnia now expect to fight for it."
     }
-  }
+  },
+  "history": [
+    {
+      "role": "leader",
+      "text": "You promised Zarnia the same berth. I am announcing a blockade of the strait."
+    },
+    {
+      "role": "player",
+      "text": "Wait. Hear me out before you say it."
+    }
+  ]
 }

@@ -24,14 +24,14 @@ state.model_dump(mode="json", by_alias=True)   # by_alias=True so `from_` is wri
 - When `provinces` is filled, each nation's `stats.territory` equals the number of provinces it owns.
 - `POST /call` takes exactly one of `audio` or `text`.
 
-## Filled in where §4 was silent (proposed; Tamim to confirm)
+## Filled in where §4 was silent (confirmed by Tamim, 12:14)
 
 | Shape | Choice |
 |---|---|
 | `state.incoming_call` | `{from, emotion, opening_line, audio_url}`, the same fields as a scripted `incoming_call` |
 | `Advice` (`advise()`, `/leaders` `advice`) | `{action: Action, score}`, from `ideas.md` §10 |
 | `LeaderView` (`agents.decide` input) | `{nation, state, advice, messages_received: [{from, text}]}` |
-| `CallView` (`agents.call_reply` input) | `{nation, transcript, interrupted, hesitation_ms, state}` |
+| `CallView` (`agents.call_reply` input) | `{nation, transcript, interrupted, hesitation_ms, state, history?}`; `history` is an optional list of `{role: "player" or "leader", text}`, oldest first |
 | `/leaders/{id}` `chosen`, `persona` | `chosen` is a list of Actions (like `LeaderOutput.actions`); `persona` is a string |
 | `nations.<seat>.beliefs` | `null` for the player's own nation |
 | `Action.target` | optional, because crisis actions such as `dock` have no target |
