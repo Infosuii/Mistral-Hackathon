@@ -1,0 +1,42 @@
+{
+  "actions": [
+    {
+      "type": "set_tariff",
+      "by": "valdoria",
+      "target": "ostrava",
+      "params": {
+        "pct": 10
+      }
+    },
+    {
+      "type": "set_tariff",
+      "by": "valdoria",
+      "target": "ostrava",
+      "params": {
+        "pct": 25
+      }
+    },
+    {
+      "type": "declare_war",
+      "by": "valdoria",
+      "target": "ostrava",
+      "params": {}
+    },
+    {
+      "type": "set_tariff",
+      "by": "valdoria",
+      "target": "zarnia",
+      "params": {
+        "pct": 10
+      }
+    }
+  ],
+  "queued": {
+    "type": "set_tariff",
+    "by": "valdoria",
+    "target": "ostrava",
+    "params": {
+      "pct": 25
+    }
+  }
+}

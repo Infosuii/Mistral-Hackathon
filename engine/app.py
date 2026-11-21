@@ -19,11 +19,12 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
 from contracts.models import (
-    NATION_IDS, CrisisStartRequest, FuturesRequest, FuturesResponse, LeaderDetail, StartRequest, State,
+    Action, PlayerActions, NATION_IDS, CrisisStartRequest, FuturesRequest, FuturesResponse, LeaderDetail, StartRequest, State,
 )
 from engine.futures import futures
 from engine.snapshots import load
 from engine.game import GAME, allowed_crises
+import engine.game as _game_mod
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("gambit.engine")
@@ -58,6 +59,31 @@ async def crisis_start(req: CrisisStartRequest) -> State:
         if GAME.state.phase != "strategy":
             raise HTTPException(409, f"cannot start a crisis during phase {GAME.state.phase!r}")
         return GAME.start_crisis(req.id)
+
+
+def _player_actions_enabled() -> None:
+    if not _game_mod.PLAYER_ACTIONS:
+        raise HTTPException(404, "player actions are off (GAMBIT_PLAYER_ACTIONS)")
+
+
+@router.get("/actions", response_model=PlayerActions)
+async def get_actions() -> PlayerActions:
+    """The one-sided moves the player's nation may make now, and the one queued."""
+    _player_actions_enabled()
+    return PlayerActions(actions=GAME.player_options(), queued=GAME.player_action)
+
+
+@router.post("/action", response_model=PlayerActions)
+async def post_action(action: Action) -> PlayerActions:
+    """Queue one move (set_tariff, declare_war, make_peace) for the player's nation for the
+    next month (DECIDED 13:49). Trade and alliances stay phone calls."""
+    _player_actions_enabled()
+    async with GAME.lock:
+        try:
+            GAME.queue_player_action(action)
+        except ValueError as e:
+            raise HTTPException(409 if "phase" in str(e) else 400, str(e))
+        return PlayerActions(actions=GAME.player_options(), queued=GAME.player_action)
 
 
 @router.post("/end", response_model=State)
