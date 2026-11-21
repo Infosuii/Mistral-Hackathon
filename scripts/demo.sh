@@ -39,6 +39,7 @@ done
 # Load .env in live mode without overriding exported shell variables.
 if [ "$OFFLINE" -eq 0 ] && [ -f "$ROOT/.env" ]; then
   while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"  # a .env saved on Windows ends each line with CR; keep it out of the key
     line="${line#"${line%%[![:space:]]*}"}"
     [ -z "$line" ] && continue
     case "$line" in \#*) continue ;; esac
@@ -46,6 +47,7 @@ if [ "$OFFLINE" -eq 0 ] && [ -f "$ROOT/.env" ]; then
       key="${line%%=*}"
       val="${line#*=}"
       key="${key%"${key##*[![:space:]]}"}"
+      val="${val%"${val##*[![:space:]]}"}"
       val="${val#\"}" ; val="${val%\"}"
       val="${val#\'}" ; val="${val%\'}"
       if [ -z "${!key:-}" ]; then
