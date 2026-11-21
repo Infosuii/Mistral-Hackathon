@@ -53,6 +53,7 @@ export function Phone({ state, selected, online }: { state: GameState; selected?
   const mount = useRef<HTMLDivElement>(null)
   const talk = useRef<TalkButton | null>(null)
   const playedOpening = useRef<string | undefined>(undefined)
+  const transcriptList = useRef<HTMLOListElement>(null)
 
   const incoming = state.incoming_call
   const incomingKey = incoming ? `${state.turn}|${incoming.from}|${incoming.opening_line}` : undefined
@@ -61,6 +62,7 @@ export function Phone({ state, selected, online }: { state: GameState; selected?
   const target = destination && destination !== state.seat.nation && state.nations[destination] ? destination : null
   const contact = target ? state.nations[target] : undefined
   const transcript = target ? logs[target] ?? [] : []
+  const lastCall = target && target === state.last_call?.to ? state.last_call : undefined
   const canPreview = !online && !ringing && target === callRequest.to && Boolean(contact)
   useRinger(ringing)
 
@@ -103,6 +105,10 @@ export function Phone({ state, selected, online }: { state: GameState; selected?
   }, [])
 
   useEffect(() => setShowPreview(false), [target])
+  useEffect(() => {
+    const list = transcriptList.current
+    if (list) list.scrollTop = list.scrollHeight
+  }, [logs, target])
 
   useEffect(() => {
     const desired = online ? target : null
@@ -140,8 +146,16 @@ export function Phone({ state, selected, online }: { state: GameState; selected?
             <button className="plain-control" onClick={() => setDismissed(ringing)}>Dismiss</button>
           </div>
         )}
+        {lastCall?.pending && <p className="phone-promises" role="status">Checking commitments…</p>}
+        {!!lastCall?.promises.length && !lastCall.pending && (
+          <ul className="phone-promises" aria-label="Promises from last call">
+            {lastCall.promises.map(({ to, what, when }, index) => (
+              <li key={index}>{state.nations[to]?.name ?? to}: {what.replaceAll('_', ' ')} · {when.replaceAll('_', ' ')}</li>
+            ))}
+          </ul>
+        )}
         {transcript.length > 0 && (
-          <ol className="transcript" aria-label="Call transcript">
+          <ol ref={transcriptList} className="transcript" aria-label="Call transcript">
             {transcript.map((line, index) => (
               <li key={index}><b>{line.role === 'player' ? 'You' : contact?.name}</b> {line.text}</li>
             ))}
