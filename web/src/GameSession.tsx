@@ -12,6 +12,7 @@ const crisisInterval = 7_500
 const gameRequests = {
   start: { path: '/start', body: startRequest, error: 'Could not start the game.' },
   turn: { path: '/turn', body: undefined, error: 'Could not advance. Try again.' },
+  end: { path: '/end', body: undefined, error: 'Could not end the session.' },
   crisis: { path: '/crisis/start', body: crisisRequest, error: 'Could not start One Berth.' },
 }
 
@@ -65,7 +66,8 @@ export function GameSession() {
       setState(next)
       setConnection('online')
       if (action === 'start') setSession((current) => current + 1)
-      if (action !== 'turn') setPaused(false)
+      if (action === 'end') setPaused(true)
+      else if (action !== 'turn') setPaused(false)
     } catch {
       setError(request.error)
       setPaused(true)
@@ -88,11 +90,18 @@ export function GameSession() {
 
   const controls = (
     <div className="session-controls" aria-label="Session controls">
-      <button onClick={() => void send('start')} disabled={pending}>{state.turn === 0 || !online ? 'Start game' : 'New game'}</button>
-      <button onClick={() => setPaused((wasPaused) => !wasPaused)} disabled={!canAdvance || pending}>{paused ? 'Resume' : 'Pause'}</button>
-      <button onClick={() => void send('turn')} disabled={!canAdvance || pending}>{state.crisis ? 'Next tick' : 'Next turn'}</button>
-      {online && state.phase === 'strategy' && (
-        <button onClick={() => void send('crisis')} disabled={pending}>Start One Berth</button>
+      <button onClick={() => void send('start')} disabled={pending}>{state.phase !== 'ended' && (state.turn === 0 || !online) ? 'Start game' : 'New game'}</button>
+      {state.phase !== 'ended' && (
+        <>
+          <button onClick={() => setPaused((wasPaused) => !wasPaused)} disabled={!canAdvance || pending}>{paused ? 'Resume' : 'Pause'}</button>
+          <button onClick={() => void send('turn')} disabled={!canAdvance || pending}>{state.crisis ? 'Next tick' : 'Next turn'}</button>
+          {online && state.phase === 'strategy' && (
+            <>
+              <button onClick={() => void send('crisis')} disabled={pending}>Start One Berth</button>
+              {state.ending !== undefined && <button onClick={() => void send('end')} disabled={pending}>End session</button>}
+            </>
+          )}
+        </>
       )}
       {connection !== 'online' && <span className="session-status" role="status">{connection === 'connecting' ? 'Connecting' : 'Engine offline'}</span>}
       {pending && <span className="session-status" role="status">Updating world</span>}
