@@ -35,6 +35,7 @@ const same = (a: Action | null, b: Action) =>
 
 export function Diplomacy({ state, target }: { state: GameState; target: string }) {
   const [moves, setMoves] = useState<PlayerActions | null>(null)
+  const [error, setError] = useState('')
   const [off, setOff] = useState(false)
   const [busy, setBusy] = useState(false)
   const strategy = state.phase === 'strategy' && state.seat.nation !== null
@@ -43,14 +44,18 @@ export function Diplomacy({ state, target }: { state: GameState; target: string 
     if (!strategy || off) return
     let live = true
     api<PlayerActions>('/actions')
-      .then((r) => { if (live) setMoves(r) })
-      .catch((e: Error) => { if (live && e.message.includes('404')) setOff(true) })
+      .then((r) => { if (live) { setMoves(r); setError('') } })
+      .catch((e: Error) => {
+        if (!live) return
+        if (e.message.includes('404')) setOff(true)
+        else setError('Could not load orders.')
+      })
     return () => { live = false }
   }, [state.turn, strategy, off])
 
-  if (off || !strategy || !moves) return null
-  const mine = moves.actions.filter((a) => a.target === target)
-  if (mine.length === 0) return null
+  if (off || !strategy) return null
+  const mine = moves?.actions.filter((a) => a.target === target) ?? []
+  if (!mine.length && !error) return null
 
   async function queue(a: Action) {
     if (busy) return
@@ -61,10 +66,12 @@ export function Diplomacy({ state, target }: { state: GameState; target: string 
         : `Declare war on ${nation} next month?`
       if (!window.confirm(prompt)) return
     }
+    setError('')
     setBusy(true)
     try {
       setMoves(await post<PlayerActions>('/action', a))
     } catch {
+      setError('Could not queue this order. Check the available moves.')
       // Not legal any more (the month moved on): refresh the list.
       api<PlayerActions>('/actions').then(setMoves).catch(() => undefined)
     } finally {
@@ -74,8 +81,9 @@ export function Diplomacy({ state, target }: { state: GameState; target: string 
 
   return (
     <span className="diplomacy-orders" role="group" aria-label="Your moves, next month">
+      {error && <span role="alert">{error}</span>}
       {mine.map((a) => {
-        const queued = same(moves.queued, a)
+        const queued = same(moves?.queued ?? null, a)
         return (
           <button
             key={label(a)}

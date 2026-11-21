@@ -7,7 +7,7 @@ A voice-played grand-strategy and crisis-negotiation game built for the Mistral 
 Five fictional nations share one continent, each run by an AI leader with its own political system, public statement, and private agenda. You govern by picking up the **Red Phone** and speaking directly to the other leaders. When a crisis erupts, a 24-hour clock starts — and **what you promise, when you call, whether you interrupt mid-sentence, and how long you hesitate** change what every nation does.
 
 After the crisis resolves, GAMBIT shows the timeline you did **not** take:
-- **War-Odds Needle** — 200 matched-seed Monte Carlo rollouts six months ahead comparing war probability before and after your deal (*"War odds 41% → 6%. You did that."*).
+- **War-Odds Needle** — 200 matched-seed Monte Carlo rollouts six months ahead comparing war probability before and after your deal (the displayed odds can rise or fall).
 - **"What if I'd waited?" Replay** — slide your calls earlier or later in pure deterministic code to see which leader flips and why.
 - **Two-Faced Leaders & Wiretap** — inspect public statements vs. private strategy, adviser rankings vs. actual choices, and listen to two AI leaders talking about you.
 
@@ -34,7 +34,7 @@ echo "MISTRAL_API_KEY=your_key_here" > .env
 ./scripts/demo.sh
 ```
 
-`scripts/demo.sh` checks your API key, bootstraps `.venv` and `web/node_modules` on a fresh clone, verifies/warms pre-rendered crisis and Wiretap audio, starts the FastAPI backend (`http://127.0.0.1:8000`) with the stage defaults (`GAMBIT_DECIDE_MODEL=mistral-medium-latest`, `GAMBIT_PRIVATE_STRATEGY=1`, `GAMBIT_PLAYER_ACTIONS=1`, `GAMBIT_EXTRA_CRISES=1`, `VOICE_WIRETAP=demo`), and starts the web app at **`http://localhost:5173`**. Run `python scripts/preflight.py` before going on stage to verify your key, models, speech and transcription in 10 seconds.
+`scripts/demo.sh` checks your API key, bootstraps `.venv` and `web/node_modules` on a fresh clone, verifies/warms pre-rendered crisis and Wiretap audio, starts the FastAPI backend (`http://127.0.0.1:8000`) with the stage defaults (`GAMBIT_DECIDE_MODEL=mistral-medium-latest`, `GAMBIT_PRIVATE_STRATEGY=1`, `GAMBIT_PLAYER_ACTIONS=1`, `GAMBIT_EXTRA_CRISES=1`, `GAMBIT_MEDIATOR=1`, `GAMBIT_ROLLOUTS=120`, `VOICE_WIRETAP=demo`), and starts the web app at **`http://localhost:5173`**. Activate the launcher’s environment (normally `source .venv/bin/activate` on macOS/Linux or `source .venv/Scripts/activate` in Windows Git Bash), then run `python scripts/preflight.py` before going on stage to verify your key, models, speech and transcription (if the war-odds needle takes >4 s on a slower laptop, start with `GAMBIT_ROLLOUTS=80 ./scripts/demo.sh`).
 
 Open **`http://localhost:5173`** in **Chrome** (allow microphone access when prompted). Hold the red talk button to speak — or press it while a leader is speaking to interrupt them mid-sentence. A typed fallback box sits directly underneath for noisy rooms.
 
@@ -44,7 +44,7 @@ Open **`http://localhost:5173`** in **Chrome** (allow microphone access when pro
 ./scripts/demo.sh --offline
 ```
 
-Runs the full playable game from deterministic cached replies, adviser-driven turns, and committed pre-rendered audio in `voice/prerendered/` with zero network calls.
+Provision Python and web dependencies once while online. In offline mode, type your own lines. Microphone input uses a fixed transcript. Leaders give deterministic written replies, with audio for lines that have an exact recording. Scripted rings and recorded Wiretap pairs play from `voice/prerendered/`.
 
 ---
 
@@ -58,6 +58,10 @@ Runs the full playable game from deterministic cached replies, adviser-driven tu
 | **Voxtral STT** | `voxtral-mini-transcribe-3` | Transcribes hold-to-talk browser audio (`webm/opus`, `wav`, `mp3`, `ogg`, `flac`) via `POST /call` and `POST /transcribe`, biased with `context_bias` for nation names and crisis terms. |
 | **Voxtral TTS** | `voxtral-mini-tts-3-0` | Five distinct cast leader voices with inline `[emotion=...]` tags (`angry`, `tense`, `proud`, `warm`, `assertive`, etc.) and streamed first-chunk playback (`stream: true`, 0.39 s median), plus pre-rendered crisis rings and Wiretap audio. |
 | **Mistral Vibe & MCP** | `gambit_mcp/`, `.vibe/skills/` | Built self-contained game data, persona cards, SVG artwork, and unit tests; ships a live-verified MCP server (`gambit_mcp.server`, 8 tools) and Vibe skills (`/gambit-brief`, `/gambit-crisis-card`) so Mistral Vibe can inspect and play live games (`vibe mcp add gambit --transport stdio --command "$(pwd)/.venv/bin/python" --arg=-m --arg gambit_mcp.server --env PYTHONPATH="$(pwd)" --tool-timeout-sec 120`). |
+
+### Voxtral in detail
+
+[`voice/VOXTRAL.md`](voice/VOXTRAL.md) is one page on every Voxtral feature the game uses (transcription with context bias, streamed speech, emotion tags, five cast voices, Wiretap, pre-rendered lines), where each one appears, and the measured timings: about 1.8 s from a typed line to the leader's voice, 13/13 spoken calls in the human playtest, and 98.4% word accuracy with simulated busy-room noise (10 dB SNR, synthetic babble and hum, not a venue recording).
 
 *(Note: Mistral Managed Agents was evaluated in `agents/A0_RESULTS.md` and ruled no-go at 9.6 s/turn, so GAMBIT uses direct chat completions with structured JSON output and explicit session memory.)*
 
@@ -83,7 +87,7 @@ On seed `7` as President of Valdoria:
 Across 10 live WAV voice calls on `main` (0 fallbacks, uncached streaming TTS):
 - **Spoken reply (`speak_fast`):** 1.39 s median / 3.11 s worst
 - **TTS first chunk (`voxtral-mini-tts-3-0`):** 0.39 s median / 1.27 s worst (~1.78 s typed → first audio)
-- **STT (`voxtral-mini-transcribe-3`, ~220 KB WAV):** 3.32 s median / 8.72 s worst (first audio total 4.98 s median)
+- **STT (`voxtral-mini-transcribe-3`):** **0.25–0.37 s** on live Chrome mic WebM/Opus clips (14:45 playtest); **3.32 s** median / **8.72 s** worst on uncompressed ~220 KB WAV uploads (first audio total 4.98 s median for WAV)
 - **Call interpretation (`mistral-large-4`, async):** 13.10 s median / 21.44 s worst
 - **`POST /futures` (200 rollouts):** 3.52 s median / 4.69 s worst
 - **`POST /replay`:** 0.03 s pure code / 3.95 s with live `agents.why()`
@@ -107,6 +111,8 @@ python -m e2e.demo_path --url http://127.0.0.1:8000
 ```
 
 ---
+
+The optional browser walkthrough uses Python Playwright. With the project environment active, run `python -m pip install playwright` (or `uv pip install playwright`), then `python -m playwright install chromium` and `python -m e2e.walkthrough --offline`.
 
 ## Architecture
 
