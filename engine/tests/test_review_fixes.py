@@ -171,3 +171,47 @@ def test_a_leader_who_has_decided_does_not_ring_to_threaten():
     assert (1, "ostrava") in rang and not any(t == 7 for t, _ in rang)
     assert g.last_crisis["decisions"]["ostrava"].action == "dock"
     assert not any(e.type == "public_commitment" for e in g.state.events)
+
+
+def test_betrayal_reopens_early_deal_so_tick7_blockade_still_rings():
+    """Repro for the 16:11 live demo failure (#67): if Ostrava agreed to dock at tick 1
+    on the player's berth promise and compare-notes catches a double promise at tick 5,
+    Ostrava's early pre-deadline deal must reopen so the tick-7 blockade call still rings."""
+    async def go(interrupt: bool):
+        g = Game(seed=7, use_agents=False, needle=False)
+        g.start_crisis("one_berth")
+        tick7_ring = None
+        tick7_threat = False
+        while g.state.phase == "crisis":
+            s = await g.turn()
+            if not s.crisis:
+                break
+            t = s.crisis.tick
+            if t == 1:
+                g.apply_call("ostrava", _mk(
+                    [{"to": "ostrava", "what": "berth", "when": "all_day"}],
+                    [{"type": "dock", "by": "ostrava"}],
+                ))
+            elif t == 3:
+                g.apply_call("zarnia", _mk([{"to": "zarnia", "what": "berth", "when": "all_day"}]))
+            elif t == 7:
+                tick7_ring = s.incoming_call
+                tick7_threat = g.pending_announce is not None
+                g.apply_call(
+                    "ostrava",
+                    _mk([{"to": "ostrava", "what": "berth", "when": "morning"}], resolve=0.1),
+                    interrupted=interrupt,
+                )
+        return g, tick7_ring, tick7_threat
+
+    g_int, ring_int, threat_int = asyncio.run(go(interrupt=True))
+    assert ring_int is not None and ring_int.from_ == "ostrava" and "same berth" in ring_int.opening_line
+    assert threat_int is True
+    assert g_int.last_crisis["decisions"]["ostrava"].action in ("dock", "wait")
+    assert g_int.last_crisis["decisions"]["ostrava"].tick == 8
+    assert g_int.replay(0) == []
+    assert {c["nation"]: c["now"] for c in g_int.replay(3)}.get("ostrava") == "blockade"
+
+    g_no, ring_no, threat_no = asyncio.run(go(interrupt=False))
+    assert ring_no is not None and ring_no.from_ == "ostrava" and threat_no is True
+    assert g_no.last_crisis["decisions"]["ostrava"].action == "blockade"
