@@ -1,5 +1,6 @@
 import map from './atlas.json'
 import type { GameState } from './state'
+import { useMarkerScale } from './hud/scale'
 
 const capitals: Record<string, number[]> = map.capitals
 const centers = new Map(map.provinces.map(({ id, center }) => [id, center]))
@@ -16,6 +17,7 @@ function Connection({ type, a, b }: GameState['links'][number]) {
 }
 
 export function MapOverlays({ state, onSelect }: { state: GameState; onSelect: (id: string) => void }) {
+  const m = useMarkerScale()
   const wars = new Set(state.links.filter(({ type }) => type === 'war').map(({ a, b }) => [a, b].sort().join('|')))
   const fronts = map.borders.filter(({ between: [a, b] }) => (
     wars.has([state.provinces[a], state.provinces[b]].sort().join('|'))
@@ -43,7 +45,7 @@ export function MapOverlays({ state, onSelect }: { state: GameState; onSelect: (
         const label = event.type.replaceAll('_', ' ')
         return (
           <g key={key} className="map-event" data-event={event.type}
-            transform={`translate(${x} ${y + 15})`}
+            transform={`translate(${x} ${y + 15 * m}) scale(${m})`}
             onClick={() => nation && state.nations[nation] && onSelect(nation)}>
             <title>{label}{event.province && ` · ${event.province.toUpperCase()}`}</title>
             <circle r="9" />

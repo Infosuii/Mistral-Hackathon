@@ -13,14 +13,18 @@ import re
 
 from shapely import affinity, voronoi_polygons
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
-from shapely.ops import unary_union
+from shapely.ops import nearest_points, unary_union
 
 from atlas_infrastructure import urban_network
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "web" / "src" / "map.json"
 DATA = ROOT / "data"
-WIDTH, HEIGHT = 1740, 1060
+AUTHORED_WIDTH, AUTHORED_HEIGHT = 1740, 1060
+# Every outline below is authored at 1x. The generated world is SCALE times larger, which
+# leaves room inside each province for full street plans, suburbs, airports and industry.
+SCALE = 5
+WIDTH, HEIGHT = AUTHORED_WIDTH * SCALE, AUTHORED_HEIGHT * SCALE
 # Original coastline outlines in atlas coordinates. The inner sea divides the
 # northern island from the mainland while the south coast has a sheltered gulf.
 MAINLAND = [
@@ -74,6 +78,17 @@ def coastline(points):
     return Polygon(expanded).buffer(4).buffer(-4)
 
 
+def lake_outline(index, x, y, rx, ry):
+    """An irregular lake: lobes, bays and a smooth shoreline instead of a bare ellipse."""
+    phases = [index * 1.7 + k * 2.3 for k in range(4)]
+    points = []
+    for step in range(72):
+        t = step / 72 * math.tau
+        r = 1 + .16 * math.sin(2 * t + phases[0]) + .09 * math.sin(3 * t + phases[1])             + .05 * math.sin(5 * t + phases[2]) + .025 * math.sin(9 * t + phases[3])
+        points.append((x + rx * 1.12 * r * math.cos(t), y + ry * 1.12 * r * math.sin(t)))
+    return Polygon(points).buffer(1.5).buffer(-1.5)
+
+
 def position(point, owner):
     x, y = point
     if owner == "nordhaven":
@@ -101,7 +116,7 @@ def write_data(path, main, lists=()):
 def sea_routes(land, port_coords):
     blocked = land.buffer(13)
     step = 24
-    water = {(x, y) for x in range(0, WIDTH + 1, step) for y in range(0, HEIGHT + 1, step)
+    water = {(x, y) for x in range(0, AUTHORED_WIDTH + 1, step) for y in range(0, AUTHORED_HEIGHT + 1, step)
              if not blocked.intersects(Point(x, y))}
     directions = [(dx, dy, math.hypot(dx, dy)) for dx, dy in product((-step, 0, step), repeat=2) if dx or dy]
 
@@ -148,8 +163,7 @@ def generate():
     owners = countries["provinces"]
     entries = base["provinces"]
     land = {"main": coastline(MAINLAND), "island": coastline(ISLAND)}
-    lakes = [affinity.scale(Point(x, y).buffer(1, quad_segs=12), rx, ry, origin=(x, y))
-             for x, y, rx, ry in LAKES]
+    lakes = [lake_outline(i, *lake) for i, lake in enumerate(LAKES)]
     for zone in land:
         land[zone] = land[zone].difference(unary_union(lakes))
     shores = unary_union([*land.values(), *(coastline(points) for points in ISLETS)])
@@ -165,8 +179,8 @@ def generate():
             center = Point(point)
             if not clipped.contains(center):
                 center = clipped.representative_point()
-            cells[entry["id"]] = clipped
-            centers[entry["id"]] = [round(center.x, 1), round(center.y, 1)]
+            cells[entry["id"]] = affinity.scale(clipped, SCALE, SCALE, origin=(0, 0))
+            centers[entry["id"]] = [round(center.x * SCALE, 1), round(center.y * SCALE, 1)]
 
     provinces = [{"id": p["id"], "center": centers[p["id"]], "path": path_for(cells[p["id"]])} for p in entries]
     borders = []
@@ -183,19 +197,33 @@ def generate():
             adjacency[b].append(a)
             borders.append({"between": [a, b], "path": path})
 
+    authored_shores = shores
+    shores = affinity.scale(shores, SCALE, SCALE, origin=(0, 0))
     capital_provinces = {owner: next(p for p, n in owners.items() if n == owner) for owner in PORTS}
     ratio = round(shores.area / (WIDTH * HEIGHT), 3)
     print(f"Atlas land coverage: {ratio:.1%}")
     assert .57 <= ratio <= .63
     write_data(SOURCE.with_name("atlas.json"), {
         "width": WIDTH, "height": HEIGHT, "coast": path_for(shores),
-        "landFraction": ratio,
+        "landFraction": ratio, "scale": SCALE,
+        "lakes": [path_for(affinity.scale(lake, SCALE, SCALE, origin=(0, 0))) for lake in lakes],
         "capitals": {nation: centers[p] for nation, p in capital_provinces.items()},
     }, (("provinces", provinces), ("borders", borders)))
     write_data(DATA / "atlas_adjacency.json", {p: sorted(q) for p, q in adjacency.items()})
 
-    ports = {nation: {"province": province, "position": point} for nation, (province, point) in PORTS.items()}
-    routes = sea_routes(shores, {nation: port["position"] for nation, port in ports.items()})
+    # Each harbour sits on its province's actual shoreline, so quays meet the water at 5x scale.
+    def on_shore(province, point):
+        coast = cells[province].boundary.intersection(shores.boundary)
+        coast = coast if not coast.is_empty else shores.boundary
+        snapped = nearest_points(coast, Point(point[0] * SCALE, point[1] * SCALE))[0]
+        return [round(snapped.x, 1), round(snapped.y, 1)]
+
+    ports = {nation: {"province": province, "position": on_shore(province, point)}
+             for nation, (province, point) in PORTS.items()}
+    routes = {}
+    for key, trail in sea_routes(authored_shores, {n: point for n, (_, point) in PORTS.items()}).items():
+        a, b = key.split("|")
+        routes[key] = [ports[a]["position"], *[[x * SCALE, y * SCALE] for x, y in trail[1:-1]], ports[b]["position"]]
     write_data(DATA / "sea_routes.json", {"ports": ports, "routes": routes})
 
     counties = json.loads((DATA / "counties.json").read_text())
@@ -224,11 +252,11 @@ def generate():
         out = [centers[via[0]]]
         for a, b in zip(via, via[1:]):
             start, end = centers[a], centers[b]
-            corridor = cells[a].union(cells[b]).buffer(.3)
+            corridor = cells[a].union(cells[b]).buffer(.3 * SCALE)
             if not corridor.covers(LineString([start, end])):
                 x0, y0, x1, y1 = corridor.bounds
-                candidates = [(x, y) for x in range(math.ceil(x0), math.floor(x1), 5)
-                              for y in range(math.ceil(y0), math.floor(y1), 5)]
+                candidates = [(x, y) for x in range(math.ceil(x0), math.floor(x1), 5 * SCALE)
+                              for y in range(math.ceil(y0), math.floor(y1), 5 * SCALE)]
                 candidates.sort(key=lambda point: math.dist(start, point) + math.dist(end, point))
                 waypoint = next(point for point in candidates if corridor.covers(LineString([start, point, end])))
                 out.append(waypoint)
@@ -242,8 +270,9 @@ def generate():
             key = "|".join(sorted([a, b]))
             if not any(link["id"] == key for link in links):
                 links.append({"id": key, "from": a, "to": b, "via": paths[b], "points": track_points(paths[b])})
+    # The infrastructure pass lays each rail line beside, not on, its parallel motorway.
+    urban_network(DATA, centers, cells, adjacency, owners, cities, shores, track_points, links, SCALE)
     write_data(DATA / "rail.json", {"cities": cities}, (("routes", links),))
-    urban_network(DATA, centers, cells, adjacency, owners, cities, shores, track_points)
 
 
 if __name__ == "__main__":
