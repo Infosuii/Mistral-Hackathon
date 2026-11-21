@@ -72,7 +72,9 @@ def crisis_legal(s: State, nation: str) -> list[Action]:
 
 
 def _player_promises(s: State, to: str) -> list:
-    return [p for p in s.crisis.promises if p.by == "player" and p.to == to and p.kept is not False]
+    """Live promises from the player to `to`, counting only those made before this tick."""
+    return [p for p in s.crisis.promises if p.by == "player" and p.to == to
+            and p.kept is not False and p.tick <= s.crisis.tick]
 
 
 def berth_belief(s: State, nation: str) -> float:
@@ -285,3 +287,52 @@ def crisis_step(state: State, actions: list[Action], seed: int) -> State:
         _resolve(s)
     s.news, s.events = s.news[-30:], s.events[-30:]
     return s
+
+
+# --- rerun (for the replay) --------------------------------------------------------
+
+
+def _scores(advice: list[Advice]) -> dict[str, float]:
+    return {a.action.type: a.score for a in advice}
+
+
+def rerun_crisis(start: State, calls: list, cached: dict[str, Decision],
+                 cached_advice: dict[str, list[Advice]], announces: list[tuple[int, Action]],
+                 seed: int) -> tuple[State, dict[str, str]]:
+    """Play a crisis again from its first state, with the player's calls at new ticks.
+
+    `calls` is [(tick, to, CallOutput, interrupted)]; a call at tick t happens after the
+    world reaches t, as in the live game. A leader whose advice comes out the same as it
+    did originally keeps its cached decision; one whose advice changed takes its
+    advisers' new top. Pure, no model calls. Returns the final state and every decision."""
+    from engine.calls import apply_call_effects
+
+    s = start.model_copy(deep=True)
+    queued: list[Action] = []
+
+    def take_calls(state: State, tick: int) -> State:
+        for t, to, out, interrupted in calls:
+            if t == tick:
+                state, _ = apply_call_effects(state, to, out, interrupted)
+                queued.extend(out.actions)
+        return state
+
+    s = take_calls(s, 0)
+    while s.phase == "crisis":
+        nxt = s.crisis.tick + 1
+        actions = [a for t, a in announces if t == nxt] + queued
+        queued_by = {a.by for a in queued}
+        queued.clear()
+        for n, d in cached.items():
+            if n not in cached_advice or d.tick != nxt or n in s.crisis.decisions or n in queued_by:
+                continue
+            now = crisis_advise(s, n)
+            if now and _scores(now) != _scores(cached_advice[n]):
+                actions.append(now[0].action)  # inputs changed: follow the advisers
+            else:
+                actions.append(Action(type=d.action, by=n))
+        s = crisis_step(s, actions, seed)
+        if s.crisis:
+            s = take_calls(s, s.crisis.tick)
+    resolved = next(e for e in reversed(s.events) if e.type == "crisis_resolved")
+    return s, dict(resolved.model_extra["decisions"])

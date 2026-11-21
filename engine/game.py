@@ -23,7 +23,9 @@ from contracts.models import (
     LeaderView, ReceivedMessage, Seat, State,
 )
 from engine.core import advise, is_legal, new_game, relation_key, step, weights
-from engine.crisis import crisis_file, start_crisis
+from engine.crisis import crisis_file, rerun_crisis, start_crisis
+from engine.snapshots import snapshot
+from engine.calls import apply_call_effects
 
 log = logging.getLogger("gambit.engine")
 ROOT = Path(__file__).resolve().parent.parent
@@ -75,11 +77,16 @@ class Game:
         self.promises: list[CrisisPromise] = []  # strategy-phase promises (crisis ones live in state)
         self.pending_announce: Optional[Action] = None  # becomes public next tick unless interrupted
         self.crisis_log: list[State] = []  # every crisis tick, for replay and the needle
+        self.crisis_advice: dict[str, list[Advice]] = {}  # each leader's advice when it decided
+        self.crisis_announces: list[tuple[int, Action]] = []
+        self.crisis_calls: list[tuple[int, str, CallOutput, bool]] = []
+        self.last_crisis: Optional[dict] = None  # inputs of the finished crisis, for replay
         return self.state
 
     def start_crisis(self, crisis_id: str) -> State:
         self.state = start_crisis(self.state, crisis_id)
         self.pending_announce, self.crisis_log = None, [self.state]
+        self.crisis_advice, self.crisis_announces, self.crisis_calls, self.last_crisis = {}, [], [], None
         return self.state
 
     def ai_nations(self) -> list[str]:
@@ -145,6 +152,7 @@ class Game:
         actions = list(self.queued)
         if self.pending_announce:
             actions.append(self.pending_announce)
+            self.crisis_announces.append((nxt, self.pending_announce))
         for n, (out, chosen) in zip(due, results):
             if n not in queued_by:
                 actions += chosen
@@ -152,6 +160,7 @@ class Game:
 
         for n, (out, chosen) in zip(due, results):
             new.nations[n].public_statement = out.public_statement
+            self.crisis_advice[n] = advice[n]
             self.leaders[n] = LeaderDetail(
                 public_statement=out.public_statement, private_intent=out.private_intent,
                 advice=advice[n], chosen=chosen, reason=out.reason, persona=_persona(n))
@@ -162,8 +171,34 @@ class Game:
                 if e.type == "incoming_call" and e.tick == new.crisis.tick and announces:
                     self.pending_announce = Action(type="announce", by=e.from_, params={"action": announces})
         self.crisis_log.append(new)
+        if new.crisis is None:  # resolved: keep what a replay needs
+            last = s.crisis
+            done = next(e for e in reversed(new.events) if e.type == "crisis_resolved")
+            from contracts.models import Decision
+            decisions = dict(last.decisions)
+            for n_, a_ in done.model_extra["decisions"].items():
+                decisions.setdefault(n_, Decision(action=a_, tick=last.ticks_total))
+            self.last_crisis = {
+                "start": self.crisis_log[0], "calls": list(self.crisis_calls), "decisions": decisions,
+                "advice": dict(self.crisis_advice), "announces": list(self.crisis_announces),
+                "snapshot_id": snapshot(self.crisis_log[0]),
+            }
         self.state = new
         return new
+
+    def replay(self, shift_ticks: int) -> list[dict]:
+        """Rerun the last crisis with the player's promises moved by `shift_ticks`.
+        Returns [{nation, was, now}] for every leader whose decision changed (why() is Abi's)."""
+        lc = self.last_crisis
+        if lc is None:
+            raise LookupError("no finished crisis to replay")
+        total = lc["start"].crisis.ticks_total
+        moved = [(min(total, max(0, t + shift_ticks)), to, out, intr) for t, to, out, intr in lc["calls"]]
+        was = {n: d.action for n, d in lc["decisions"].items()}
+        _, now = rerun_crisis(lc["start"], moved, lc["decisions"], lc["advice"], lc["announces"],
+                              lc["start"].seed)
+        return [{"nation": n, "was": was[n], "now": now.get(n, was[n])}
+                for n in NATION_IDS if n in was and now.get(n, was[n]) != was[n]]
 
     def leader(self, nation: str) -> LeaderDetail:
         if nation in self.leaders:
@@ -176,26 +211,13 @@ class Game:
                    hesitation_ms: Optional[int] = None) -> State:
         """For /call: apply a leader's reply to the world. Changes take effect at once,
         except actions, which are applied on the next turn."""
-        s = self.state.model_copy(deep=True)
-        b = s.nations[to].beliefs
-        if b is not None:
-            b.trust_in_player = round(min(1.0, max(0.0, b.trust_in_player + out.belief_updates.trust_in_player)), 3)
-            b.resolve_of_player = round(min(1.0, max(0.0, b.resolve_of_player + out.belief_updates.resolve_of_player)), 3)
-        seat = s.seat.nation
-        call = weights()["call"]
         if interrupted and self.pending_announce and self.pending_announce.by == to:
             self.pending_announce = None  # cut off before the threat went public
-        if interrupted and to in call["proud"] and to != seat:
-            k = relation_key(seat, to)
-            s.relations[k] = max(-100, s.relations.get(k, 0) + call["interrupt_relation_proud"])
-        tick = s.crisis.tick if s.crisis else s.turn
-        ledger = s.crisis.promises if s.crisis else self.promises
-        for p in out.promises:
-            ledger.append(CrisisPromise(id=f"p{len(ledger) + 1}", tick=tick, by="player",
-                                        to=p.to, what=p.what, when=p.when, condition=p.condition))
+        s, strategy_promises = apply_call_effects(self.state, to, out, interrupted, len(self.promises))
+        self.promises += strategy_promises
+        if s.crisis:
+            self.crisis_calls.append((s.crisis.tick, to, out.model_copy(deep=True), interrupted))
         self.queued += out.actions
-        if s.incoming_call and s.incoming_call.from_ == to:
-            s.incoming_call = None  # answered
         self.state = s
         return s
 
