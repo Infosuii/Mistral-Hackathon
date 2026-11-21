@@ -74,14 +74,11 @@ export function mountTalkButton(el, opts = {}) {
   let state = 'idle'
   let audio = null           // the leader line now playing
   let lastAudioEnd = null    // performance.now() when the last leader line finished
-  let stream = null          // mic stream, kept open after first use so later presses are instant
-  let recorder = null
-  let chunks = []
-  let pressStart = 0
+  let recording = null
+  let request = null
+  let contactVersion = 0
   let pressInterrupted = false
   let pressHesitation = null
-  let pressing = false
-  let level = null
 
   const root = document.createElement('div')
   root.className = 'tb'
@@ -163,7 +160,10 @@ export function mountTalkButton(el, opts = {}) {
 
   // ------------------------------------------------------------------ sending
   async function send(body) {
-    if (!to) return
+    if (!to || request) return
+    const controller = new AbortController()
+    request = controller
+    const timeout = window.setTimeout(() => controller.abort(), 45_000)
     setState('thinking')
     say('')
     try {
@@ -171,17 +171,23 @@ export function mountTalkButton(el, opts = {}) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to, ...body }),
+        signal: controller.signal,
       })
       const j = await r.json().catch(() => ({}))
+      if (request !== controller) return
       if (!r.ok) throw new Error(j.detail ? JSON.stringify(j.detail) : `HTTP ${r.status}`)
       emit('transcript', { text: j.transcript, to })
       emit('reply', { ...j, to })
       if (state === 'thinking') setState('idle')
       if (j.reply_audio_url) playLine(j.reply_audio_url, to)
     } catch (e) {
+      if (request !== controller) return
       setState('idle')
       say(`Call failed: ${e.message}. Try again or type.`)
       emit('error', { message: String(e.message || e) })
+    } finally {
+      window.clearTimeout(timeout)
+      if (request === controller) request = null
     }
   }
 
@@ -194,15 +200,6 @@ export function mountTalkButton(el, opts = {}) {
   }
 
   // ------------------------------------------------------------------ recording
-  async function ensureMic() {
-    if (stream && stream.active) return stream
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    })
-    level = meter(stream)
-    return stream
-  }
-
   function meter(s) {
     try {
       const ctx = new AudioContext()
@@ -223,47 +220,96 @@ export function mountTalkButton(el, opts = {}) {
     } catch { return null }
   }
 
+  function releaseMic(take) {
+    take.meter?.stop()
+    take.meter = null
+    take.stream?.getTracks().forEach(track => track.stop())
+    take.stream = null
+  }
+
+  function resetContact() {
+    contactVersion++
+    request?.abort()
+    request = null
+    if (recording) {
+      const take = recording
+      recording = null
+      try {
+        if (take.recorder?.state === 'recording') take.recorder.stop()
+      } catch {
+        // The browser may already have ended the recording.
+      } finally {
+        releaseMic(take)
+      }
+    }
+  }
+
   async function startTalking() {
-    if (!to || state === 'thinking' || pressing) return
-    pressing = true
+    if (!to || state === 'thinking' || recording) return
     capturePressContext()
-    pressStart = performance.now()
+    const take = { chunks: [], version: contactVersion, interrupted: pressInterrupted, hesitation: pressHesitation }
+    recording = take
     setState('recording')
     try {
-      await ensureMic()
+      take.stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      })
+      if (recording !== take) { releaseMic(take); return }
+      take.recorder = new MediaRecorder(take.stream)
+      take.recorder.ondataavailable = (e) => { if (e.data.size) take.chunks.push(e.data) }
+      take.recorder.start()
+      take.start = performance.now()
+      take.meter = meter(take.stream)
     } catch (e) {
-      pressing = false
+      releaseMic(take)
+      if (recording !== take) return
+      recording = null
       setState('idle')
       say('Microphone unavailable. Type your line below.')
       emit('error', { message: `microphone: ${e.message || e}` })
       form?.querySelector('input')?.focus()
-      return
     }
-    if (!pressing) { setState('idle'); return } // released before the mic opened
-    chunks = []
-    recorder = new MediaRecorder(stream)
-    recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
-    recorder.start()
   }
 
   async function stopTalking() {
-    if (!pressing) return
-    pressing = false
-    const rec = recorder
-    recorder = null
-    if (!rec) return
-    const held = performance.now() - pressStart
-    const done = new Promise((r) => { rec.onstop = r })
-    rec.stop()
-    await done
-    if (held < MIN_RECORD_MS) {
+    const take = recording
+    if (!take) return
+    recording = null
+    if (!take.recorder) {
       setState('idle')
-      say('Hold the button while you speak.')
+      say('Hold again once microphone access is ready.')
       return
     }
-    const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' })
-    await send({ audio: await blobToBase64(blob), text: null,
-                 interrupted: pressInterrupted, hesitation_ms: pressHesitation })
+    setState('thinking')
+    const held = performance.now() - take.start
+    try {
+      const stopped = new Promise((resolve, reject) => {
+        take.recorder.onstop = resolve
+        take.recorder.onerror = () => reject(new Error('Recording failed.'))
+      })
+      take.recorder.stop()
+      releaseMic(take)
+      await stopped
+      if (take.version !== contactVersion) return
+      const blob = new Blob(take.chunks, { type: take.recorder.mimeType || 'audio/webm' })
+      if (held < MIN_RECORD_MS || !blob.size) {
+        setState('idle')
+        say('Hold the button while you speak.')
+        return
+      }
+      const audio = await blobToBase64(blob)
+      if (take.version === contactVersion) {
+        await send({ audio, text: null, interrupted: take.interrupted, hesitation_ms: take.hesitation })
+      }
+    } catch (e) {
+      if (take.version === contactVersion) {
+        setState('idle')
+        say('Recording failed. Try again or type.')
+        emit('error', { message: String(e) })
+      }
+    } finally {
+      releaseMic(take)
+    }
   }
 
   // ------------------------------------------------------------------ input wiring
@@ -292,7 +338,7 @@ export function mountTalkButton(el, opts = {}) {
     e.preventDefault()
     const input = form.querySelector('input')
     const text = input.value.trim()
-    if (!text || !to || state === 'thinking') return
+    if (!text || !to || recording || state === 'thinking') return
     input.value = ''
     capturePressContext()
     send({ audio: null, text, interrupted: pressInterrupted, hesitation_ms: pressHesitation })
@@ -304,6 +350,7 @@ export function mountTalkButton(el, opts = {}) {
     /** Change who the phone is talking to; resets the timing for a new call. */
     setTo(nation) {
       if (nation === to) return
+      resetContact()
       stopAudio(true)
       to = nation || null
       lastAudioEnd = null
@@ -320,8 +367,7 @@ export function mountTalkButton(el, opts = {}) {
         window.removeEventListener('keydown', onKeyDown)
         window.removeEventListener('keyup', onKeyUp)
       }
-      level?.stop()
-      stream?.getTracks().forEach((t) => t.stop())
+      resetContact()
       root.remove()
     },
   }

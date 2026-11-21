@@ -45,6 +45,23 @@ SCHEMAS: dict[str, tuple[type[BaseModel], str]] = {
 }
 
 
+def check_crisis(path: Path) -> None:
+    card = m.CrisisFile.model_validate_json(path.read_text())
+    if card.id != path.stem or set(card.deadlines) != set(card.actions):
+        raise ValueError("crisis ID, actors or deadlines disagree")
+    if any(not 1 <= tick <= card.ticks_total for tick in card.deadlines.values()):
+        raise ValueError("deadline outside the crisis")
+    if not isinstance(card.rules.get("payoffs"), dict):
+        raise ValueError("missing rules.payoffs")
+    outcome_type = dict if card.rules.get("resolver") == "one_berth" else list
+    if not isinstance(card.rules.get("outcomes"), outcome_type):
+        raise ValueError("missing or invalid rules.outcomes")
+    for event in card.scripted:
+        action = (event.model_extra or {}).get("announces")
+        if action and action not in card.actions.get(event.from_, []):
+            raise ValueError(f"illegal scripted announcement {action}")
+
+
 def main() -> int:
     failed = ok = 0
     files = sorted(p.name for p in EXAMPLES.glob("*.json"))
@@ -66,6 +83,13 @@ def main() -> int:
         print(f"FAIL {name}: listed but missing from contracts/examples/")
         failed += 1
     print(f"\n{ok}/{len(SCHEMAS)} examples valid")
+    for path in sorted((EXAMPLES.parents[1] / "data" / "crises").glob("*.json")):
+        try:
+            check_crisis(path)
+            print(f"ok   crisis {path.stem}")
+        except ValueError as e:
+            print(f"FAIL {path.name}: {e}")
+            failed += 1
     return 1 if failed else 0
 
 

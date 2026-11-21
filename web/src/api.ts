@@ -7,6 +7,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export function post<T>(path: string, body?: unknown) {
   return api<T>(path, {
     method: 'POST',
+    signal: AbortSignal.timeout(60_000),
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   })

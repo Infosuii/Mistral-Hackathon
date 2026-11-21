@@ -20,6 +20,7 @@ All configurable by env, no code changes.
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 import json
 import os
 import random
@@ -45,7 +46,7 @@ CALL_MODEL = FAST_MODEL  # the one-call call_reply()
 T = TypeVar("T", bound=BaseModel)
 
 _client: Optional[httpx.AsyncClient] = None
-STATS: dict[str, Any] = {"calls": 0, "retries": 0, "failures": 0, "latencies": [], "by_model": {}}
+STATS: dict[str, Any] = {"calls": 0, "retries": 0, "failures": 0, "latencies": deque(maxlen=2048), "by_model": {}}
 
 
 class LLMError(RuntimeError):
@@ -112,10 +113,11 @@ async def chat(messages: list[dict], *, model: Optional[str] = None, effort: str
     if seed is not None:
         body["random_seed"] = seed
     t0 = time.perf_counter()
+    key = _key()
     STATS["calls"] += 1
     try:
         r = await client().post(API_URL, json=body, timeout=timeout,
-                                headers={"Authorization": f"Bearer {_key()}"})
+                                headers={"Authorization": f"Bearer {key}"})
     except httpx.TimeoutException as e:
         STATS["failures"] += 1
         raise LLMError(f"timeout after {timeout:.1f}s") from e
@@ -129,8 +131,12 @@ async def chat(messages: list[dict], *, model: Optional[str] = None, effort: str
     if r.status_code != 200:
         STATS["failures"] += 1
         raise LLMError(f"HTTP {r.status_code}: {r.text[:300]}")
-    choice = r.json()["choices"][0]
-    text = _text(choice["message"].get("content"))
+    try:
+        choice = r.json()["choices"][0]
+        text = _text(choice["message"]["content"])
+    except (KeyError, IndexError, AttributeError, TypeError, ValueError) as exc:
+        STATS["failures"] += 1
+        raise LLMError("Malformed chat completion response") from exc
     if not text.strip():
         raise EmptyReply(f"no text (finish_reason={choice.get('finish_reason')})")
     STATS["by_model"][model] = STATS["by_model"].get(model, 0) + 1
@@ -187,20 +193,30 @@ async def hedged(run: Callable[[str], Any], *, primary: Optional[str] = None,
     primary, backup = primary or MODEL, backup or HEDGE_MODEL
     first = asyncio.ensure_future(run(primary))
     tasks = {first}
-    done, _ = await asyncio.wait(tasks, timeout=after)
-    if first in done and first.exception() is None:
-        return first.result()
-    if primary != backup:
-        tasks.add(asyncio.ensure_future(run(backup)))
     errors = []
     try:
-        while tasks:
-            done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-            for t in done:
-                if t.exception() is None:
-                    return t.result()
-                errors.append(t.exception())
+        done, _ = await asyncio.wait(tasks, timeout=after)
+        if first in done and first.exception() is None:
+            return first.result()
+        if primary != backup:
+            tasks.add(asyncio.ensure_future(run(backup)))
+        pending = tasks.copy()
+        while pending:
+            done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                if task.exception() is None:
+                    return task.result()
+                errors.append(task.exception())
     finally:
-        for t in tasks:
-            t.cancel()
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
     raise LLMError(f"both models failed: {errors}")
+
+
+async def close_client() -> None:
+    global _client
+    if _client is not None:
+        await _client.aclose()
+        _client = None

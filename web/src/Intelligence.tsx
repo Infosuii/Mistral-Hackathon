@@ -31,10 +31,10 @@ export function Intelligence({ state, id, online }: { state: GameState; id: stri
   useEffect(() => {
     const panel = popover.current
     if (!tab || !panel) return
-    panel.showPopover()
+    panel.showPopover?.()
     closeButton.current?.focus({ preventScroll: true })
     return () => {
-      if (panel.matches(':popover-open')) panel.hidePopover()
+      if (panel.hidePopover && panel.matches(':popover-open')) panel.hidePopover()
     }
   }, [tab])
 

@@ -172,12 +172,17 @@ class Game:
         if available_crises():
             self.state = State.model_validate({**self.state.model_dump(), "available_crises": available_crises()})
         self.leaders: dict[str, LeaderDetail] = {}
+        self.intent_history: dict[str, list[str]] = {n: [] for n in NATION_IDS}
         self.inbox: dict[str, list[ReceivedMessage]] = {n: [] for n in NATION_IDS}
         self.queued: list[Action] = []  # agreed on the phone; applied next turn
         self.player_action: Optional[Action] = None  # POST /action; applied next month
         # Each reset starts a new epoch; call ids carry it, so a reply that finishes after
         # a reset is dropped instead of leaking into the new game.
         self.epoch = getattr(self, "epoch", 0) + 1
+        self.call_generation = getattr(self, "call_generation", 0) + 1
+        self.needle_seq = 0
+        self.call_results: dict[str, CallResult] = {}
+        self.monthly_deals: list[Action] = []
         self.call_count = 0
         self.latest_call_id: Optional[str] = None
         self.promises: list[CrisisPromise] = []  # strategy-phase promises (crisis ones live in state)
@@ -203,6 +208,10 @@ class Game:
 
     def start_crisis(self, crisis_id: str) -> State:
         self.state = start_crisis(self.state, crisis_id)
+        self.monthly_deals, self.queued = self.queued, []
+        self._change_call_phase()
+        self.needle_seq += 1
+        self.state = self.state.model_copy(update={"last_futures": None})
         self.pending_announce, self.crisis_log = None, [self.state]
         self.crisis_advice, self.crisis_announces, self.crisis_calls, self.last_crisis = {}, [], [], None
         self.crisis_own = {}
@@ -250,6 +259,7 @@ class Game:
         if self._decide_fn is not None:
             view = LeaderView(nation=nation, state=s, advice=advice,
                               messages_received=self.inbox[nation],
+                              earlier_private_intents=self.intent_history[nation],
                               private_strategy=self.strategy_for(nation))
             try:
                 raw = await asyncio.wait_for(self._decide_fn(view), timeout=DECIDE_TIMEOUT_S)
@@ -323,6 +333,8 @@ class Game:
 
             inbox: dict[str, list[ReceivedMessage]] = {n: [] for n in NATION_IDS}
             for n, (out, chosen) in zip(ai, results):
+                if out.private_intent:
+                    self.intent_history[n] = (self.intent_history[n] + [f"month {s.turn}: {out.private_intent}"])[-3:]
                 new.nations[n].public_statement = out.public_statement
                 for m in out.messages:
                     inbox[m.to].append(ReceivedMessage(**{"from": n, "text": m.text}))
@@ -376,6 +388,10 @@ class Game:
         self._record(s, new)
         self.crisis_log.append(new)
         if new.crisis is None:  # resolved: keep what a replay needs
+            self.queued, self.monthly_deals = self.monthly_deals, []
+            self._change_call_phase()
+            if new.last_call and new.last_call.pending:
+                new.last_call = None
             last = s.crisis
             done = next(e for e in reversed(new.events) if e.type == "crisis_resolved")
             decisions = dict(last.decisions)
@@ -421,6 +437,8 @@ class Game:
         which arrives in the background (a plain one is used if the historian fails)."""
         if self.state.phase == "ended":
             return self.state
+        self._change_call_phase()
+        self.needle_seq += 1
         sc = score(self.start_state, self.state, self.months_in_power, self.peace_months,
                    self.promises_kept, self.promises_broken, self.peaceful_crises)
         self.state = self.state.model_copy(update={
@@ -510,12 +528,20 @@ class Game:
             return True
         return False
 
+    def _change_call_phase(self) -> None:
+        self.call_generation += 1
+        for cid in [cid for cid, result in self.call_results.items() if result.pending]:
+            del self.call_results[cid]
+        if self.state.last_call and self.state.last_call.pending:
+            self.state = self.state.model_copy(update={"last_call": None})
+
     def begin_call(self, to: str) -> str:
         """For split replies: call when the spoken reply goes out. state.last_call shows
         this call as pending until apply_call(..., call_id=...) fills it in."""
         call_id = self._new_call_id()
         s = self.state.model_copy(deep=True)
         s.last_call = CallResult(call_id=call_id, to=to, pending=True)
+        self.call_results[call_id] = s.last_call
         self.state = s
         return call_id
 
@@ -531,9 +557,12 @@ class Game:
 
         With a call_id from begin_call(): a reply from before the last /start is ignored,
         and state.last_call only shows it if no newer call has started since."""
-        if call_id is not None and not call_id.startswith(f"g{self.epoch}c"):
-            log.warning("dropping reply for %s: call %s started before the game was reset", to, call_id)
+        if self.state.phase == "ended":
             return self.state
+        if call_id is not None:
+            pending = self.call_results.get(call_id)
+            if pending is None or not pending.pending or pending.to != to:
+                return self.state
         if interrupted:
             self.interrupt(to)  # normally already done when /call arrived
         before = self.state
@@ -544,9 +573,15 @@ class Game:
         self.queued += out.actions
         if call_id is None:
             call_id = self._new_call_id()
-        if call_id == self.latest_call_id:  # an older call finishing late does not hide a newer one
-            s.last_call = CallResult(call_id=call_id, to=to, pending=False, promises=out.promises,
-                                     actions=out.actions, ends_call=out.ends_call)
+        result = CallResult(call_id=call_id, to=to, pending=False, promises=out.promises,
+                            actions=out.actions, ends_call=out.ends_call)
+        self.call_results[call_id] = result
+        if len(self.call_results) > 256:
+            oldest = next((cid for cid, saved in self.call_results.items() if not saved.pending), None)
+            if oldest is not None and oldest != call_id:
+                del self.call_results[oldest]
+        if call_id == self.latest_call_id:
+            s.last_call = result
         self.state = s
         if self.needle and (out.promises or out.actions):
             self._needle(before, s, list(self.queued))
@@ -559,7 +594,7 @@ class Game:
         except RuntimeError:
             return  # not inside the server (tests, scripts): call futures() directly instead
 
-        self.needle_seq = getattr(self, "needle_seq", 0) + 1
+        self.needle_seq += 1
         seq, epoch = self.needle_seq, self.epoch
 
         async def run() -> None:

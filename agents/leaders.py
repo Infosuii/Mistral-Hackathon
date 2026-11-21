@@ -39,11 +39,6 @@ HESITATION_MS = 2500  # ideas.md 6b
 # An option this many points below the advisers' top needs a strategic or factual reason.
 DECISIVE_GAP = float(os.environ.get("GAMBIT_DECISIVE_GAP", "3"))
 
-# What each leader privately intended in earlier months, per game seed. Lets a leader
-# keep a plan across turns without a contract change. Cleared when the seed changes.
-_MEMORY: dict[tuple[int, str], list[tuple[int, str]]] = {}
-
-
 def _j(obj: Any) -> str:
     return json.dumps(obj, separators=(",", ":"), ensure_ascii=False)
 
@@ -214,17 +209,12 @@ async def decide(view: LeaderView | dict) -> LeaderOutput:
     options = [a.action.model_dump(mode="json") for a in v.advice[:MAX_OPTIONS]]
     if not options:
         options = [{"type": "wait", "by": v.nation, "target": None, "params": {}}]
-    key = (int(state.get("seed", 0)), v.nation)
-    if key not in _MEMORY:
-        for k in [k for k in _MEMORY if k[0] != key[0]]:
-            del _MEMORY[k]
-    past = [f"month {t}: {i}" for t, i in _MEMORY.get(key, []) if t < (state.get("turn") or 0)][-3:]
     top = v.advice[0].score if v.advice else 0.0
     user = {
         "situation": _brief(state, v.nation),
         "your_private_strategy": strategy,
         "private_messages_received": [f"{m.from_}: {m.text}" for m in v.messages_received][-6:],
-        "your_earlier_private_intents": past,
+        "your_earlier_private_intents": v.earlier_private_intents,
         "options_ranked_by_your_advisers": [
             f"{i}. {_label(o)} (adviser score {a.score:+.1f}"
             + (f", {top - a.score:.1f} below the advisers' choice: FAR BELOW" if top - a.score > DECISIVE_GAP else "") + ")"
@@ -245,7 +235,6 @@ async def decide(view: LeaderView | dict) -> LeaderOutput:
         primary=llm.DECIDE_MODEL, backup=llm.DECIDE_BACKUP if llm.DECIDE_MODEL == llm.HEDGE_MODEL else None,
         after=HEDGE_AFTER_S)
     out = await _reconsider(out, msgs, options, scores, state, v.nation, deadline)
-    _MEMORY.setdefault(key, []).append((state.get("turn") or 0, out.private_intent))
     return out
 
 
@@ -411,13 +400,13 @@ def _crisis_vocab(state: dict, nation: str) -> Optional[list[str]]:
     try:
         from engine.crisis import crisis_file  # type: ignore
         cf = crisis_file(c["id"])
-        ids = [a for a in cf.actions.get(nation, []) if "berth" not in a]
-        needs = cf.rules.get("needs_berth")
+        ids = list(cf.actions.get(nation, []))
+        needs = cf.rules.get("needs_berth", [])
     except Exception:  # noqa: BLE001
-        ids, needs = [], None
+        ids, needs = [], []
     # Only nations that need the berth can be promised it (a "second berth" asked of
     # Nordhaven is the tugs, not a berth for Nordhaven).
-    return (["berth"] if needs is None or nation in needs else []) + ids
+    return (["berth"] if nation in needs else []) + ids
 
 
 def _norm_what(what: str, vocab: list[str]) -> Optional[str]:
@@ -787,12 +776,16 @@ def _game_context() -> tuple[Optional[dict], dict[str, str]]:
 async def wiretap(a: str, b: str, state: Any = None, messages: Optional[list[dict]] = None) -> list[dict]:
     """Two leaders discuss the player. Returns [{speaker, text, emotion}], 4 lines.
     state defaults to the live game; messages are their private notes [{from, to, text}]."""
-    live, intents = _game_context()
-    st = _dump(state) if state is not None else (live or {})
-    seat = st.get("seat") or {}
+    if state is None:
+        live, intents = _game_context()
+        st = live or {}
+    else:
+        st, intents = _dump(state), {}
     fallback = [
-        {"speaker": a, "text": "The Valdorians promise everyone everything. Did they promise you the same?", "emotion": "skeptical"},
-        {"speaker": b, "text": "Word for word. Then neither of us should trust a thing they say.", "emotion": "sarcastic"},
+        {"speaker": a, "text": f"What do you make of {_player(st)}?", "emotion": "skeptical"},
+        {"speaker": b, "text": "I want to hear the terms first.", "emotion": "calm"},
+        {"speaker": a, "text": "Then let us compare notes afterwards.", "emotion": "tense"},
+        {"speaker": b, "text": "Agreed. I will keep this channel open.", "emotion": "calm"},
     ]
     if a not in NATION_IDS or b not in NATION_IDS or a == b:
         return fallback
