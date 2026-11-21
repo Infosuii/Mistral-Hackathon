@@ -64,6 +64,19 @@ interface SessionScore {
   average_trust?: number | null
 }
 
+export interface MapEvent {
+  turn: number
+  type: string
+  nation?: string | null
+  province?: string | null
+  target?: string | null
+  action?: string
+  crisis?: string
+  contradiction?: boolean
+  holders?: Record<string, string>
+  text?: string
+}
+
 export interface GameState {
   turn: number
   phase: string
@@ -75,8 +88,13 @@ export interface GameState {
   relations: Record<string, number>
   links: { type: string; a: string; b: string }[]
   provinces: Record<string, string>
+  buildings?: { province: string; kind: string; built_turn: number }[]
+  rail_services?: string[]
+  rail_income?: Record<string, Record<string, number>>
+  construction?: { province: string; kind: string } | null
+  fleets?: Record<string, { target: string; arrival_turn: number; returning: boolean }>
   news: { turn: number; text: string }[]
-  events: { turn: number; type: string; nation?: string | null; province?: string | null }[]
+  events: MapEvent[]
   incoming_call: { from: string; emotion: string; opening_line: string; audio_url?: string | null } | null
   crisis: CrisisState | null
   last_futures: Futures | null

@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from contracts.models import (
-    NATION_IDS, Action, Advice, Event, Link, NewsItem, Seat, State, relation_key,
+    NATION_IDS, Action, Advice, Building, BuildRequest, Event, Fleet, Link, NewsItem, Seat, State, relation_key,
 )
 
 DATA = Path(__file__).resolve().parent.parent / "data"
@@ -42,6 +42,12 @@ def world() -> dict[str, Any]:
 # --- setup -------------------------------------------------------------------
 
 
+def starting_buildings() -> list[Building]:
+    return [Building(province=province, kind=kind, built_turn=0)
+            for starts in _load("buildings.json")["start"].values()
+            for kind, province in starts.items()]
+
+
 def new_game(seed: int, seat: Seat) -> State:
     w = world()
     nations = {}
@@ -53,9 +59,10 @@ def new_game(seed: int, seat: Seat) -> State:
     state = State.model_validate({
         "turn": 0, "phase": "strategy", "seed": seed, "seat": seat.model_dump(),
         "nations": nations, "relations": w["relations"], "links": w["links"],
-        "provinces": w["provinces"],
-        "news": [{"turn": 0, "text": "Five nations, one continent. The year begins."}],
+        "provinces": w["provinces"], "buildings": starting_buildings(),
+        "news": [{"turn": 0, "text": "Five nations. The campaign begins."}],
     })
+    update_rail_services(state)
     _refresh_status(state, weights())
     return state
 
@@ -78,7 +85,7 @@ def allies(state: State, nation: str) -> list[str]:
 
 @lru_cache(maxsize=4096)
 def _border_pairs(owners: tuple[tuple[str, str], ...]) -> frozenset[tuple[str, str]]:
-    nb, own = world()["neighbours"], dict(owners)
+    nb, own = _load("atlas_adjacency.json"), dict(owners)
     return frozenset((own[p], own[q]) for p in own for q in nb[p] if q in own and own[p] != own[q])
 
 
@@ -139,6 +146,11 @@ def _trade_params(state: State, nation: str, w: dict) -> dict:
     return {"give": {ranked[-1]: amount}, "get": {ranked[0]: amount}}
 
 
+def _sea_access(state: State, a: str, b: str) -> bool:
+    ports = _load("sea_routes.json")["ports"]
+    return all(state.provinces.get(ports[nation]["province"]) == nation for nation in (a, b))
+
+
 def legal_actions(state: State, nation: str) -> list[Action]:
     if state.phase == "crisis":
         from engine.crisis import crisis_legal
@@ -147,11 +159,18 @@ def legal_actions(state: State, nation: str) -> list[Action]:
     if state.phase != "strategy":
         return acts
     w = weights()
+    player = state.seat.nation == nation
+    fleet = state.fleets.get(nation)
     for t in NATION_IDS:
         if t == nation:
             continue
         if has_link(state, "war", nation, t):
             acts.append(Action(type="make_peace", by=nation, target=t))
+            if player and _sea_access(state, nation, t):
+                if fleet is None:
+                    acts.append(Action(type="deploy_fleet", by=nation, target=t))
+                elif fleet.target == t and not fleet.returning:
+                    acts.append(Action(type="recall_fleet", by=nation, target=t))
             continue
         if not _recent(state, ("tariff",), nation, t, w["tariff"]["cooldown_months"]):
             for pct in w["tariff"]["options_pct"]:
@@ -160,10 +179,15 @@ def legal_actions(state: State, nation: str) -> list[Action]:
             acts.append(Action(type="propose_trade", by=nation, target=t,
                                params=_trade_params(state, nation, w)))
         allied = has_link(state, "alliance", nation, t)
+        if allied and player:
+            acts.append(Action(type="leave_alliance", by=nation, target=t))
         if not allied and rel(state, nation, t) >= w["alliance"]["min_relation"]:
             acts.append(Action(type="propose_alliance", by=nation, target=t))
-        if (not allied and rel(state, nation, t) <= w["war"]["min_relation_to_declare"]
-                and borders(state, nation, t)):
+        land_front = borders(state, nation, t)
+        if not allied and (
+            (player and (land_front or _sea_access(state, nation, t)))
+            or (land_front and rel(state, nation, t) <= w["war"]["min_relation_to_declare"])
+        ):
             acts.append(Action(type="declare_war", by=nation, target=t))
     return acts
 
@@ -221,6 +245,8 @@ def _score(state: State, a: Action, w: dict, assume_accept: bool = False) -> flo
         value = rw["military"] * state.nations[t].stats.army / 10 * (1 if threatened else 0.3)
         score += p_accept(state, a, w) * (value + sc["relation_value"] * w["alliance"]["relation"])
 
+    elif a.type == "leave_alliance":
+        score += sc["relation_value"] * w["alliance"]["leave_relation"]
     elif a.type in ("declare_war", "make_peace"):
         wr = w["war"]
         months = h
@@ -321,6 +347,16 @@ def _apply(s: State, a: Action, w: dict, log: _Log) -> None:
             log.add("alliance", by, f"{_name(s, by)} and {_name(s, t)} form an alliance", target=t)
         else:
             log.add("alliance_rejected", t, f"{_name(s, t)} turns down an alliance with {_name(s, by)}", target=by)
+    elif a.type == "leave_alliance":
+        _set_link(s, "alliance", by, t, False)
+        _bump_rel(s, by, t, w["alliance"]["leave_relation"])
+        log.add("alliance_left", by, f"{_name(s, by)} leaves its alliance with {_name(s, t)}", target=t)
+    elif a.type == "deploy_fleet":
+        s.fleets[by] = Fleet(target=t, arrival_turn=s.turn + 1)
+        log.add("fleet_deployed", by, f"{_name(s, by)} sends its fleet towards {_name(s, t)}", target=t)
+    elif a.type == "recall_fleet":
+        s.fleets[by] = Fleet(target=t, arrival_turn=s.turn + 1, returning=True)
+        log.add("fleet_recalled", by, f"{_name(s, by)} recalls its fleet from {_name(s, t)}", target=t)
     elif a.type == "declare_war":
         _set_link(s, "war", by, t, True)
         _set_link(s, "trade", by, t, False)
@@ -334,9 +370,11 @@ def _apply(s: State, a: Action, w: dict, log: _Log) -> None:
 
 def _fight(s: State, rng: random.Random, w: dict, log: _Log) -> None:
     wr = w["war"]
-    nb = world()["neighbours"]
+    nb = _load("atlas_adjacency.json")
     for link in sorted([l for l in s.links if l.type == "war"], key=lambda l: (l.a, l.b)):
         a, b = link.a, link.b
+        if not borders(s, a, b):
+            continue
         pa = power(s, a, w) + rng.gauss(0, wr["noise"])
         pb = power(s, b, w) + rng.gauss(0, wr["noise"])
         winner, loser = (a, b) if pa >= pb else (b, a)
@@ -361,6 +399,131 @@ def _fight(s: State, rng: random.Random, w: dict, log: _Log) -> None:
             log.add("peace", loser, f"{_name(s, loser)} sues for peace with {_name(s, winner)}", target=winner)
 
 
+@lru_cache(maxsize=1)
+def _county_yields() -> dict[str, tuple[str, float]]:
+    return {
+        province: ("gdp" if county["resource"] == "economy" else county["resource"],
+                   county["output"] / len(county["provinces"]))
+        for county in _load("counties.json") for province in county["provinces"]
+    }
+
+
+def _build_check(s: State, project: BuildRequest) -> str | None:
+    if s.phase != "strategy":
+        return "construction is available during strategy"
+    player = s.seat.nation
+    if not player or s.provinces.get(project.province) != player:
+        return "choose a province your nation controls"
+    existing = [building.kind for building in s.buildings if building.province == project.province]
+    if project.kind in existing:
+        return "that facility already exists here"
+    if len(existing) >= 3:
+        return "this province already has three facilities"
+    cost = _load("buildings.json")["kinds"][project.kind]["cost"]
+    if any(getattr(s.nations[player].stats, resource) < price for resource, price in cost.items()):
+        return "your nation cannot afford this project"
+    return None
+
+
+def queue_project(s: State, project: BuildRequest) -> State:
+    error = _build_check(s, project)
+    if error:
+        raise ValueError(error)
+    return s.model_copy(update={"construction": project})
+
+
+def _advance_construction(s: State, log: _Log) -> None:
+    project = s.construction
+    s.construction = None
+    if project is None or s.seat.nation is None:
+        return
+    player = s.seat.nation
+    spec = _load("buildings.json")["kinds"][project.kind]
+    name = spec["name"]
+    error = _build_check(s, project)
+    if error:
+        log.add("construction_cancelled", player, f"{name} cancelled: {error}", province=project.province)
+        return
+    for resource, price in spec["cost"].items():
+        _bump(s, player, resource, -price)
+    s.buildings.append(Building(**project.model_dump(), built_turn=s.turn))
+    log.add("construction_completed", player, f"{_name(s, player)} opens a new {name.lower()}",
+            province=project.province, action=project.kind)
+
+
+def _facility_production(s: State) -> None:
+    definitions = _load("buildings.json")
+    for building in s.buildings:
+        owner = s.provinces.get(building.province)
+        if not owner:
+            continue
+        original = world()["provinces"][building.province]
+        if building.built_turn == 0 and owner == original:
+            continue  # opening facilities already contribute to the baseline
+        for resource, output in definitions["kinds"][building.kind]["output"].items():
+            _bump(s, owner, resource, output)
+            if building.built_turn == 0:
+                _bump(s, original, resource, -output)
+
+
+def _patrols(s: State, log: _Log) -> None:
+    for nation, fleet in list(s.fleets.items()):
+        target = fleet.target
+        if not _sea_access(s, nation, target) or not has_link(s, "war", nation, target):
+            del s.fleets[nation]
+            log.add("blockade_lifted", nation, f"{_name(s, nation)} withdraws its fleet", target=target)
+        elif s.turn >= fleet.arrival_turn:
+            if fleet.returning:
+                del s.fleets[nation]
+                log.add("fleet_returned", nation, f"{_name(s, nation)}'s fleet returns to port", target=target)
+            else:
+                if s.turn == fleet.arrival_turn:
+                    log.add("blockade_started", nation,
+                            f"{_name(s, nation)} begins a blockade of {_name(s, target)}", target=target)
+                _bump(s, target, "gdp", -1.25)
+                _bump(s, target, "food", -0.75)
+
+
+def _active_rail(s: State) -> list[dict]:
+    """A corridor can cross a border only under an active trade agreement."""
+    wars = {relation_key(link.a, link.b) for link in s.links if link.type == "war"}
+    trade = {relation_key(link.a, link.b) for link in s.links if link.type == "trade"}
+    allowed = trade - wars
+    routes = []
+    for route in _load("rail.json")["routes"]:
+        owners = [s.provinces.get(province) for province in route["via"]]
+        if all(owners) and all(a == b or relation_key(a, b) in allowed for a, b in zip(owners, owners[1:])):
+            routes.append(route)
+    return routes
+
+
+def update_rail_services(s: State) -> None:
+    s.rail_services = [route["id"] for route in _active_rail(s)]
+
+
+def _rail_freight(s: State) -> None:
+    cities = _load("rail.json")["cities"]
+    yards = {building.province for building in s.buildings if building.kind == "freight_yard"}
+    income: dict[str, dict[str, float]] = {}
+    routes = _active_rail(s)
+    s.rail_services = [route["id"] for route in routes]
+    for route in routes:
+        a, b = route["from"], route["to"]
+        multiplier = 1.5 if a in yards or b in yards else 1
+        for source, destination in ((a, b), (b, a)):
+            city = cities[source]
+            resource = "gdp" if city["resource"] == "economy" else city["resource"]
+            amounts = income.setdefault(s.provinces[destination], {})
+            amounts[resource] = amounts.get(resource, 0) + .09 * city["output"] * multiplier
+    s.rail_income = {
+        nation: {resource: round(value, 2) for resource, value in amounts.items()}
+        for nation, amounts in income.items()
+    }
+    for nation, amounts in s.rail_income.items():
+        for resource, value in amounts.items():
+            _bump(s, nation, resource, value)
+
+
 def _monthly(s: State, rng: random.Random, w: dict, log: _Log) -> None:
     mo = w["monthly"]
     for l in s.links:
@@ -369,7 +532,16 @@ def _monthly(s: State, rng: random.Random, w: dict, log: _Log) -> None:
                 _bump(s, n, "gdp", w["trade"]["monthly_gdp"])
                 _bump(s, n, "food", w["trade"]["monthly_supply"])
                 _bump(s, n, "oil", w["trade"]["monthly_supply"])
-    base = world()["nations"]
+    world_data = world()
+    base = world_data["nations"]
+    # Starting production is already included in national baselines. Conquests shift
+    # the captured share of a county's monthly output from the old owner to the new.
+    for province, (resource, output) in _county_yields().items():
+        original = world_data["provinces"][province]
+        current = s.provinces.get(province, original)
+        if current != original:
+            _bump(s, original, resource, -output)
+            _bump(s, current, resource, output)
     for n in NATION_IDS:
         st = s.nations[n].stats
         for stat in mo["revert_stats"]:  # each stat drifts back toward the nation's starting value
@@ -380,6 +552,9 @@ def _monthly(s: State, rng: random.Random, w: dict, log: _Log) -> None:
             _bump(s, n, "stability", mo["food_high_stability"])
         if st.oil < mo["oil_low"]:
             _bump(s, n, "gdp", mo["oil_low_gdp"])
+    _facility_production(s)
+    _rail_freight(s)
+    _patrols(s, log)
     for k in sorted(s.relations):
         v = s.relations[k]
         s.relations[k] = v - mo["relation_drift"] if v > 0 else v + mo["relation_drift"] if v < 0 else 0
@@ -443,6 +618,7 @@ def step(state: State, actions: list[Action], seed: int, check: bool = True) -> 
         _apply(s, a, w, log)
     start = {n: s.nations[n].stats.model_copy() for n in NATION_IDS}
     _fight(s, rng, w, log)
+    _advance_construction(s, log)
     _monthly(s, rng, w, log)
     mo = w["monthly"]
     for n in NATION_IDS:

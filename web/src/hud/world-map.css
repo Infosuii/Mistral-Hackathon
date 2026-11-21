@@ -1,0 +1,63 @@
+.political-map .graticule { opacity: .32; }
+.political-map .coast-halo { stroke: #2b6274; stroke-width: 42; opacity: .5; }
+.political-map .coast-shelf { stroke: #3a8790; stroke-width: 24; opacity: .62; }
+.coast-reef { fill: none; stroke: #70a8a4; stroke-width: 9; stroke-linejoin: round; opacity: .7; }
+.coast-land { fill: #7d875e; }
+.political-map .coastline { stroke: #ded0a1; stroke-width: 2.3; }
+.political-map .province { stroke: var(--nation-accent); stroke-opacity: 0; stroke-width: 1.1; }
+.political-map .province[data-selected='true'] { stroke-opacity: .26; }
+.political-map .province[data-hover='true'] { stroke-opacity: .65; stroke-dasharray: none; }
+.political-map .terrain-features { opacity: .8; }
+.political-map .territory-labels text { letter-spacing: .26em; stroke-width: 2.7px; }
+.political-map .nb-under { stroke: #173c42; stroke-width: 2.8; opacity: .56; }
+.political-map .nb-over { stroke-width: 1.25; opacity: .62; }
+.political-map .nb-over[data-home='true'] { stroke: #ffdd91; stroke-width: 2.1; opacity: .95; }
+.home-map-label {
+  fill: #ffde93;
+  text-anchor: middle;
+  font: 700 12px var(--display-font);
+  letter-spacing: .15em;
+  stroke: #173036;
+  stroke-width: 2.6;
+  paint-order: stroke;
+}
+.political-map .unit-plate { fill: #253b3e; stroke: none; }
+.political-map .decision-tag { fill: #1b3a44; fill-opacity: .7; stroke: none; }
+.terrain-biomes { mix-blend-mode: soft-light; opacity: .53; }
+.pixel-ship .ship-hull { fill: color-mix(in srgb, var(--nation-fill, #296476), #e0d9b0 18%); stroke-width: .7; }
+.pixel-ship .ship-shadow { fill: #142e39; }
+.pixel-ship .ship-cargo { fill: #c6a969; stroke: #664f39; stroke-width: .6; }
+.pixel-ship .ship-window { fill: #4a6771; }
+.pixel-ship[data-ship-kind='patrol'] .ship-cargo { fill: #779090; stroke: #34434d; }
+.pixel-ship[data-ship-kind='tug'] .ship-deck { fill: #dba257; }
+.county-borders path { fill: none; stroke: #e8e3c7; stroke-width: 1.2; stroke-dasharray: 3 3; opacity: .58; }
+.county-labels text {
+  fill: #f6ebce;
+  font: 700 15px var(--display-font);
+  letter-spacing: .04em;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: #234044;
+  stroke-width: 2.3;
+}
+.fleet-lane { stroke: var(--nation-accent); fill: none; stroke-width: 1.6; stroke-dasharray: 7 5; opacity: .52; }
+.fleet-blockade { fill: #cf6a4820; stroke: var(--war); stroke-width: 1.6; stroke-dasharray: 5 3; }
+.fleet-marker text {
+  fill: var(--nation-accent);
+  text-anchor: middle;
+  font: 700 12px var(--display-font);
+  paint-order: stroke;
+  stroke: #142e39;
+  stroke-width: 3;
+}
+
+
+.political-map .province { fill: color-mix(in srgb, var(--nation-fill), #293431 43%); }
+.political-map .province[data-selected='true'] { fill: color-mix(in srgb, var(--nation-fill), #454f40 26%); }
+.political-map .province[data-hover='true'] { fill: color-mix(in srgb, var(--nation-fill), var(--nation-accent) 24%); }
+.political-map .coast-halo { stroke: #67848a; stroke-width: 25; opacity: .19; }
+.political-map .coast-shelf { stroke: #708887; stroke-width: 12; opacity: .24; }
+.political-map .coast-reef { stroke: #8d9c8e; stroke-width: 3; opacity: .5; }
+.political-map .coastline { stroke: #b1aa8e; stroke-width: 1.35; }
+.political-map .relief { opacity: .8; }
+.political-map .territory-labels text { letter-spacing: .18em; opacity: .76; }

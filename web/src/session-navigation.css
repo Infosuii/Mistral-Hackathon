@@ -1,0 +1,49 @@
+.speed-control { display: grid; gap: 2px; min-width: 5.2rem; font-size: .75rem; color: var(--muted); }
+.speed-control span { display: flex; justify-content: space-between; gap: .5rem; }
+.speed-control output { color: var(--text); font-variant-numeric: tabular-nums; }
+.speed-control input { inline-size: 5.2rem; margin: 0; accent-color: var(--accent); }
+.session-dialog {
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  padding: 1.2rem;
+  max-inline-size: min(30rem, calc(100% - 2rem));
+  box-shadow: 0 16px 60px #0009;
+  white-space: normal;
+}
+.session-dialog::backdrop { background: #07141ad0; }
+.session-dialog h2 { margin: 0; color: var(--accent); }
+.session-dialog label { display: grid; gap: .25rem; margin-block: .8rem; }
+.session-dialog input, .session-dialog select { color: var(--text); background: var(--surface); border: 1px solid var(--border); padding: .5rem; font: inherit; }
+.dialog-actions, .history-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.history-dialog { inline-size: 30rem; }
+.history-events { max-block-size: 55dvh; overflow: auto; }
+.history-events h3 { color: var(--accent); font: 700 1.05rem var(--display-font); margin-block: .8rem .3rem; }
+.history-events ul { list-style: none; margin: 0; padding: 0; }
+.history-events li { padding: .42rem .55rem; border-bottom: 1px solid var(--border); text-transform: none; }
+.history-views, .save-form { display: flex; align-items: end; gap: .6rem; flex-wrap: wrap; margin-block: .6rem; }
+.history-views > button[aria-pressed='true'] { border-color: var(--accent); }
+.save-form label { flex: 1; min-inline-size: 8rem; margin: 0; }
+.save-slots { padding: 0; list-style: none; max-block-size: 45dvh; overflow: auto; }
+.save-slots li { display: flex; justify-content: space-between; align-items: center; gap: .65rem; border-top: 1px solid var(--border); padding-block: .6rem; }
+.save-slots small { display: block; color: var(--muted); }
+.dialog-actions { flex-wrap: wrap; }
+.history-events .history-locate {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: .5rem;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  color: var(--text);
+  padding: 0;
+  text-transform: none;
+}
+.history-locate:hover span { color: var(--accent); }
+.build-dialog { inline-size: 30rem; }
+.build-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.build-dialog p { margin: .5rem 0; }
+.build-dialog p b { color: var(--accent); margin-inline-end: .3rem; }
+.build-dialog button[type='submit'] { margin-top: .75rem; }

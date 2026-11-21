@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import json
 import os
 import random
@@ -46,6 +48,7 @@ CALL_MODEL = FAST_MODEL  # the one-call call_reply()
 T = TypeVar("T", bound=BaseModel)
 
 _client: Optional[httpx.AsyncClient] = None
+_cooldowns: dict[str, float] = {}
 STATS: dict[str, Any] = {"calls": 0, "retries": 0, "failures": 0, "latencies": deque(maxlen=2048), "by_model": {}}
 
 
@@ -58,7 +61,23 @@ class EmptyReply(LLMError):
 
 
 class RateLimited(LLMError):
-    """HTTP 429. The limit is shared by the whole workspace, so back off and retry."""
+    """HTTP 429 or a provider cooldown already in effect."""
+
+    def __init__(self, message: str, retry_after: float = 1.5):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+def retry_seconds(value: str | None) -> float:
+    if not value:
+        return 1.5
+    try:
+        return max(0.3, float(value))
+    except ValueError:
+        try:
+            return max(0.3, (parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds())
+        except (TypeError, ValueError):
+            return 1.5
 
 
 def _key() -> str:
@@ -103,6 +122,9 @@ async def chat(messages: list[dict], *, model: Optional[str] = None, effort: str
                max_tokens: int = 600, temperature: float = 0.8, json_mode: bool = True,
                timeout: float = 20.0, seed: Optional[int] = None) -> str:
     model = model or MODEL
+    remaining = _cooldowns.get(model, 0) - time.monotonic()
+    if remaining > 0:
+        raise RateLimited(f"{model} is cooling down", remaining)
     body: dict[str, Any] = {"model": model, "messages": messages,
                             "max_tokens": max_tokens if not reasons(model) else max(max_tokens, 4000),
                             "temperature": temperature}
@@ -127,7 +149,9 @@ async def chat(messages: list[dict], *, model: Optional[str] = None, effort: str
     STATS["latencies"].append(time.perf_counter() - t0)
     if r.status_code == 429:
         STATS["rate_limited"] = STATS.get("rate_limited", 0) + 1
-        raise RateLimited(f"HTTP 429: {r.text[:200]}")
+        delay = retry_seconds(r.headers.get("retry-after"))
+        _cooldowns[model] = time.monotonic() + delay
+        raise RateLimited(f"HTTP 429 from {model}", delay)
     if r.status_code != 200:
         STATS["failures"] += 1
         raise LLMError(f"HTTP {r.status_code}: {r.text[:300]}")
@@ -157,8 +181,8 @@ async def chat_json(messages: list[dict], parse: Callable[[Any], T], *, deadline
             raw = await chat(messages, timeout=left, **kw)
         except RateLimited as e:
             last, waits = e, waits + 1
-            pause = min(0.3 * 2 ** waits + random.uniform(0, 0.3), deadline - time.perf_counter() - 1.5)
-            if pause <= 0:
+            pause = max(e.retry_after, 0.3 * 2 ** waits) + random.uniform(0, 0.3)
+            if pause + 1.5 >= deadline - time.perf_counter():
                 break
             await asyncio.sleep(pause)
             continue

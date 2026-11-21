@@ -1,7 +1,10 @@
 // Grand-strategy map layers drawn from the live state: national borders, territory
 // labels, unit counters, and each leader's medallion with mood ring and speech bubble.
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import map from '../map.json'
+import map from '../atlas.json'
+import { CityArt } from './Infrastructure'
+import oneBerth from '../../../data/crises/one_berth.json'
+import { grainShips, kessarPoint, kessarPort, ShipSilhouette, straitPatrol, tugBerth } from './DecisionMotion'
 import { relationBetween, type GameState } from '../state'
 import { nationStyle } from '../theme'
 
@@ -19,13 +22,13 @@ export function NationalBorders({ state }: { state: GameState }) {
   return (
     <g className="national-borders map-decoration">
       {edges.map(({ between, path }) => <path key={between.join('|')} className="nb-under" d={path} />)}
-      {edges.map(({ between, path }) => <path key={`o${between.join('|')}`} className="nb-over" d={path} />)}
+      {edges.map(({ between, path }) => <path key={`o${between.join('|')}`} className="nb-over" data-home={between.some((id) => state.provinces[id] === state.seat.nation)} d={path} />)}
     </g>
   )
 }
 
 /** Large spaced nation names across each nation's territory; they follow conquests. */
-export function TerritoryLabels({ state, selected }: { state: GameState; selected?: string }) {
+export function TerritoryLabels({ state, selected, zoom }: { state: GameState; selected?: string; zoom: number }) {
   const owned = new Map<string, number[][]>()
   for (const [pid, owner] of Object.entries(state.provinces)) {
     const c = centers.get(pid)
@@ -41,7 +44,7 @@ export function TerritoryLabels({ state, selected }: { state: GameState; selecte
         const cap = capitals[id]
         // The capital carries the leader, units and star: put the name clear of them.
         if (cap && Math.abs(cap[1] - y) < 55 && Math.abs(cap[0] - x) < 150) y = cap[1] + (y >= cap[1] ? 62 : -62)
-        const size = Math.max(22, Math.min(44, 12 + Math.sqrt(pts.length) * 9))
+        const size = Math.max(22, Math.min(44, 12 + Math.sqrt(pts.length) * 9)) / Math.max(1, zoom * .84)
         return (
           <text key={id} x={x} y={y + 6} style={{ ...nationStyle(id), fontSize: size } as CSSProperties}
             data-selected={id === selected}>{nation.name}</text>
@@ -187,46 +190,62 @@ export function CapitalMarkers({ state }: { state: GameState }) {
   return (
     <g className="map-decoration">
       {Object.entries(capitals).map(([id, [x, y]]) => state.nations[id] && (
-        <g key={id} className="capital-star" transform={`translate(${x} ${y})`} style={nationStyle(id)}>
-          <circle r="7.5" />
-          <path d="M0,-5 L1.5,-1.6 L5,-1.5 L2.3,0.8 L3.1,4.4 L0,2.5 L-3.1,4.4 L-2.3,0.8 L-5,-1.5 L-1.5,-1.6 Z" />
+        <g key={id} className="capital-settlement" data-home={id === state.seat.nation} transform={`translate(${x} ${y})`} style={nationStyle(id)}>
+          <title>{state.nations[id].name} capital</title>
+          <CityArt economy={state.nations[id].stats.gdp} />
+          {id === state.seat.nation && <text className="home-map-label" y="-28">YOUR NATION</text>}
         </g>
       ))}
     </g>
   )
 }
 
-function Ship({ x, y, id, label }: { x: number; y: number; id: string; label: string }) {
+function Ship({ at: [x, y], from, id, label, kind }: { at: number[]; from?: number[]; id: string; label: string; kind?: 'grain' | 'tug' | 'patrol' }) {
+  const dx = from ? from[0] - x : 0
+  const dy = from ? from[1] - y : 0
   return (
-    <g className="ship" transform={`translate(${x} ${y}) scale(1.45)`} style={nationStyle(id)}>
+    <g className="ship" style={nationStyle(id)}>
       <title>{label}</title>
-      <g className="ship-bob">
-        <path className="ship-wake" d="M14,2 q10,3 22,0" />
-        <path className="ship-hull" d="M-13,0 L13,0 L9,6 L-10,6 Z" />
-        <rect className="ship-deck" x="-7" y="-6" width="10" height="6" />
-        <path className="ship-mast" d="M5,-10 L5,0" />
+      <g className="crisis-ship" style={{ transform: `translate(${x}px, ${y}px)` }}>
+        <g className="crisis-ship" data-arriving={Boolean(from)} style={{
+          '--cue-x': `${dx}px`, '--cue-y': `${dy}px`,
+          '--cue-mid-x': `${dx / 2}px`, '--cue-mid-y': `${dy / 2}px`,
+        } as CSSProperties}>
+          <g transform="scale(1.45)"><g className="ship-bob"><ShipSilhouette kind={kind} /></g></g>
+        </g>
       </g>
     </g>
   )
 }
 
-/** The crisis on the map: a pulsing focus at Port Kessar, and the ships waiting to dock. */
+/** One Berth has a physical map location. Other crises use their own decision indicators. */
 export function CrisisFocus({ state }: { state: GameState }) {
   const c = state.crisis
-  if (!c) return null
-  const port = [612, 548]
-  const docked = (id: string) => c.decisions[id]?.action === 'dock'
+  if (c?.id !== 'one_berth') return null
+  const tugRule = oneBerth.rules.second_berth_requires
+  const tugs = c.decisions[tugRule.nation]
+  const secondBerth = tugs?.action === tugRule.action && tugs.tick <= tugRule.by_tick
+  const blockade = c.decisions.ostrava?.action === 'blockade'
+  const closed = c.decisions.kessaria?.action === 'close_port'
+  const [x, y] = kessarPort
   return (
     <g className="crisis-focus map-decoration">
-      <circle cx={port[0]} cy={port[1]} r="14" className="focus-pulse" />
-      <circle cx={port[0]} cy={port[1]} r="7" className="focus-core" />
-      <g transform={`translate(${port[0]} ${port[1] - 20})`}>
-        <rect x="-62" y="-10" width="124" height="16" rx="3" className="focus-tag" />
-        <text y="2" className="focus-tag-text">Port Kessar · 1 berth</text>
+      <circle cx={x} cy={y} r="14" className="focus-pulse" />
+      <circle cx={x} cy={y} r="7" className="focus-core" />
+      <g transform={`translate(${x} ${y - 20})`}>
+        <rect x="-74" y="-10" width="148" height="16" rx="3" className="focus-tag" />
+        <text y="2" className="focus-tag-text">Port Kessar · {closed ? 'Closed' : secondBerth ? '2 berths' : '1 berth'}</text>
       </g>
-      {state.nations.ostrava && <Ship id="ostrava" x={docked('ostrava') ? 618 : 668} y={docked('ostrava') ? 572 : 600} label="Ostravan grain ship" />}
-      {state.nations.zarnia && <Ship id="zarnia" x={docked('zarnia') ? 600 : 560} y={docked('zarnia') ? 575 : 640} label="Zarnian grain ship" />}
-      <path className="storm" d="M700,520 q14,-12 28,0 q14,12 28,0 M712,536 q12,-10 24,0 q12,10 24,0" />
+      {Object.entries(grainShips).map(([id, ship]) => {
+        if (!state.nations[id]) return null
+        const name = state.nations[id].name
+        const approaching = !closed && c.decisions[id]?.action === 'dock' && !(blockade && id === 'zarnia')
+        return <Ship key={id} id={id} at={approaching ? ship.approach : ship.waiting}
+          label={`${name} grain ship · ${approaching ? 'approaching port' : 'offshore'}`} />
+      })}
+      {secondBerth && <Ship id="nordhaven" kind="tug" at={tugBerth} from={kessarPoint(780, 649)} label="Nordhaven tugs · second berth available" />}
+      {blockade && <Ship id="ostrava" kind="patrol" at={straitPatrol} from={kessarPoint(782, 633)} label="Ostrava blockade patrol" />}
+      <path className="storm" transform={`translate(${[kessarPort[0] - 612, kessarPort[1] - 548].join(" ")})`} d="M700,520 q14,-12 28,0 q14,12 28,0 M712,536 q12,-10 24,0 q12,10 24,0" />
     </g>
   )
 }

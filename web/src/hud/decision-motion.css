@@ -1,0 +1,63 @@
+/* Short-lived orders and outcomes, drawn in the atlas's counter and tag style. */
+.decision-motion { pointer-events: none; }
+.motion-cue {
+  --cue-color: var(--accent);
+  animation: motion-visibility 3.7s ease var(--cue-delay) both;
+}
+.motion-cue[data-motion='capture'] { --cue-color: var(--nation-accent); }
+.motion-cue:is([data-motion='war'], [data-motion='tariff'], [data-motion$='_rejected'], [data-motion='coup']) { --cue-color: var(--war); }
+.motion-cue:is([data-motion='trade_deal'], [data-motion='peace']) { --cue-color: var(--trade); }
+.motion-cue:is([data-motion='alliance'], [data-motion='diplomacy']) { --cue-color: var(--alliance); }
+.motion-capture {
+  fill: var(--cue-color);
+  fill-opacity: .18;
+  stroke: var(--cue-color);
+  stroke-width: 2;
+  animation: motion-capture 1.3s ease-out var(--cue-delay) both;
+}
+@keyframes motion-capture {
+  from { fill: var(--nation-fill, var(--cue-color)); fill-opacity: .9; }
+  to { fill: var(--cue-color); fill-opacity: .18; }
+}
+.motion-trail { fill: none; stroke: var(--cue-color); stroke-width: 2; stroke-dasharray: 5 5; opacity: .58; }
+.motion-ping {
+  fill: none;
+  stroke: var(--cue-color);
+  stroke-width: 2;
+  animation: motion-ping 1.5s ease-out var(--cue-delay) 2 both;
+}
+.motion-symbol {
+  fill: none;
+  stroke: var(--cue-color);
+  stroke-width: 1.2;
+  animation: motion-travel 1.3s ease-in-out var(--cue-delay) both;
+}
+.motion-counter, .motion-tag rect { fill: var(--sea-deep); stroke: var(--cue-color); }
+.motion-tag text {
+  fill: var(--cue-color);
+  font: 700 11px var(--display-font);
+  text-anchor: middle;
+  text-transform: uppercase;
+  letter-spacing: .065em;
+}
+@keyframes motion-visibility {
+  0%, 100% { opacity: 0; }
+  7%, 75% { opacity: 1; }
+}
+@keyframes motion-ping {
+  from { transform: scale(.35); opacity: 1; }
+  to { transform: scale(1.65); opacity: 0; }
+}
+@keyframes motion-travel {
+  0% { transform: translate(var(--cue-x), var(--cue-y)); }
+  50% { transform: translate(var(--cue-mid-x), var(--cue-mid-y)); }
+  100% { transform: translate(0, 0); }
+}
+.crisis-ship { transition: transform 1.5s ease-in-out; }
+.crisis-ship[data-arriving='true'] { animation: motion-travel 1.5s ease-in-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-cue, .motion-capture, .motion-ping, .motion-symbol, .crisis-ship[data-arriving='true'] { animation: none; }
+  .crisis-ship { transition: none; }
+  .political-map .province { transition: none; }
+}

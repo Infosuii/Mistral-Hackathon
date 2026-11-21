@@ -208,3 +208,14 @@ def test_a_keyless_server_whose_replies_work_is_left_alone(client, monkeypatch):
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     r = client.post("/call", json=CALL).json()
     assert r["reply_text"] == "The berth is ours, then." and r["reply_audio_url"]
+
+
+def test_transcription_quota_returns_typed_fallback(client, monkeypatch):
+    async def rate_limited(*args):
+        raise api.VoiceRateLimited(8)
+
+    monkeypatch.setattr(api, "transcribe", rate_limited)
+    res = client.post("/call", json={"to": "ostrava", "audio": "UklGRg=="})
+    assert res.status_code == 429
+    assert res.headers["retry-after"] == "8"
+    assert "Type a message" in res.json()["detail"]

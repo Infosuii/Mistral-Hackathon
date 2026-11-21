@@ -1,0 +1,161 @@
+{
+  "cities": {
+    "p01": {
+      "name": "Valdor Basin",
+      "resource": "food",
+      "output": 1.6,
+      "capital": true
+    },
+    "p02": {
+      "name": "Bluewater",
+      "resource": "economy",
+      "output": 1.0,
+      "capital": false
+    },
+    "p04": {
+      "name": "Mill Country",
+      "resource": "food",
+      "output": 2.0,
+      "capital": false
+    },
+    "p06": {
+      "name": "Pinewatch",
+      "resource": "oil",
+      "output": 0.8,
+      "capital": false
+    },
+    "p09": {
+      "name": "Dravic Plain",
+      "resource": "food",
+      "output": 0.8,
+      "capital": true
+    },
+    "p11": {
+      "name": "Old Forts",
+      "resource": "economy",
+      "output": 1.2,
+      "capital": false
+    },
+    "p14": {
+      "name": "Iron Ridge",
+      "resource": "oil",
+      "output": 1.8,
+      "capital": false
+    },
+    "p16": {
+      "name": "East March",
+      "resource": "oil",
+      "output": 2.0,
+      "capital": false
+    },
+    "p18": {
+      "name": "Oryn Basin",
+      "resource": "food",
+      "output": 1.1,
+      "capital": true
+    },
+    "p20": {
+      "name": "Green Reach",
+      "resource": "food",
+      "output": 0.8,
+      "capital": false
+    },
+    "p24": {
+      "name": "Border Towns",
+      "resource": "economy",
+      "output": 0.8,
+      "capital": false
+    },
+    "p19": {
+      "name": "Copper Road",
+      "resource": "chips",
+      "output": 1.1,
+      "capital": false
+    },
+    "p28": {
+      "name": "Kessar Crown",
+      "resource": "economy",
+      "output": 1.3,
+      "capital": true
+    },
+    "p29": {
+      "name": "Toll Coast",
+      "resource": "economy",
+      "output": 0.8,
+      "capital": false
+    },
+    "p30": {
+      "name": "Salt Fields",
+      "resource": "food",
+      "output": 0.6,
+      "capital": false
+    },
+    "p32": {
+      "name": "South Quay",
+      "resource": "oil",
+      "output": 0.5,
+      "capital": false
+    },
+    "p33": {
+      "name": "Northwater",
+      "resource": "economy",
+      "output": 1.2,
+      "capital": true
+    },
+    "p34": {
+      "name": "Fjord Gate",
+      "resource": "food",
+      "output": 0.7,
+      "capital": false
+    },
+    "p36": {
+      "name": "Silicon Vale",
+      "resource": "chips",
+      "output": 2.1,
+      "capital": false
+    },
+    "p40": {
+      "name": "Ice Cape",
+      "resource": "oil",
+      "output": 0.6,
+      "capital": false
+    }
+  },
+  "routes": [
+    {"id":"p01|p02","from":"p01","to":"p02","via":["p01","p02"],"points":[[468.0,594.0],[322.0,611.0]]},
+    {"id":"p01|p06","from":"p01","to":"p06","via":["p01","p06"],"points":[[468.0,594.0],[540,625],[621.0,631.0]]},
+    {"id":"p01|p04","from":"p01","to":"p04","via":["p01","p04"],"points":[[468.0,594.0],[442,660],[452.0,754.0]]},
+    {"id":"p02|p04","from":"p02","to":"p04","via":["p02","p03","p04"],"points":[[322.0,611.0],[354.0,723.0],[452.0,754.0]]},
+    {"id":"p02|p06","from":"p02","to":"p06","via":["p02","p01","p06"],"points":[[322.0,611.0],[468.0,594.0],[540,625],[621.0,631.0]]},
+    {"id":"p04|p29","from":"p04","to":"p29","via":["p04","p05","p29"],"points":[[452.0,754.0],[561.0,732.0],[674.0,748.0]]},
+    {"id":"p06|p29","from":"p06","to":"p29","via":["p06","p29"],"points":[[621.0,631.0],[674.0,748.0]]},
+    {"id":"p06|p32","from":"p06","to":"p32","via":["p06","p32"],"points":[[621.0,631.0],[784.0,658.0]]},
+    {"id":"p09|p16","from":"p09","to":"p16","via":["p09","p16"],"points":[[1229.0,418.0],[1199.0,318.0]]},
+    {"id":"p09|p14","from":"p09","to":"p14","via":["p09","p14"],"points":[[1229.0,418.0],[1139.0,475.0]]},
+    {"id":"p09|p11","from":"p09","to":"p11","via":["p09","p11"],"points":[[1229.0,418.0],[1317,430],[1400.0,437.0]]},
+    {"id":"p11|p16","from":"p11","to":"p16","via":["p11","p10","p16"],"points":[[1400.0,437.0],[1355.0,354.0],[1199.0,318.0]]},
+    {"id":"p11|p14","from":"p11","to":"p14","via":["p11","p09","p14"],"points":[[1400.0,437.0],[1317,430],[1229.0,418.0],[1139.0,475.0]]},
+    {"id":"p14|p19","from":"p14","to":"p19","via":["p14","p19"],"points":[[1139.0,475.0],[1129.0,569.0]]},
+    {"id":"p14|p20","from":"p14","to":"p20","via":["p14","p19","p20"],"points":[[1139.0,475.0],[1129.0,569.0],[1134.0,660.0]]},
+    {"id":"p14|p16","from":"p16","to":"p14","via":["p16","p09","p14"],"points":[[1199.0,318.0],[1229.0,418.0],[1139.0,475.0]]},
+    {"id":"p18|p20","from":"p18","to":"p20","via":["p18","p20"],"points":[[1226.0,682.0],[1134.0,660.0]]},
+    {"id":"p18|p19","from":"p18","to":"p19","via":["p18","p19"],"points":[[1226.0,682.0],[1193,606],[1129.0,569.0]]},
+    {"id":"p14|p18","from":"p18","to":"p14","via":["p18","p19","p14"],"points":[[1226.0,682.0],[1193,606],[1129.0,569.0],[1139.0,475.0]]},
+    {"id":"p19|p20","from":"p20","to":"p19","via":["p20","p19"],"points":[[1134.0,660.0],[1129.0,569.0]]},
+    {"id":"p14|p24","from":"p24","to":"p14","via":["p24","p15","p14"],"points":[[936.0,385.0],[1071.0,385.0],[1139.0,475.0]]},
+    {"id":"p16|p24","from":"p24","to":"p16","via":["p24","p15","p16"],"points":[[936.0,385.0],[1071.0,385.0],[1199.0,318.0]]},
+    {"id":"p09|p24","from":"p24","to":"p09","via":["p24","p15","p09"],"points":[[936.0,385.0],[1071.0,385.0],[1149,394],[1229.0,418.0]]},
+    {"id":"p28|p32","from":"p28","to":"p32","via":["p28","p32"],"points":[[904.0,726.0],[784.0,658.0]]},
+    {"id":"p28|p30","from":"p28","to":"p30","via":["p28","p30"],"points":[[904.0,726.0],[819,758],[750.0,814.0]]},
+    {"id":"p20|p28","from":"p28","to":"p20","via":["p28","p20"],"points":[[904.0,726.0],[1054,816],[1134.0,660.0]]},
+    {"id":"p29|p30","from":"p29","to":"p30","via":["p29","p30"],"points":[[674.0,748.0],[750.0,814.0]]},
+    {"id":"p29|p32","from":"p29","to":"p32","via":["p29","p32"],"points":[[674.0,748.0],[784.0,658.0]]},
+    {"id":"p30|p32","from":"p30","to":"p32","via":["p30","p32"],"points":[[750.0,814.0],[784.0,658.0]]},
+    {"id":"p33|p40","from":"p33","to":"p40","via":["p33","p40"],"points":[[417.0,237.0],[520.0,174.0]]},
+    {"id":"p33|p36","from":"p33","to":"p36","via":["p33","p36"],"points":[[417.0,237.0],[292.0,212.0]]},
+    {"id":"p33|p34","from":"p33","to":"p34","via":["p33","p37","p35","p34"],"points":[[417.0,237.0],[349.0,288.7],[258.0,287.0],[171.0,318.0]]},
+    {"id":"p34|p36","from":"p34","to":"p36","via":["p34","p36"],"points":[[171.0,318.0],[177,202],[292.0,212.0]]},
+    {"id":"p34|p40","from":"p34","to":"p40","via":["p34","p35","p37","p33","p40"],"points":[[171.0,318.0],[258.0,287.0],[349.0,288.7],[417.0,237.0],[520.0,174.0]]},
+    {"id":"p36|p40","from":"p36","to":"p40","via":["p36","p40"],"points":[[292.0,212.0],[385,67],[520.0,174.0]]}
+  ]
+}
