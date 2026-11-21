@@ -16,7 +16,13 @@ import logging
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from contracts.models import NATION_IDS, CrisisStartRequest, LeaderDetail, StartRequest, State
+import asyncio
+
+from contracts.models import (
+    NATION_IDS, CrisisStartRequest, FuturesRequest, FuturesResponse, LeaderDetail, StartRequest, State,
+)
+from engine.futures import futures
+from engine.snapshots import load
 from engine.crisis import available
 from engine.game import GAME
 
@@ -50,6 +56,20 @@ async def crisis_start(req: CrisisStartRequest) -> State:
         if GAME.state.phase != "strategy":
             raise HTTPException(409, f"cannot start a crisis during phase {GAME.state.phase!r}")
         return GAME.start_crisis(req.id)
+
+
+@router.post("/futures", response_model=FuturesResponse)
+async def post_futures(req: FuturesRequest) -> FuturesResponse:
+    """War odds six months ahead: the snapshot (before) against the current state (after).
+    The needle also updates by itself after every call that changes something: see
+    state.last_futures."""
+    try:
+        before = load(req.snapshot_id)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    result = await asyncio.to_thread(futures, before, GAME.state, list(GAME.queued))
+    GAME.state = GAME.state.model_copy(update={"last_futures": result})
+    return result
 
 
 @router.get("/leaders/{nation}", response_model=LeaderDetail)

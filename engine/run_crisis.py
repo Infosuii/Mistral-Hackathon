@@ -43,7 +43,7 @@ SCRIPTS = {
 
 
 async def play(script: str, seed: int = 7, quiet: bool = False) -> dict:
-    g = Game(seed=seed, use_agents=False)
+    g = Game(seed=seed, use_agents=False, needle=False)
     g.start_crisis("one_berth")
     calls = SCRIPTS[script]
     seen = len(g.state.news)
