@@ -259,3 +259,25 @@
 .turn-clock .subtle, .seat .subtle { white-space: nowrap; }
 .wordmark { padding-inline: var(--space-4); }
 .turn-clock { padding-inline: var(--space-4); }
+
+/* --- breaking news card and relation pops --- */
+.breaking-news {
+  position: absolute; z-index: 3; top: 3.6rem; left: 50%; transform: translateX(-50%);
+  display: grid; gap: 2px; text-align: center; max-width: 34rem; padding: var(--space-2) var(--space-5) var(--space-3);
+  background: var(--paper); color: var(--ink); border: 0; border-top: 4px solid var(--signal);
+  box-shadow: 0 16px 40px #000d; cursor: pointer;
+  animation: breaking-in .5s cubic-bezier(.2, 1.4, .4, 1), breaking-out .6s ease-in 5.4s forwards;
+}
+.breaking-label { justify-self: center; padding: 1px 8px; background: var(--signal); color: #2a0c0c; font: 700 .68rem var(--display-font); letter-spacing: .16em; text-transform: uppercase; }
+.breaking-news strong { font: 700 var(--type-lg) / 1.15 var(--display-font); }
+.breaking-meta { color: var(--ink-muted); font-size: var(--type-xs); letter-spacing: .06em; text-transform: uppercase; }
+@keyframes breaking-in { from { opacity: 0; transform: translate(-50%, -14px) scale(.94); } }
+@keyframes breaking-out { to { opacity: 0; transform: translate(-50%, -8px); } }
+.relation-pop {
+  font: 700 22px var(--display-font); text-anchor: middle; paint-order: stroke;
+  stroke: #061013; stroke-width: 4px; animation: pop-rise 2.5s ease-out forwards;
+}
+.relation-pop[data-sign='1'] { fill: var(--gain); }
+.relation-pop[data-sign='-1'] { fill: var(--loss); }
+@keyframes pop-rise { 0% { opacity: 0; transform: translateY(8px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-26px); } }
+@media (prefers-reduced-motion: reduce) { .breaking-news, .relation-pop { animation: none; } }
