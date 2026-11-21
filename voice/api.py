@@ -118,6 +118,10 @@ FALLBACK_REPLY = {
 async def call(req: CallRequest):
     voice_id = voice_for(req.to)
     t0 = time.perf_counter()
+    if req.interrupted:  # takes effect now, not when the reply has been worked out
+        interrupt = getattr(_game(), "interrupt", None)
+        if interrupt:
+            interrupt(req.to)
     if req.text is not None:
         transcript = req.text.strip()
     elif req.audio:
@@ -150,7 +154,9 @@ async def call(req: CallRequest):
     # Speech first: the TTS request goes out before anything else happens.
     url = await speak(raw["reply_text"], voice_id, raw["emotion"])
     history += [{"role": "player", "text": transcript}, {"role": "leader", "text": raw["reply_text"]}]
-    _calls[req.to]["at"] = time.time()
+    # The previous turn's interpret() may have ended this call meanwhile (ends_call pops
+    # it), so put the conversation back instead of assuming it is still there.
+    _calls.setdefault(req.to, {"at": 0.0, "turns": history})["at"] = time.time()
 
     response = {
         "transcript": transcript,

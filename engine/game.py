@@ -243,7 +243,14 @@ class Game:
             s = self.state
             ai = self.ai_nations()
             advice = {n: advise(s, n) for n in ai}
+            epoch = self.epoch
             results = await asyncio.gather(*(self._one_leader(n, advice[n]) for n in ai))
+            if epoch != self.epoch:  # /start arrived while the leaders were thinking
+                return self.state
+            # A phone call can land while the leaders think (apply_call does not take the
+            # lock). Step from the state as it is now, or that call's promises, trust
+            # changes and last_call would be overwritten.
+            s = self.state
 
             queued_by = {a.by for a in self.queued}
             actions = list(self.queued)
@@ -271,7 +278,11 @@ class Game:
         nxt = c.tick + 1
         due = [n for n in self.ai_nations() if n not in c.decisions and c.deadlines.get(n) == nxt]
         advice = {n: advise(s, n) for n in due}
+        epoch = self.epoch
         results = await asyncio.gather(*(self._one_leader(n, advice[n]) for n in due))
+        if epoch != self.epoch or self.state.crisis is None:  # reset, or ended, meanwhile
+            return self.state
+        s = self.state  # keep any call that landed while the leaders were thinking
 
         queued_by = {a.by for a in self.queued}
         actions = list(self.queued)
@@ -399,6 +410,15 @@ class Game:
         return LeaderDetail(public_statement=n.public_statement, private_intent="", advice=advise(self.state, nation),
                             chosen=[], reason="", persona=_persona(nation), private_strategy=strategy)
 
+    def interrupt(self, to: str) -> bool:
+        """The player cut this leader off. Cancels a threat that has not gone public yet.
+        Called the moment /call arrives, so it does not wait for the reply to be worked
+        out (interpret takes seconds; the next tick would make the threat public first)."""
+        if self.pending_announce and self.pending_announce.by == to:
+            self.pending_announce = None
+            return True
+        return False
+
     def begin_call(self, to: str) -> str:
         """For split replies: call when the spoken reply goes out. state.last_call shows
         this call as pending until apply_call(..., call_id=...) fills it in."""
@@ -423,8 +443,8 @@ class Game:
         if call_id is not None and not call_id.startswith(f"g{self.epoch}c"):
             log.warning("dropping reply for %s: call %s started before the game was reset", to, call_id)
             return self.state
-        if interrupted and self.pending_announce and self.pending_announce.by == to:
-            self.pending_announce = None  # cut off before the threat went public
+        if interrupted:
+            self.interrupt(to)  # normally already done when /call arrived
         before = self.state
         s, strategy_promises = apply_call_effects(self.state, to, out, interrupted, len(self.promises))
         self.promises += strategy_promises
