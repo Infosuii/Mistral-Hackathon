@@ -108,13 +108,13 @@ function cardPlace(x: number, y: number, w: number, h: number, box?: MapBox): { 
   }
   for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]] as const) consider(dx > 0 ? x + 18 : x - 18 - w, dy > 0 ? y + 18 : y - 18 - h, 0)
   // All four sides blocked by a panel (the pocket beside the War Room): slide further out.
-  for (let step = 1; bestScore >= 1 && step <= 6; step += 1) {
+  for (let step = 1; bestScore >= 2 && step <= 4; step += 1) {  // only for a badly covered card, and never far
     for (const dy of [1, -1]) {
-      consider(x + 18 + step * 70, dy > 0 ? y + 18 : y - 18 - h, step * 0.1)
-      consider(x - 18 - w - step * 70, dy > 0 ? y + 18 : y - 18 - h, step * 0.1)
+      consider(x + 18 + step * 70, dy > 0 ? y + 18 : y - 18 - h, step * 0.5)
+      consider(x - 18 - w - step * 70, dy > 0 ? y + 18 : y - 18 - h, step * 0.5)
     }
-    consider(x - w / 2, y + 18 + step * 60, step * 0.1)
-    consider(x - w / 2, y - 18 - h - step * 60, step * 0.1)
+    consider(x - w / 2, y + 18 + step * 60, step * 0.5)
+    consider(x - w / 2, y - 18 - h - step * 60, step * 0.5)
   }
   return best
 }
