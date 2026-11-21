@@ -7,5 +7,3 @@ __pycache__/
 node_modules/
 dist/
 .pytest_cache/
-voice/cache/
-voice/v0_out/

@@ -29,7 +29,8 @@ async def run(path: Path, to: str = "ostrava", fixed: bool = False) -> dict:
     transcript = await transcribe(audio)
     t_stt = time.perf_counter()
 
-    view = {"to": to, "transcript": transcript, "interrupted": False, "hesitation_ms": None}
+    view = {"nation": to, "transcript": transcript, "interrupted": False, "hesitation_ms": None,
+            "state": json.loads((Path(__file__).resolve().parent.parent / "contracts" / "examples" / "state.json").read_text())}
     try:
         from agents import call_reply  # type: ignore
     except ImportError:
