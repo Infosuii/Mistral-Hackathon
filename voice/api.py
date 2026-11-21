@@ -217,11 +217,15 @@ def demo_wiretap(a: str, b: str) -> list[dict] | None:
 
 @router.get("/wiretap")
 async def wiretap(a: str, b: str):
-    try:
-        import agents  # type: ignore
-        lines = await agents.wiretap(a, b)
-    except (ImportError, AttributeError):
-        lines = demo_wiretap(a, b) or await mock_agents.wiretap_lines(a, b)
+    """Live lines from agents.wiretap() by default. VOICE_WIRETAP=demo plays the pre-rendered
+    script for the pair instead (instant, works offline) for the recorded demo."""
+    lines = demo_wiretap(a, b) if os.environ.get("VOICE_WIRETAP") == "demo" else None
+    if not lines:
+        try:
+            import agents  # type: ignore
+            lines = await agents.wiretap(a, b)
+        except (ImportError, AttributeError):
+            lines = demo_wiretap(a, b) or await mock_agents.wiretap_lines(a, b)
     out = []
     for line in lines:
         url = await speak(line["text"], voice_for(line["speaker"]), line.get("emotion"))
