@@ -1,0 +1,7 @@
+{
+  "shift_ticks": 3,
+  "changed": [
+    {"nation": "kessaria", "was": "split_day", "now": "close_port", "why": "Without your offer by noon, the Queen would not risk a fight in her harbour."},
+    {"nation": "ostrava", "was": "dock", "now": "blockade", "why": "Dravic had already promised his generals the berth by then."}
+  ]
+}

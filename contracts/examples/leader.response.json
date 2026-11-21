@@ -1,0 +1,12 @@
+{
+  "public_statement": "We seek only fair trade.",
+  "private_intent": "Stall Valdoria until mobilisation completes.",
+  "advice": [
+    {"action": {"type": "propose_trade", "by": "ostrava", "target": "valdoria", "params": {"give": {"oil": 10}, "get": {"food": 15}}}, "score": 0.74},
+    {"action": {"type": "set_tariff", "by": "ostrava", "target": "valdoria", "params": {"pct": 25}}, "score": 0.51},
+    {"action": {"type": "declare_war", "by": "ostrava", "target": "zarnia", "params": {}}, "score": 0.12}
+  ],
+  "chosen": [{"type": "set_tariff", "by": "ostrava", "target": "valdoria", "params": {"pct": 25}}],
+  "reason": "Backing down after the general's speech would look weak.",
+  "persona": "General Marek Dravic: proud, expansionist, bluffs. Military junta; fears a coup if he looks weak."
+}

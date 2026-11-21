@@ -1,0 +1,24 @@
+{
+  "id": "one_berth", "title": "One Berth", "ticks_total": 12,
+  "intro_news": "Storm closes Port Kessar to a single berth for 24 hours.",
+  "deadlines": {"nordhaven": 6, "ostrava": 8, "zarnia": 9, "kessaria": 10, "valdoria": 10},
+  "actions": {
+    "ostrava":   ["dock", "wait", "blockade"],
+    "zarnia":    ["dock", "wait", "mobilise"],
+    "kessaria":  ["assign_berth_ostrava", "assign_berth_zarnia", "split_day", "close_port"],
+    "valdoria":  ["honour_both", "favour_ostrava", "favour_zarnia", "split_cargo"],
+    "nordhaven": ["send_tugs", "stay_out"]
+  },
+  "rules": {
+    "second_berth_requires": {"nation": "nordhaven", "action": "send_tugs", "by_tick": 6},
+    "public_backdown_cost": {"junta": 3, "democracy": 2, "one_party": 2, "monarchy": 1, "technocracy": 1}
+  },
+  "scripted": [
+    {"tick": 1, "type": "incoming_call", "from": "ostrava", "emotion": "angry",
+     "opening_line": "Our people have three days of bread. That berth is ours. Say it."},
+    {"tick": 5, "type": "compare_notes", "between": ["ostrava", "zarnia"]},
+    {"tick": 6, "type": "forecast", "text": "Forecast: the storm may clear by nightfall."},
+    {"tick": 7, "type": "incoming_call", "from": "ostrava", "emotion": "tense",
+     "opening_line": "You promised Zarnia the same berth. I am announcing a blockade of the strait."}
+  ]
+}
