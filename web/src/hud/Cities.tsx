@@ -23,8 +23,13 @@ const roofs: Record<string, string[]> = {
   industrial: ['#a9ab9f', '#8d9490', '#b9b4a4', '#9c9182', '#818c88'],
   civic: ['#cdae6d', '#bb8f65', '#d6c391', '#aab78c', '#c79f7c'],
 }
+const snowRoofs = ['#eef2ef', '#e2e8e7', '#d8dfde', '#f5f6f2', '#cdd6d5']
 const rise: Record<string, number> = { house: 1.3, commercial: 3.2, tower: 7, industrial: 2.2, civic: 2.6 }
-const fieldTones = ['#c8b25a', '#7fa24c', '#5e8a44', '#a3804f', '#d9c84a', '#98ad68']
+// Crop colours, then the same plots under snow in the polar north (index + 10).
+const fieldTones: Record<number, string> = Object.fromEntries([
+  ...['#c8b25a', '#7fa24c', '#5e8a44', '#a3804f', '#d9c84a', '#98ad68'].map((c, i) => [i, c]),
+  ...['#e6ece8', '#d7e1de', '#ccd8d4', '#dde4de', '#eef2ee', '#d2dcd8'].map((c, i) => [i + 10, c]),
+])
 
 const fixed = (n: number) => Math.round(n * 10) / 10
 
@@ -67,7 +72,7 @@ const districts = infrastructure.settlements.map((settlement) => {
     const wall = poly(hull([...base, ...top]))
     if (kind === 'house') houseWalls += wall
     else walls += wall
-    const colour = roofs[kind][palette]
+    const colour = settlement.cold && kind !== 'tower' ? snowRoofs[palette] : roofs[kind][palette]
     roofPaths[colour] = (roofPaths[colour] ?? '') + poly(top)
     const a = angle * Math.PI / 180
     if (kind === 'house') {
@@ -80,7 +85,8 @@ const districts = infrastructure.settlements.map((settlement) => {
   }
   const fields: Record<number, string> = {}
   for (const [x, y, w, d, angle, tone] of settlement.fields) {
-    fields[tone] = (fields[tone] ?? '') + poly(corners(x, y, w, d, angle))
+    const key = settlement.cold ? tone + 10 : tone
+    fields[key] = (fields[key] ?? '') + poly(corners(x, y, w, d, angle))
   }
   const trees = settlement.parks.flatMap(([px, py, r], k) => Array.from({ length: Math.round(r / 2.4) }, (_, i) => {
     const t = i * 2.399 + k
@@ -99,7 +105,7 @@ export const UrbanFabric = memo(function UrbanFabric() {
   return <g className="urban-fabric map-decoration" aria-hidden="true">
     <g className="farm-fields">
       {districts.map(({ id, fields }) => Object.entries(fields).map(([tone, d]) =>
-        <path key={`${id}:${tone}`} d={d} fill={fieldTones[Number(tone)]} />))}
+        <path key={`${id}:${tone}`} d={d} fill={fieldTones[Number(tone)]} data-snow={Number(tone) >= 10 || undefined} />))}
     </g>
     {districts.map(({ id, center, radius }) =>
       <circle key={id} className="urban-ground" cx={center[0]} cy={center[1]} r={radius * 1.04} />)}

@@ -19,7 +19,7 @@ import { nationStyle } from './theme'
 import { CapitalMarkers, CrisisFocus, flagOf, LeaderMedallions, NationalBorders, TerritoryLabels, UnitCounters } from './hud/MapLayers'
 import { OrdersBar } from './hud/OrdersBar'
 import { BreakingNews, RelationPops } from './hud/Reactions'
-import { Biomes, coastPath, GroundCover, Lakes, Relief, Rivers, Sea, TerrainDefs, TerrainFeatures, terrainOf } from './hud/Terrain'
+import { Biomes, coastPath, GroundCover, Lakes, Mountains, polar, Relief, Rivers, Sea, SeaIce, TerrainDefs, TerrainFeatures, terrainOf } from './hud/Terrain'
 
 interface Props {
   state: GameState
@@ -318,7 +318,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
               const nation = state.nations[owner]
               return (
                 <path key={id} d={path} className="province" style={{ ...provinceStyle(state, owner, shownMode), '--biome-color': terrainOf[id]?.color } as CSSProperties}
-                  data-province={id} data-biome={terrainOf[id]?.id} data-biome-view={shownMode === 'biomes'} data-county={countyOf.get(id)?.name} data-owner={owner} data-home={owner === state.seat.nation} data-selected={Boolean(nation && owner === selected)}
+                  data-province={id} data-biome={terrainOf[id]?.id} data-climate={polar.has(id) ? 'polar' : undefined} data-biome-view={shownMode === 'biomes'} data-county={countyOf.get(id)?.name} data-owner={owner} data-home={owner === state.seat.nation} data-selected={Boolean(nation && owner === selected)}
                   data-hover={hover?.id === id}
                   onPointerMove={(event) => hoverProvince(id, event)}
                   onPointerLeave={() => setHover(null)}
@@ -332,6 +332,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
             <Relief />
             <TerrainFeatures />
             <Rivers />
+            <Mountains />
             <UrbanFabric />
             <TransportStatic state={state} />
             <Facilities state={state} />
@@ -340,6 +341,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
             </g>}
             <NationalBorders state={state} />
           </g>
+          <SeaIce />
           <Lakes />
           <Harbours state={state} />
           <path d={coastPath} className="coastline map-decoration" />

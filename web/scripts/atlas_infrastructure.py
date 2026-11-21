@@ -126,6 +126,33 @@ def bridges_for(line, water):
     return spans
 
 
+def polar_climate(cells, owners, land, river_lines):
+    """Nordhaven's island is polar: its rivers freeze and pack ice drifts off its coast,
+    thickest to the north and west."""
+    polar = sorted(p for p in cells if owners[p] == "nordhaven")
+    island = unary_union([cells[p] for p in polar])
+    frozen = [i for i, line in enumerate(river_lines)
+              if line.intersection(island.buffer(10)).length > line.length * .5]
+    rng = random.Random("pack-ice")
+    reach = island.buffer(260)
+    sea = prep(reach.difference(land.buffer(12)))
+    x0, y0, x1, y1 = reach.bounds
+    ice = []
+    for _ in range(9000):
+        if len(ice) >= 520:
+            break
+        px, py = rng.uniform(x0, x1), rng.uniform(y0, y1)
+        point = Point(px, py)
+        if not sea.contains(point):
+            continue
+        gap = island.distance(point)
+        northwest = 1 - min(1, max(0, (px - x0) / (x1 - x0) * .6 + (py - y0) / (y1 - y0) * .6))
+        if rng.random() > (1 - gap / 260) ** 1.4 * (.45 + .55 * northwest):
+            continue
+        ice.append([round(px), round(py), round(rng.uniform(5, 22 * (1 - gap / 400)), 1), rng.randrange(360)])
+    return {"polar": polar, "frozen_rivers": frozen, "ice": ice}
+
+
 def urban_network(data, centers, cells, adjacency, owners, cities, land, track_points, rail_links, scale):
     rivers = []
     for course in RIVERS:
@@ -193,15 +220,92 @@ def urban_network(data, centers, cells, adjacency, owners, cities, land, track_p
         # A town may spread into the next province when the same nation holds it.
         home = unary_union([cells[q] for q in [province, *adjacency[province]] if owners[q] == owners[province]])
         settlements.append(settlement(province, center, cells[province], home, cities.get(province), biomes[province],
-                                      radius_of(province), land, river, water, blocked, random.Random(i * 379 + 51)))
+                                      radius_of(province), land, river, water, blocked, random.Random(i * 379 + 51),
+                                      cold=owners[province] == "nordhaven"))
 
     (Path(data) / "infrastructure.json").write_text(json.dumps({
         "scale": scale, "biomes": BIOMES, "regions": biomes, "rivers": rivers, "roads": roads,
         "junctions": junctions, "settlements": settlements,
+        "climate": polar_climate(cells, owners, land, river_lines),
     }, separators=(",", ":")) + "\n", encoding="utf-8")
 
 
-def settlement(province, center, cell, home, city, terrain, radius, land, river, water, blocked, rng):
+def _peak_fits(px, py, size, ground, town_clear, blocked, airport_block):
+    base = Point(px, py).buffer(size * .42)
+    if not ground.contains(Point(px, py)) or town_clear.intersects(base) or blocked.intersects(base):
+        return False
+    return not (airport_block and airport_block.intersects(base))
+
+
+def mountain_range(cell, ground, ground_shape, town_clear, blocked, airport_block, cold, rng):
+    """Broad massifs along the province's long axis: each ridge is a rocky band carrying two to
+    four rows of big, overlapping peaks, tallest mid-range and tapering at the ends, with
+    foothills between the ridges. Roads, rail and the town stay clear, so routes cross the
+    range through passes and valleys."""
+    box = cell.minimum_rotated_rectangle
+    corners = list(box.exterior.coords)[:4]
+    edges = [(corners[i], corners[(i + 1) % 4]) for i in range(4)]
+    long_edge = max(edges, key=lambda e: math.dist(*e))
+    length = math.dist(*long_edge)
+    width = min(math.dist(*e) for e in edges)
+    axis = math.atan2(long_edge[1][1] - long_edge[0][1], long_edge[1][0] - long_edge[0][0])
+    ux, uy = math.cos(axis), math.sin(axis)
+    nx, ny = -uy, ux
+    cx, cy = box.centroid.x, box.centroid.y
+    peaks, ridges = [], []
+    count = 3 if width > 520 else 2
+    band = min(240, width / (count + .4))
+    keep_out = town_clear.buffer(30)
+    for r in range(count):
+        main = r == count // 2
+        offset = (r - (count - 1) / 2) * width / (count + .2) + rng.uniform(-20, 20)
+        phase = rng.random() * math.tau
+        spine = []
+        t = -length / 2
+        while t <= length / 2:
+            wobble = 42 * math.sin(t / 130 + phase) + 14 * math.sin(t / 47 + phase * 2)
+            spine.append((cx + ux * t + nx * (offset + wobble), cy + uy * t + ny * (offset + wobble)))
+            t += 24
+        line = LineString(spine).intersection(ground_shape.difference(keep_out))
+        for part in pieces(line):
+            if part.length > 120:
+                ridges.append([round(band * (1 if main else .8)), thin(part, 2)])
+        t = -length / 2 + 20
+        while t < length / 2 - 20:
+            taper = math.sin(math.pi * (t + length / 2) / length) ** .7
+            wobble = 42 * math.sin(t / 130 + phase) + 14 * math.sin(t / 47 + phase * 2)
+            rows = 4 if main and taper > .55 else 3 if taper > .35 else 2
+            for k in range(rows):
+                across = rng.gauss(0, band * .26 * (.5 + taper))
+                centre = abs(across) / (band * .5)
+                size = (34 + 78 * taper * (1 if main else .8) * max(.35, 1 - centre)) * rng.uniform(.8, 1.15)
+                px = cx + ux * (t + rng.uniform(-10, 10)) + nx * (offset + wobble + across)
+                py = cy + uy * (t + rng.uniform(-10, 10)) + ny * (offset + wobble + across)
+                if _peak_fits(px, py, size, ground, town_clear, blocked, airport_block):
+                    peaks.append([round(px, 1), round(py, 1), round(size, 1), int(cold or size > 64)])
+            t += rng.uniform(15, 24)
+    for _ in range(int(length / 7)):
+        t, off = rng.uniform(-length / 2, length / 2), rng.uniform(-width / 2, width / 2)
+        size = rng.uniform(14, 30)
+        px, py = cx + ux * t + nx * off, cy + uy * t + ny * off
+        if _peak_fits(px, py, size, ground, town_clear, blocked, airport_block):
+            peaks.append([round(px, 1), round(py, 1), round(size, 1), int(cold)])
+    return sorted(peaks, key=lambda peak: peak[1]), ridges
+
+
+def foothills(cell, ground, town_clear, blocked, airport_block, rng, count):
+    x0, y0, x1, y1 = cell.bounds
+    peaks = []
+    for _ in range(count * 6):
+        if len(peaks) >= count:
+            break
+        px, py, size = rng.uniform(x0, x1), rng.uniform(y0, y1), rng.uniform(16, 34)
+        if _peak_fits(px, py, size, ground, town_clear, blocked, airport_block):
+            peaks.append([round(px, 1), round(py, 1), round(size, 1), 1])
+    return sorted(peaks, key=lambda peak: peak[1])
+
+
+def settlement(province, center, cell, home, city, terrain, radius, land, river, water, blocked, rng, cold=False):
     x, y = center
     capital = bool(city and city["capital"])
     # Floodplain towns keep back from the river behind levee parks; others build to the bank.
@@ -422,8 +526,9 @@ def settlement(province, center, cell, home, city, terrain, radius, land, river,
     # Forest stands and peaks on open ground: clear of the town, fields, roads and water.
     # Trees cluster in stands; highland peaks run in loose ridges.
     flora = []
-    density = {"taiga": 300, "woodland": 210, "marsh": 60, "highlands": 70, "farmland": 30, "dryland": 40}[terrain]
-    open_ground = prep(land.buffer(-4).intersection(cell.buffer(-4)).difference(water))
+    density = {"taiga": 700, "woodland": 210, "marsh": 60, "highlands": 70, "farmland": 30, "dryland": 40}[terrain]
+    ground_shape = land.buffer(-4).intersection(cell.buffer(-4)).difference(water)
+    open_ground = prep(ground_shape)
     field_block = prep(unary_union([rect(fx, fy, fw, fd, math.radians(fa)) for fx, fy, fw, fd, fa, _ in fields])) if fields else None
     town_clear = Point(x, y).buffer(R * 1.06)
     x0, y0, x1, y1 = cell.bounds
@@ -443,7 +548,7 @@ def settlement(province, center, cell, home, city, terrain, radius, land, river,
             continue
         roll = rng.random()
         if terrain == "highlands":
-            kind = 2 if roll < .6 else 1
+            kind = 1 if roll < .7 else 0  # the peaks themselves come from mountain_range()
         elif terrain == "taiga":
             kind = 1 if roll < .85 else 0
         elif terrain == "woodland":
@@ -465,8 +570,18 @@ def settlement(province, center, cell, home, city, terrain, radius, land, river,
         if open_ground.contains(Point(px, py)):
             patches.append([round(px), round(py), round(rng.uniform(40, 130)), rng.randrange(3)])
 
+    # Mountain ranges in the highlands; snowy foothills across the polar north.
+    mrng = random.Random(f"range:{province}")
+    peaks, ridges = [], []
+    if terrain == "highlands":
+        peaks, ridges = mountain_range(cell, open_ground, ground_shape, town_clear, blocked, airport_block, cold, mrng)
+    elif cold:
+        peaks = foothills(cell, open_ground, town_clear, blocked, airport_block, mrng, 18)
+
     return {
-        "id": province, "center": center, "radius": round(R, 1),
+        "id": province, "center": center, "radius": round(R, 1), "cold": cold,
+        "peaks": peaks,  # [x, y, size, snowy] sorted back to front
+        "ridges": ridges,  # [band width, spine points]: the rocky mass under each ridge
         "streets": [[0 if tier == "arterial" else 1, thin(line)] for tier, line in streets],
         "lots": lots, "parks": parks, "airport": airport, "sites": sites, "fields": fields,
         "flora": flora,  # [x, y, size, kind]: 0 broadleaf, 1 conifer, 2 peak, 3 autumn tree, 4 reeds, 5 shrub
