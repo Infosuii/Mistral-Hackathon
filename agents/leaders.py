@@ -242,7 +242,8 @@ async def decide(view: LeaderView | dict) -> LeaderOutput:
     out = await llm.hedged(lambda m: llm.chat_json(
         msgs, lambda d: _parse_decide(d, options, scores, v.nation),
         deadline=deadline, model=m, max_tokens=500, temperature=0.9),
-        primary=llm.DECIDE_MODEL, after=HEDGE_AFTER_S)
+        primary=llm.DECIDE_MODEL, backup=llm.DECIDE_BACKUP if llm.DECIDE_MODEL == llm.HEDGE_MODEL else None,
+        after=HEDGE_AFTER_S)
     out = await _reconsider(out, msgs, options, scores, state, v.nation, deadline)
     _MEMORY.setdefault(key, []).append((state.get("turn") or 0, out.private_intent))
     return out
