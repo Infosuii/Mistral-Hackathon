@@ -167,6 +167,9 @@ def _parse_decide(data: dict, options: list[dict], scores: list[float], nation: 
 async def decide(view: LeaderView | dict) -> LeaderOutput:
     """One leader's move. Raises llm.LLMError within DECIDE_BUDGET_S on failure."""
     deadline = time.perf_counter() + DECIDE_BUDGET_S
+    strategy = _private_strategy(view)
+    if isinstance(view, dict) and "private_strategy" not in LeaderView.model_fields:
+        view = {k: x for k, x in view.items() if k != "private_strategy"}
     v = view if isinstance(view, LeaderView) else LeaderView.model_validate(view)
     state = _dump(v.state)
     options = [a.action.model_dump(mode="json") for a in v.advice[:MAX_OPTIONS]]
@@ -179,7 +182,7 @@ async def decide(view: LeaderView | dict) -> LeaderOutput:
     past = [f"month {t}: {i}" for t, i in _MEMORY.get(key, []) if t < (state.get("turn") or 0)][-3:]
     user = {
         "situation": _brief(state, v.nation),
-        "your_private_strategy": _strategy_for(v, state),
+        "your_private_strategy": strategy,
         "private_messages_received": [f"{m.from_}: {m.text}" for m in v.messages_received][-6:],
         "your_earlier_private_intents": past,
         "options_ranked_by_your_advisers": [
@@ -271,7 +274,6 @@ def _call_context(v: CallView) -> tuple[str, dict, list[dict]]:
     seat = state.get("seat") or {}
     user = {
         "situation": _brief(state, v.nation),
-        "your_private_strategy": _strategy_for(v, state),
         "call_so_far": [f"{t.role}: {t.text}" for t in (v.history or [])][-8:],
         "player_just_said": v.transcript,
         "how_they_said_it": cues or ["normally"],
@@ -427,28 +429,29 @@ In two to four sentences: your goal, who you will court and who you will squeeze
 Reply with ONLY this JSON object: {{"strategy": str}}"""
 
 STRATEGY_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_STRATEGY_S", "90"))
-_STRATEGY: dict[tuple[int, str, str], str] = {}  # (seed, crisis id or "", nation) -> strategy
 
 
-def _strategy_key(state: dict, nation: str) -> tuple[int, str, str]:
-    return int(state.get("seed", 0)), str((state.get("crisis") or {}).get("id", "")), nation
+def strategy_enabled() -> bool:
+    """GAMBIT_PRIVATE_STRATEGY (DECIDED 13:07): off unless set to 1/true/on."""
+    return os.environ.get("GAMBIT_PRIVATE_STRATEGY", "").strip().lower() in ("1", "true", "on", "yes")
 
 
-def _strategy_for(view: Any, state: dict) -> Optional[str]:
-    """The strategy passed in the view (optional field, once the engine adds it), else the
-    one strategize() cached for this game and phase, else the game-start one in a crisis."""
-    given = getattr(view, "strategy", None)
-    if isinstance(given, str) and given.strip():
-        return given.strip()
-    seed, crisis, nation = _strategy_key(state, view.nation)
-    return _STRATEGY.get((seed, crisis, nation)) or _STRATEGY.get((seed, "", nation))
+def _private_strategy(view: Any) -> Optional[str]:
+    """LeaderView.private_strategy, which the engine stores per session (it is the only
+    source: agents keeps no copy, so a reset never reuses an old game's plan). Ignored
+    while GAMBIT_PRIVATE_STRATEGY is off."""
+    if not strategy_enabled():
+        return None
+    given = view.get("private_strategy") if isinstance(view, dict) else getattr(view, "private_strategy", None)
+    return given.strip() if isinstance(given, str) and given.strip() else None
 
 
 async def strategize(state: Any, nation: str) -> str:
     """One leader's private strategy for the game (strategy phase) or for the current crisis,
-    on Large 4 (medium joins after 60% of the budget). Cached so decide() and the phone
-    follow it. Run it in the background at game start and when a crisis starts. Never raises:
-    falls back to the persona card's private agenda."""
+    on Large 4 (medium joins after 60% of the budget). The engine stores the result for this
+    session and passes it back as LeaderView.private_strategy. Run it in the background at
+    game start and when a crisis starts. Never raises: falls back to the persona card's
+    private agenda."""
     st = _dump(state)
     c = st.get("crisis")
     if c:
@@ -479,7 +482,6 @@ async def strategize(state: Any, nation: str) -> str:
         agenda = next((ln.split(":", 1)[-1].strip(" *") for ln in card(nation).splitlines()
                        if "private agenda" in ln.lower()), "")
         out = agenda or "Protect the regime, give nothing away for free, and wait for others to overreach."
-    _STRATEGY[_strategy_key(st, nation)] = out
     return out
 
 
@@ -487,7 +489,7 @@ async def strategize_all(state: Any) -> dict[str, str]:
     """strategize() for every AI nation (all but the player's seat), in parallel."""
     st = _dump(state)
     seat = (st.get("seat") or {}).get("nation")
-    ai = [n for n in NATION_IDS if n != seat or (st.get("seat") or {}).get("role") == "mediator"]
+    ai = [n for n in NATION_IDS if n != seat]  # a mediator has nation null: all five
     outs = await asyncio.gather(*(strategize(st, n) for n in ai))
     return dict(zip(ai, outs))
 
