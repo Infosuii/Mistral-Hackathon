@@ -1,0 +1,62 @@
+{
+  "_about": "Game feel and balance (Om). Starting values from ideas.md §6b; tune here, not in code.",
+
+  "regime_weights": {
+    "democracy":   {"gdp": 2, "supply": 2, "stability": 1, "approval": 3, "military": 1, "backdown": 2},
+    "junta":       {"gdp": 1, "supply": 3, "stability": 3, "approval": 0, "military": 3, "backdown": 3},
+    "monarchy":    {"gdp": 3, "supply": 1, "stability": 2, "approval": 1, "military": 1, "backdown": 1},
+    "technocracy": {"gdp": 3, "supply": 2, "stability": 3, "approval": 1, "military": 0, "backdown": 1},
+    "one_party":   {"gdp": 1, "supply": 3, "stability": 3, "approval": 0, "military": 2, "backdown": 2}
+  },
+  "score": {
+    "horizon_months": 3,
+    "territory_value": 6,
+    "relation_value": 0.05,
+    "low_resolve_escalation_bonus": 4
+  },
+
+  "tariff": {"options_pct": [10, 25], "gdp_cost_target_per_pct": 0.12, "gdp_cost_self_per_pct": 0.04,
+             "relation_per_pct": -0.4, "breaks_trade_at_pct": 20, "cooldown_months": 3},
+  "trade": {"amount": 10, "monthly_gdp": 0.5, "monthly_supply": 0.3, "relation": 10,
+            "accept_min_relation": -10},
+  "alliance": {"min_relation": 20, "relation": 10, "accept_min_relation": 25},
+  "war": {"relation": -40, "monthly_army": -4, "monthly_gdp": -3, "monthly_stability": -3,
+          "monthly_approval_democracy": -5, "noise": 15, "morale_base": 0.5, "ally_share": 0.5,
+          "min_relation_to_declare": -15, "plunder": 8},
+  "peace": {"relation": 15},
+
+  "monthly": {
+    "relation_drift": 1,
+    "revert_stats": ["gdp", "oil", "food", "chips", "stability", "approval"], "revert_rate": 0.15,
+    "food_low": 30, "food_low_stability": -1.5, "food_high": 60, "food_high_stability": 0.5,
+    "oil_low": 20, "oil_low_gdp": -1,
+    "approval_per_gdp": 0.5, "approval_per_stability": 0.3,
+    "protests_below_stability": 40
+  },
+  "politics": {
+    "election_every_months": 6, "election_min_approval": 45,
+    "coup_below_stability": 25, "coup_stability_after": 50,
+    "titles": {"democracy": "Prime Minister", "junta": "General"},
+    "successor_names": ["Iven Holt", "Mara Quell", "Teodor Vask", "Lina Brask", "Oskar Rhee", "Petra Lunn"]
+  },
+
+  "events": {
+    "chance_per_month": 0.6,
+    "table": [
+      {"type": "harvest_failure", "weight": 3, "stats": {"food": -15, "stability": -3}, "text": "Harvest fails in {name}; bread queues lengthen"},
+      {"type": "bumper_harvest",  "weight": 2, "stats": {"food": 12}, "text": "Bumper harvest in {name}"},
+      {"type": "oil_strike",      "weight": 2, "stats": {"oil": 12, "gdp": 3}, "text": "New oil field opens in {name}"},
+      {"type": "strikes",         "weight": 2, "stats": {"gdp": -5, "stability": -6}, "text": "General strike paralyses {name}"},
+      {"type": "boom",            "weight": 2, "stats": {"gdp": 5, "approval": 3}, "text": "Factories boom in {name}"},
+      {"type": "scandal",         "weight": 1, "stats": {"approval": -10}, "text": "Scandal engulfs the government of {name}"}
+    ]
+  },
+
+  "personality_bias": {
+    "ostrava":   {"escalation": 2},
+    "nordhaven": {"wait": 2},
+    "kessaria":  {"recent_payer": 1},
+    "zarnia":    {"against_promise_breaker": 2}
+  },
+  "rollout": {"count": 200, "months": 6, "temperature": 2.0}
+}
