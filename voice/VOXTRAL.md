@@ -27,7 +27,7 @@ sent as `hesitation_ms`. The leaders react to both.
 | Transcription of a 220 KB WAV upload | 3.32 s median, 8.72 s worst | same |
 | Transcription of a Chrome mic clip | 0.25–0.37 s over 6 calls; reply 0.86–1.49 s | room mic test, 13:15 |
 | Human playtest, One Berth by voice | 13 of 13 transcriptions and 13 of 13 speech requests succeeded, no fallback line | 14:45 playtest, Chrome mic |
-| Word accuracy in noise (18 lines) | clean 98.1%, 20 dB 98.1%, 10 dB 98.4%, 0 dB 83.3%; game names 25/26 down to 10 dB | `voice/noise_test.py`, #132 |
+| Word accuracy in **simulated** room noise (18 lines; synthetic babble and hum, not a venue recording) | clean 98.1%, quiet 20 dB 98.1%, busy 10 dB 98.4%, loud 0 dB 83.3%; game names 25/26 down to 10 dB | `voice/noise_test.py`, #132 |
 | Emotion, blind listen | 6 of 6 tags identified; pitch rises from calm to angry by 32% (Howard) and 37% (Harriet) | `voice/v0.py emotion`, `voice/static/blind.html` |
 
 ## What we do not use
