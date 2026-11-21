@@ -38,8 +38,8 @@ case "$cmd" in
 **Next:** $next
 **Needs from others:** $needs
 _Updated $(date +%H:%M)_"
-    id=$(gh api "repos/$REPO/issues/$BOARD/comments?per_page=100" \
-          --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n 1)
+    id=$(gh api "repos/$REPO/issues/$BOARD/comments?per_page=100" --paginate \
+          --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | awk 'NR == 1 { print }')
     if [ -n "$id" ]; then
       gh api -X PATCH "repos/$REPO/issues/comments/$id" -f body="$body" --jq '.html_url'
     else
@@ -54,11 +54,11 @@ _Updated $(date +%H:%M)_"
     ;;
   read)
     echo "== STATUS CARDS =="
-    gh api "repos/$REPO/issues/$BOARD/comments?per_page=100" \
+    gh api "repos/$REPO/issues/$BOARD/comments?per_page=100" --paginate \
       --jq '.[] | select(.body | startswith("<!-- status:")) | (.body | split("\n")[1:] | join("\n")) + "\n"'
     echo "== LATEST MESSAGES (oldest first) =="
-    gh api "repos/$REPO/issues/$BOARD/comments?per_page=100" \
-      --jq '[.[] | select(.body | startswith("<!-- status:") | not)] | .[-15:] | .[] | (.created_at[11:16]) + "  " + (.body | split("\n")[0])'
+    gh api "repos/$REPO/issues/$BOARD/comments?per_page=100" --paginate \
+      --jq '.[] | select(.body | startswith("<!-- status:") | not) | (.created_at[11:16]) + "  " + (.body | split("\n")[0])' | tail -n 15
     ;;
   *)
     sed -n '2,13p' "$0"
