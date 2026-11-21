@@ -88,7 +88,20 @@ function provinceStyle(state: GameState, owner: string, mode: MapMode): CSSPrope
   return { ...style, '--nation-fill': fill, '--nation-accent': 'var(--text)' } as CSSProperties
 }
 
-function ProvinceCard({ state, id, x, y }: { state: GameState; id: string; x: number; y: number }) {
+// The card is about 18rem wide and up to 15rem tall: near the right or bottom edge of the
+// map it opens on the other side of the pointer so it is never cut off.
+function cardPlace(x: number, y: number, box?: { w: number; h: number }): CSSProperties {
+  const rem = typeof window === 'undefined' ? 16 : parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  const w = 18 * rem, h = 15 * rem
+  const place: CSSProperties = {}
+  if (box && x + 18 + w > box.w) place.right = Math.max(4, box.w - x + 18)
+  else place.left = x + 18
+  if (box && y + 18 + h > box.h) place.bottom = Math.max(4, box.h - y + 18)
+  else place.top = y + 18
+  return place
+}
+
+function ProvinceCard({ state, id, x, y, box }: { state: GameState; id: string; x: number; y: number; box?: { w: number; h: number } }) {
   const owner = state.provinces[id]
   const nation = state.nations[owner]
   if (!nation) return null
@@ -101,7 +114,7 @@ function ProvinceCard({ state, id, x, y }: { state: GameState; id: string; x: nu
   const facilities = (state.buildings ?? []).filter((site) => site.province === id)
   const atWar = state.links.some((l) => l.type === 'war' && (l.a === owner || l.b === owner))
   return (
-    <div className="province-card" style={{ ...nationStyle(owner), left: x + 18, top: y + 18 } as CSSProperties} role="tooltip">
+    <div className="province-card" style={{ ...nationStyle(owner), ...cardPlace(x, y, box) } as CSSProperties} role="tooltip">
       <header>
         {flag && <img src={flag} alt="" />}
         <div>
@@ -329,9 +342,8 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
                   onClick={() => {
                     if (warTargets?.has(id)) void warCtl.attack(id)
                     else if (nation) onSelect(owner)
-                  }}>
-                  <title>{nation?.name ?? 'Unclaimed'} · {id.toUpperCase()}</title>
-                </path>
+                  }}
+                  aria-label={`${nation?.name ?? 'Unclaimed'} · ${id.toUpperCase()}`} />
               )
             })}
             <Biomes />
@@ -401,7 +413,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
       </svg>
       <div className="map-vignette" aria-hidden="true" />
       </div>
-      {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} />}
+      {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} box={windowRef.current ? { w: windowRef.current.clientWidth, h: windowRef.current.clientHeight } : undefined} />}
       <WarRoomPanel state={state} selected={selected} controls={warCtl} />
       <div className="map-hud-top">
         {citySelection && <FreightSummary state={state} province={citySelection} onClose={() => setCitySelection(null)} />}
