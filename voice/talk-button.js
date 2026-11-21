@@ -222,7 +222,9 @@ export function mountTalkButton(el, opts = {}) {
 
   function releaseMic(take) {
     take.meter?.stop()
+    take.meter = null
     take.stream?.getTracks().forEach(track => track.stop())
+    take.stream = null
   }
 
   function resetContact() {
@@ -232,8 +234,13 @@ export function mountTalkButton(el, opts = {}) {
     if (recording) {
       const take = recording
       recording = null
-      if (take.recorder?.state === 'recording') take.recorder.stop()
-      releaseMic(take)
+      try {
+        if (take.recorder?.state === 'recording') take.recorder.stop()
+      } catch {
+        // The browser may already have ended the recording.
+      } finally {
+        releaseMic(take)
+      }
     }
   }
 
@@ -282,7 +289,6 @@ export function mountTalkButton(el, opts = {}) {
       })
       take.recorder.stop()
       releaseMic(take)
-      take.stream = take.meter = null
       await stopped
       if (take.version !== contactVersion) return
       const blob = new Blob(take.chunks, { type: take.recorder.mimeType || 'audio/webm' })
