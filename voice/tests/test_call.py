@@ -176,3 +176,18 @@ def test_mediator_gets_no_wiretap(client, monkeypatch):
     monkeypatch.setattr(api, "speak", no_audio)
     monkeypatch.setattr(GAME.state, "seat", Seat(role="mediator", nation=None))
     assert client.get("/api/wiretap", params={"a": "zarnia", "b": "ostrava"}).status_code == 403
+
+
+def test_a_keyless_live_server_says_so_instead_of_faking_a_bad_line(client, monkeypatch):
+    """Real agents but no MISTRAL_API_KEY: the reply names the setup problem, with no audio."""
+    async def speak_fast(view):
+        raise RuntimeError("MISTRAL_API_KEY is not set")
+
+    async def interpret(view, reply_text):
+        raise RuntimeError("MISTRAL_API_KEY is not set")
+
+    fake_agents(speak_fast=speak_fast, interpret=interpret)
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    r = client.post("/call", json=CALL).json()
+    assert "MISTRAL_API_KEY" in r["reply_text"] and "breaking up" not in r["reply_text"]
+    assert r["reply_audio_url"] is None and r["promises"] == []
