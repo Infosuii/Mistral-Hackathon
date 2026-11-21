@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react'
 import { CrisisBar, crisisTime } from './CrisisBar'
 import { Intelligence } from './Intelligence'
 import { Phone } from './Phone'
+import { ReplayPanel } from './ReplayPanel'
 import { WarForecast } from './WarForecast'
 import { PoliticalMap } from './PoliticalMap'
 import { relationBetween, statLabels, systemLabels, type GameState, type Nation, type Stats } from './state'
@@ -146,6 +147,7 @@ export function App({ state, controls, online }: { state: GameState; controls: R
   const relation = relationBetween(state, seat, selected)
   const news = [...state.news].reverse()
   const headline = news[0]
+  const canReplay = !state.crisis && state.events.some((event) => event.type === 'crisis_resolved')
 
   return (
     <div className="game-screen" style={theme as CSSProperties} data-crisis={Boolean(state.crisis)}>
@@ -155,6 +157,7 @@ export function App({ state, controls, online }: { state: GameState; controls: R
         <PoliticalMap state={state} selected={selected} onSelect={setSelection} />
         <div className="left-rail">
           <NationRail state={state} selected={selected} onSelect={setSelection} />
+          {canReplay && <ReplayPanel nations={state.nations} online={online} />}
           <Dispatches news={news.slice(0, 2)} />
         </div>
         <div className="right-rail">
