@@ -484,6 +484,7 @@ ol.transcript {
 }
 .intel-drawer dt { color: var(--muted); }
 .intel-drawer dd { margin-bottom: var(--space-2); }
+.intel-strategy { white-space: pre-line; }
 .intel-drawer .transcript b { color: var(--accent); }
 
 .phone[data-speaking='true'] .phone-heading { border-bottom-color: var(--signal); }
