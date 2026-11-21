@@ -24,7 +24,7 @@ from contracts.models import (
     LeaderView, ReceivedMessage, Seat, State,
 )
 from engine.core import advise, is_legal, new_game, relation_key, step, weights
-from engine.crisis import crisis_file, rerun_crisis, scripted_now, start_crisis, with_announcement
+from engine.crisis import crisis_file, defiance_limit, rerun_crisis, scripted_now, start_crisis, with_announcement
 from engine.snapshots import snapshot
 from engine.calls import apply_call_effects
 from engine.futures import futures
@@ -279,9 +279,12 @@ class Game:
         c = self.state.crisis
         if c is None or not chosen or not advice:
             return out, chosen
-        limit = crisis_file(c.id).rules.get("max_defiance")
         scores = {a.action.type: a.score for a in advice}
         pick = chosen[0].type
+        # Escalations (blockade, mobilise...) have their own, tighter limit: a leader does not
+        # start a war against his cabinet. Live at 13:58, an interrupted Ostrava offered half a
+        # day (dock 3.2 against blockade 2.2) still blockaded, so interrupting changed nothing.
+        limit = defiance_limit(crisis_file(c.id).rules, pick)
         if limit is None or pick not in scores or scores[advice[0].action.type] - scores[pick] <= limit:
             return out, chosen
         top = advice[0].action
