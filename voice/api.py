@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from contracts.models import CallOutput, CallRequest, CallView
 
 from . import mock_agents
-from .audio import EMOTIONS, FALLBACK_LINE, JOBS, find_audio, speak, transcribe
+from .audio import EMOTIONS, FALLBACK_LINE, JOBS, VoiceRateLimited, find_audio, speak, transcribe
 
 router = APIRouter()
 CASTING = json.loads((Path(__file__).parent / "casting.json").read_text())
@@ -127,6 +127,9 @@ async def call(req: CallRequest):
     elif req.audio:
         try:
             transcript = await transcribe(base64.b64decode(req.audio))
+        except VoiceRateLimited as e:
+            raise HTTPException(429, "Microphone transcription is busy. Type a message below.",
+                                headers={"Retry-After": str(e.retry_after)}) from e
         except Exception as e:
             raise HTTPException(502, f"transcription failed: {e}")
     else:

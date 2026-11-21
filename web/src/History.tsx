@@ -16,7 +16,7 @@ export function History({ state, online, onLocate }: {
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const [open, setOpen] = useState(false)
-  const [view, setView] = useState<'history' | 'dispatches'>('history')
+  const [view, setView] = useState<'history' | 'news' | 'dispatches'>('history')
   const [nation, setNation] = useState('')
   const [type, setType] = useState('')
   const [items, setItems] = useState<MapEvent[]>([])
@@ -34,7 +34,9 @@ export function History({ state, online, onLocate }: {
     return () => request.abort()
   }, [open, online, view, canReadDispatches, state.turn, state.crisis?.tick, state.last_call?.call_id])
 
-  const events = view === 'history' && (!online || error) ? state.events : items
+  const events: MapEvent[] = !online || error
+    ? view === 'history' ? state.events : view === 'news' ? state.news.map((entry) => ({ ...entry, type: 'news' })) : []
+    : items
   const availableTypes = [...new Set(events.map((event) => event.type))].sort()
   const groups = new Map<number, MapEvent[]>()
   for (const event of [...events].reverse()) {
@@ -45,9 +47,10 @@ export function History({ state, online, onLocate }: {
     else groups.set(event.turn, [event])
   }
 
-  function switchView(next: 'history' | 'dispatches') {
+  function switchView(next: 'history' | 'news' | 'dispatches') {
     setView(next)
     setType('')
+    setNation('')
     setItems([])
     setError('')
   }
@@ -60,19 +63,19 @@ export function History({ state, online, onLocate }: {
           <h2 id="history-title">World history</h2>
           <form method="dialog"><button autoFocus>Close</button></form>
         </header>
-        {canReadDispatches && (
-          <nav className="history-views" aria-label="World log">
-            <button type="button" aria-pressed={view === 'history'} onClick={() => switchView('history')}>Timeline</button>
-            <button type="button" aria-pressed={view === 'dispatches'} onClick={() => switchView('dispatches')}>Intercepted dispatches</button>
-          </nav>
-        )}
+        <nav className="history-views" aria-label="World log">
+          <button type="button" aria-pressed={view === 'history'} onClick={() => switchView('history')}>Timeline</button>
+          <button type="button" aria-pressed={view === 'news'} onClick={() => switchView('news')}>News</button>
+          {canReadDispatches && <button type="button" aria-pressed={view === 'dispatches'}
+            onClick={() => switchView('dispatches')}>Intercepted dispatches</button>}
+        </nav>
         <div className="history-views">
-          <label>Nation
+          {view !== 'news' && <label>Nation
             <select value={nation} onChange={(event) => setNation(event.target.value)}>
               <option value="">All nations</option>
               {Object.entries(state.nations).map(([id, item]) => <option key={id} value={id}>{item.name}</option>)}
             </select>
-          </label>
+          </label>}
           {view === 'history' && <label>Event
             <select value={type} onChange={(event) => setType(event.target.value)}>
               <option value="">All events</option>
@@ -82,7 +85,7 @@ export function History({ state, online, onLocate }: {
         </div>
         {error && <p role="status">{error}</p>}
         <div className="history-events">
-          {groups.size === 0 && <p>{view === 'history' ? 'No recorded events for this view.' : 'No intercepted messages for this view.'}</p>}
+          {groups.size === 0 && <p>{view === 'dispatches' ? 'No intercepted messages for this view.' : 'No entries for this view.'}</p>}
           {[...groups].map(([month, entries]) => (
             <section key={month}>
               <h3>Month {month}</h3>
@@ -92,7 +95,7 @@ export function History({ state, online, onLocate }: {
                     <strong>{state.nations[event.nation ?? '']?.name} → {state.nations[event.target ?? '']?.name}</strong>
                     <div>{event.text}</div>
                   </>
-                ) : event.province || event.nation ? (
+                ) : view === 'news' ? event.text : event.province || event.nation ? (
                   <button className="history-locate" type="button" onClick={() => {
                     onLocate(event)
                     dialog.current?.close()

@@ -89,11 +89,38 @@ def sniff_format(audio: bytes) -> tuple[str, str]:
     return "webm", "audio/webm"
 
 
+class VoiceRateLimited(RuntimeError):
+    def __init__(self, retry_after: int):
+        super().__init__("speech quota is busy")
+        self.retry_after = retry_after
+
+
+_audio_cooldowns: dict[str, float] = {}
+
+
+def _check_quota(kind: str) -> None:
+    remaining = _audio_cooldowns.get(kind, 0) - time.monotonic()
+    if remaining > 0:
+        raise VoiceRateLimited(max(1, int(remaining + 0.999)))
+
+
+def _record_quota(kind: str, header: str | None) -> None:
+    try:
+        seconds = max(1, int(header or "2"))
+    except ValueError:
+        seconds = 2
+    _audio_cooldowns[kind] = time.monotonic() + seconds
+    raise VoiceRateLimited(seconds)
+
+
 async def transcribe(audio: bytes, mime: str | None = None) -> str:
+    _check_quota("stt")
     ext, sniffed = sniff_format(audio)
     files = {"file": (f"speech.{ext}", audio, mime or sniffed)}
     data = {"model": STT_MODEL, "language": "en", "context_bias": BIAS_TERMS}
     r = await _client().post("/audio/transcriptions", data=data, files=files)
+    if r.status_code == 429:
+        _record_quota("stt", r.headers.get("retry-after"))
     if r.status_code != 200:
         raise RuntimeError(f"transcribe failed {r.status_code}: {r.text[:300]}")
     return r.json().get("text", "").strip()
@@ -114,6 +141,7 @@ def cache_key(text: str, voice_id: str, emotion: str | None, fmt: str = "mp3") -
 
 async def stream_speech(text: str, voice_id: str, emotion: str | None, fmt: str = "mp3"):
     """Yield audio bytes as Voxtral produces them."""
+    _check_quota("tts")
     body = {
         "model": TTS_MODEL,
         "input": tagged(text, emotion),
@@ -122,6 +150,8 @@ async def stream_speech(text: str, voice_id: str, emotion: str | None, fmt: str 
         "stream": True,
     }
     async with _client().stream("POST", "/audio/speech", json=body) as r:
+        if r.status_code == 429:
+            _record_quota("tts", r.headers.get("retry-after"))
         if r.status_code != 200:
             raise RuntimeError(
                 f"speak failed {r.status_code}: {(await r.aread())[:300]!r}"
@@ -167,7 +197,7 @@ async def _run(name: str, text: str, voice_id: str, emotion: str | None, fmt: st
         job.error = str(e)
         print(f"[voice] synthesis failed for {name}: {e}")
         fallback = find_audio(f"{cache_key(FALLBACK_LINE[0], voice_id, FALLBACK_LINE[1], fmt)}.{fmt}")
-        if fallback is not None and not job.chunks:  # e.g. a 403 guardrail block: never leave the call silent
+        if not isinstance(e, VoiceRateLimited) and fallback is not None and not job.chunks:  # e.g. a 403 guardrail block: never leave the call silent
             async with job.cond:
                 job.chunks.append(fallback.read_bytes())
                 job.cond.notify_all()
@@ -194,6 +224,8 @@ def start_speech(text: str, voice_id: str, emotion: str | None = None,
     Returns the URL, or None if the line is not rendered and no loop is running."""
     name = f"{cache_key(text, voice_id, emotion, fmt)}.{fmt}"
     if find_audio(name) is None and (name not in JOBS or JOBS[name].error):
+        if _audio_cooldowns.get("tts", 0) > time.monotonic():
+            return None
         try:
             asyncio.get_running_loop()
         except RuntimeError:
@@ -208,7 +240,7 @@ def start_speech(text: str, voice_id: str, emotion: str | None = None,
 _tasks: set[asyncio.Task] = set()
 
 
-async def speak(text: str, voice_id: str, emotion: str | None = None, fmt: str = "mp3") -> str:
+async def speak(text: str, voice_id: str, emotion: str | None = None, fmt: str = "mp3") -> str | None:
     """Start (or reuse) synthesis and return the URL the page can play right away."""
     return start_speech(text, voice_id, emotion, fmt)
 

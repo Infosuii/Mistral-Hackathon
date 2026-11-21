@@ -42,3 +42,8 @@
   text-transform: none;
 }
 .history-locate:hover span { color: var(--accent); }
+.build-dialog { inline-size: 30rem; }
+.build-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.build-dialog p { margin: .5rem 0; }
+.build-dialog p b { color: var(--accent); margin-inline-end: .3rem; }
+.build-dialog button[type='submit'] { margin-top: .75rem; }

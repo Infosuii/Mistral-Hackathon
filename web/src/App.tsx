@@ -175,8 +175,10 @@ export function App({ state, controls, online, clockHeld, historyFocus, onPhoneA
   const nationIds = Object.keys(state.nations)
   const seat = state.seat.nation
   const [selection, setSelection] = useState(seat ?? nationIds[0])
+  const [mapFocus, setMapFocus] = useState<MapEvent | null>(null)
   useEffect(() => {
     if (historyFocus?.nation) setSelection(historyFocus.nation)
+    if (historyFocus) setMapFocus(historyFocus)
   }, [historyFocus])
   const selected = state.nations[selection] ? selection : nationIds[0]
   const nation = state.nations[selected]
@@ -201,9 +203,12 @@ export function App({ state, controls, online, clockHeld, historyFocus, onPhoneA
         crisis={state.crisis} nations={state.nations} catalog={state.available_crises} clockHeld={clockHeld}
       />}
       <main className="theatre">
-        <PoliticalMap state={state} online={online} historyFocus={historyFocus} selected={selected} onSelect={setSelection} />
+        <PoliticalMap state={state} online={online} historyFocus={mapFocus} selected={selected} onSelect={setSelection} />
         <div className="left-rail">
-          <NationRail state={state} selected={selected} onSelect={setSelection} />
+          <NationRail state={state} selected={selected} onSelect={(id) => {
+            setSelection(id)
+            setMapFocus({ type: 'focus', turn: state.turn, nation: id })
+          }} />
           {canReplay && <ReplayPanel nations={state.nations} online={online} />}
           <Dispatches news={news.slice(0, 1)} />
         </div>
