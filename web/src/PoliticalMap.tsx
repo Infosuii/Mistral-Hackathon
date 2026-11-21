@@ -99,13 +99,22 @@ function cardPlace(x: number, y: number, w: number, h: number, box?: MapBox): { 
   if (!box) return { left: x + 18, top: y + 18 }
   const clamp = (v: number, size: number, max: number) => Math.max(4, Math.min(v, max - size - 4))
   let best = { left: x + 18, top: y + 18 }, bestScore = Infinity
-  for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
-    const left = clamp(dx > 0 ? x + 18 : x - 18 - w, w, box.w)
-    const top = clamp(dy > 0 ? y + 18 : y - 18 - h, h, box.h)
-    let score = 0
+  const consider = (rawLeft: number, rawTop: number, far: number) => {
+    const left = clamp(rawLeft, w, box.w), top = clamp(rawTop, h, box.h)
+    let score = far
     for (const fx of [0.04, 0.5, 0.96]) for (const fy of [0.04, 0.5, 0.96]) if (covered(box, left + fx * w, top + fy * h)) score += 1
     if (x >= left && x <= left + w && y >= top && y <= top + h) score += 3  // sits on the pointer
     if (score < bestScore) { best = { left, top }; bestScore = score }
+  }
+  for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]] as const) consider(dx > 0 ? x + 18 : x - 18 - w, dy > 0 ? y + 18 : y - 18 - h, 0)
+  // All four sides blocked by a panel (the pocket beside the War Room): slide further out.
+  for (let step = 1; bestScore >= 1 && step <= 6; step += 1) {
+    for (const dy of [1, -1]) {
+      consider(x + 18 + step * 70, dy > 0 ? y + 18 : y - 18 - h, step * 0.1)
+      consider(x - 18 - w - step * 70, dy > 0 ? y + 18 : y - 18 - h, step * 0.1)
+    }
+    consider(x - w / 2, y + 18 + step * 60, step * 0.1)
+    consider(x - w / 2, y - 18 - h - step * 60, step * 0.1)
   }
   return best
 }
