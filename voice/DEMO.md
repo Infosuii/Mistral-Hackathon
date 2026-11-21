@@ -1,6 +1,6 @@
 # GAMBIT demo — script, setup and recovery (D2, draft)
 
-Owner: Ashish. **Draft for the 14:15 playtest; the team fixes who says what at the rehearsal.**
+Owner: Ashish. **Draft for the 14:40 playtest; the team fixes who says what at the rehearsal. The final video is recorded at 16:30, after the freeze.**
 Built from `ideas.md` §17 and what is on main now. Rehearse twice before 17:00 (D2).
 
 ## Setup (10 minutes before)
@@ -63,7 +63,7 @@ Lines a judge can say that show voice matters:
 | Reply slow (over 5 s) | Keep talking over it. The spoken reply falls back to Mistral Medium within 6 s (#99). Large 4 interpretation runs in the background; promises appear in `last_call` a few seconds later |
 | Model or API outage | The leader says "The line is breaking up" (pre-rendered) instead of going silent. Switch to the backup video |
 | Wiretap slow | Restart with `VOICE_WIRETAP=demo` |
-| Anything else | Play the backup video (D1, recorded at the 14:15 playtest) |
+| Anything else | Play the backup video (D1, recorded at the 14:40 playtest; the final recording is at 16:30) |
 
 ## Checked on main
 
