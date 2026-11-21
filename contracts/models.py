@@ -273,6 +273,8 @@ class State(Model):
     fleets: dict[NationId, Fleet] = Field(default_factory=dict)
     buildings: list[Building] = Field(default_factory=list)
     construction: Optional[BuildRequest] = None
+    rail_services: list[str] = Field(default_factory=list)
+    rail_income: dict[NationId, dict[str, float]] = Field(default_factory=dict)
     news: list[NewsItem] = Field(default_factory=list)
     events: list[Event] = Field(default_factory=list)
     incoming_call: Optional[IncomingCall] = None

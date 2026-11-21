@@ -27,7 +27,7 @@ const lifetime = 3700
 const cueLimit = 10
 
 export const kessarPoint = (x: number, y: number) =>
-  [x + map.capitalOffsets.kessaria[0], y + map.capitalOffsets.kessaria[1]]
+  [x - 612 + sea.ports.kessaria.position[0], y - 548 + sea.ports.kessaria.position[1]]
 export const kessarPort = kessarPoint(612, 548)
 export const grainShips: Record<string, { waiting: Point; approach: Point; berth: Point }> = {
   ostrava: { waiting: kessarPoint(693, 577), approach: kessarPoint(644, 554), berth: kessarPoint(629, 548) },
@@ -205,16 +205,27 @@ function useCues(state: GameState, online: boolean) {
 }
 
 export function ShipSilhouette({ kind = 'grain' }: { kind?: 'grain' | 'tug' | 'patrol' }) {
+  const military = kind === 'patrol'
   return (
     <g className="pixel-ship" data-ship-kind={kind}>
-      <path className="ship-wake" d="M15 3h9 m-4 3h13 m-14 3h7" />
-      <path className="ship-hull" d="M-16-1h3v-2h11v-1h14v4h3v4h-3v2h-22V4h-3V2h-3Z" />
-      <path className="ship-shadow" d="M-13 2h25v2h-3v2h-19V4h-3Z" />
-      {kind === 'grain' && <path className="ship-cargo" d="M-11-5h6v4h-6Zm7 0h6v4h-6Z" />}
-      {kind === 'patrol' && <path className="ship-cargo" d="M-14-4h7v-2h2v4h-9Z" />}
-      <path className="ship-deck" d="M3-2v-6h7v2h2v4Z" />
-      <path className="ship-window" d="M4-7h4v2H4Z" />
-      <path className="ship-mast" d="M8-8v-4h4" />
+      <path d="M15-4h10m-8 2h16m-16 5h18m-19 2h8" stroke="#a6c6cb" strokeWidth=".75" opacity=".7" />
+      <path fill="#16292e" d="M-25 0-18-5H15L22-2V4L16 7H-18Z" />
+      <path fill={military ? '#547077' : '#5c6965'} d="M-23 0-16-4H14L20-2V3L15 5H-17Z" />
+      <path fill="#aab7ad" d="M-19 0h35v1h-35Z" opacity=".48" />
+      {military ? <>
+        <path fill="#2f444d" d="M-14-3h8v6h-8Zm22 0h7v6H8Z" />
+        <path fill="#a1ac9f" d="M-16 0h6m21 0h6" stroke="#bcc5b6" strokeWidth="1.3" />
+        <path fill="#829498" d="M-8-4H7V4H-8Z" />
+        <path fill="#adb9ae" d="M-4-5H5V4H-4Z" />
+        <path fill="#374e56" d="M-4-3h5v1h-5ZM-4 2h5v1h-5Z" />
+        <path stroke="#d7dbbf" strokeWidth=".8" d="M3-6v9m-3-6h6" />
+        <path fill="#c6a469" d="M-19 0h3v1h-3ZM16 0h3v1h-3Z" />
+      </> : <>
+        {kind === 'grain' && <path fill="#a99565" d="M-16-3h8v6h-8Zm9 0h8v6h-8Z" />}
+        <path fill={kind === 'tug' ? '#c4a16e' : '#bdb8a5'} d="M4-4h10v8H4Z" />
+        <path fill="#526e74" d="M4-2h4v4H4Z" />
+        <path fill="#374344" d="M11-2h2v4h-2Z" />
+      </>}
     </g>
   )
 }

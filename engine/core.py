@@ -60,8 +60,9 @@ def new_game(seed: int, seat: Seat) -> State:
         "turn": 0, "phase": "strategy", "seed": seed, "seat": seat.model_dump(),
         "nations": nations, "relations": w["relations"], "links": w["links"],
         "provinces": w["provinces"], "buildings": starting_buildings(),
-        "news": [{"turn": 0, "text": "Five nations, three landmasses. The year begins."}],
+        "news": [{"turn": 0, "text": "Five nations. The campaign begins."}],
     })
+    update_rail_services(state)
     _refresh_status(state, weights())
     return state
 
@@ -483,6 +484,46 @@ def _patrols(s: State, log: _Log) -> None:
                 _bump(s, target, "food", -0.75)
 
 
+def _active_rail(s: State) -> list[dict]:
+    """A corridor can cross a border only under an active trade agreement."""
+    wars = {relation_key(link.a, link.b) for link in s.links if link.type == "war"}
+    trade = {relation_key(link.a, link.b) for link in s.links if link.type == "trade"}
+    allowed = trade - wars
+    routes = []
+    for route in _load("rail.json")["routes"]:
+        owners = [s.provinces.get(province) for province in route["via"]]
+        if all(owners) and all(a == b or relation_key(a, b) in allowed for a, b in zip(owners, owners[1:])):
+            routes.append(route)
+    return routes
+
+
+def update_rail_services(s: State) -> None:
+    s.rail_services = [route["id"] for route in _active_rail(s)]
+
+
+def _rail_freight(s: State) -> None:
+    cities = _load("rail.json")["cities"]
+    yards = {building.province for building in s.buildings if building.kind == "freight_yard"}
+    income: dict[str, dict[str, float]] = {}
+    routes = _active_rail(s)
+    s.rail_services = [route["id"] for route in routes]
+    for route in routes:
+        a, b = route["from"], route["to"]
+        multiplier = 1.5 if a in yards or b in yards else 1
+        for source, destination in ((a, b), (b, a)):
+            city = cities[source]
+            resource = "gdp" if city["resource"] == "economy" else city["resource"]
+            amounts = income.setdefault(s.provinces[destination], {})
+            amounts[resource] = amounts.get(resource, 0) + .09 * city["output"] * multiplier
+    s.rail_income = {
+        nation: {resource: round(value, 2) for resource, value in amounts.items()}
+        for nation, amounts in income.items()
+    }
+    for nation, amounts in s.rail_income.items():
+        for resource, value in amounts.items():
+            _bump(s, nation, resource, value)
+
+
 def _monthly(s: State, rng: random.Random, w: dict, log: _Log) -> None:
     mo = w["monthly"]
     for l in s.links:
@@ -512,6 +553,7 @@ def _monthly(s: State, rng: random.Random, w: dict, log: _Log) -> None:
         if st.oil < mo["oil_low"]:
             _bump(s, n, "gdp", mo["oil_low_gdp"])
     _facility_production(s)
+    _rail_freight(s)
     _patrols(s, log)
     for k in sorted(s.relations):
         v = s.relations[k]

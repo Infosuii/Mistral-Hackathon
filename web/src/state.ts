@@ -89,6 +89,8 @@ export interface GameState {
   links: { type: string; a: string; b: string }[]
   provinces: Record<string, string>
   buildings?: { province: string; kind: string; built_turn: number }[]
+  rail_services?: string[]
+  rail_income?: Record<string, Record<string, number>>
   construction?: { province: string; kind: string } | null
   fleets?: Record<string, { target: string; arrival_turn: number; returning: boolean }>
   news: { turn: number; text: string }[]
