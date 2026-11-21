@@ -16,7 +16,8 @@ import logging
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from contracts.models import NATION_IDS, LeaderDetail, StartRequest, State
+from contracts.models import NATION_IDS, CrisisStartRequest, LeaderDetail, StartRequest, State
+from engine.crisis import available
 from engine.game import GAME
 
 logging.basicConfig(level=logging.INFO)
@@ -39,6 +40,16 @@ async def get_state() -> State:
 @router.post("/turn", response_model=State)
 async def turn() -> State:
     return await GAME.turn()
+
+
+@router.post("/crisis/start", response_model=State)
+async def crisis_start(req: CrisisStartRequest) -> State:
+    if req.id not in available():
+        raise HTTPException(404, f"unknown crisis {req.id!r}; have {available()}")
+    async with GAME.lock:
+        if GAME.state.phase != "strategy":
+            raise HTTPException(409, f"cannot start a crisis during phase {GAME.state.phase!r}")
+        return GAME.start_crisis(req.id)
 
 
 @router.get("/leaders/{nation}", response_model=LeaderDetail)
