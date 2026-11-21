@@ -73,6 +73,7 @@
     "kept_trust": 0.15,
     "broken_trust": -0.2,
     "split_day_belief": 0.6,
+    "half_day_belief": 0.6,
     "needs_berth": [
       "ostrava",
       "zarnia"
