@@ -2,7 +2,7 @@
   "_note": "Nation -> Voxtral preset voice. Swap ids here; see voice/CASTING.md for why each was chosen.",
   "ostrava":   {"voice_id": "voice_3147", "name": "Howard", "accent": "UK", "gender": "male"},
   "zarnia":    {"voice_id": "voice_591",  "name": "Fred",   "accent": "UK", "gender": "male"},
-  "nordhaven": {"voice_id": "voice_3149", "name": "Hugo",   "accent": "UK", "gender": "male"},
+  "nordhaven": {"voice_id": "voice_478", "name": "Sheila", "accent": "US", "gender": "female"},
   "kessaria":  {"voice_id": "voice_590",  "name": "Harriet","accent": "UK", "gender": "female"},
   "valdoria":  {"voice_id": "voice_1787", "name": "Mary",   "accent": "UK", "gender": "female"},
   "_player_test_voice": {"voice_id": "voice_485", "name": "Rob", "accent": "US", "gender": "male"}
