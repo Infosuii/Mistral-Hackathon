@@ -23,7 +23,7 @@ from contracts.models import (
     LeaderView, ReceivedMessage, Seat, State,
 )
 from engine.core import advise, is_legal, new_game, relation_key, step, weights
-from engine.crisis import crisis_file, rerun_crisis, scripted_now, start_crisis
+from engine.crisis import crisis_file, rerun_crisis, scripted_now, start_crisis, with_announcement
 from engine.snapshots import snapshot
 from engine.calls import apply_call_effects
 from engine.futures import futures
@@ -327,7 +327,8 @@ class Game:
         c = s.crisis
         nxt = c.tick + 1
         due = [n for n in self.ai_nations() if n not in c.decisions and c.deadlines.get(n) == nxt]
-        advice = {n: advise(s, n) for n in due}
+        seen = with_announcement(s, self.pending_announce)  # a threat going public this tick counts
+        advice = {n: advise(seen, n) for n in due}
         epoch = self.epoch
         results = await asyncio.gather(*(self._one_leader(n, advice[n]) for n in due))
         if epoch != self.epoch or self.state.crisis is None:  # reset, or ended, meanwhile
