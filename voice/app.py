@@ -11,4 +11,5 @@ from .api import router
 
 app = FastAPI(title="GAMBIT voice (dev)")
 app.include_router(router)
+app.include_router(router, prefix="/api")  # same as engine/app.py
 app.mount("/voice-static", StaticFiles(directory=Path(__file__).parent / "static"), name="voice-static")

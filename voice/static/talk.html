@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talk button test</title>
+<style>
+  :root { --bg: #14171b; --text: #ece8e1; --phone: #341c22; --phone-edge: #79434b; --signal: #ff978c; --muted: #9aa0a8; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 24px 16px; }
+  main { max-width: 720px; margin: 0 auto; display: grid; gap: 16px; }
+  .phone { background: var(--phone); border: 1px solid var(--phone-edge); border-radius: 8px; padding: 16px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  select, button { font: inherit; padding: 6px 10px; border-radius: 4px; background: #222831; color: var(--text); border: 1px solid #3a424d; }
+  pre { background: #0b0d10; padding: 12px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; max-height: 360px; overflow: auto; font-size: 13px; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Talk button</h1>
+  <p class="muted">Dev page for <code>voice/talk-button.js</code>. Add <code>?fakemic=1</code> to feed a recorded line in place of the microphone.</p>
+  <div class="row">
+    <label>Leader <select id="to">
+      <option>ostrava</option><option>zarnia</option><option>kessaria</option><option>nordhaven</option>
+    </select></label>
+    <button id="ring">Play a leader line (incoming call)</button>
+  </div>
+  <section class="phone"><div id="phone-controls"></div></section>
+  <pre id="log"></pre>
+</main>
+<script type="module">
+const log = (m) => { const el = document.getElementById('log'); el.textContent += m + '\n'; el.scrollTop = el.scrollHeight }
+
+if (new URLSearchParams(location.search).has('fakemic')) {
+  // Replace the mic with a synthesized line played through Web Audio, so the real
+  // MediaRecorder -> /call path runs without a microphone.
+  navigator.mediaDevices.getUserMedia = async () => {
+    const tap = await (await fetch('/api/wiretap?a=zarnia&b=ostrava')).json()
+    const buf = await (await fetch('/api' + tap.lines[0].audio_url)).arrayBuffer()
+    const ctx = new AudioContext()
+    const src = ctx.createBufferSource()
+    src.buffer = await ctx.decodeAudioData(buf)
+    src.loop = true
+    const dest = ctx.createMediaStreamDestination()
+    src.connect(dest)
+    src.start()
+    log('[fake mic] feeding: "' + tap.lines[0].text + '"')
+    return dest.stream
+  }
+}
+
+const { mountTalkButton } = await import('/voice/talk-button.js')
+const el = document.getElementById('phone-controls')
+const tb = mountTalkButton(el, { to: 'ostrava' })
+window.__tb = tb
+window.__events = []
+for (const t of ['transcript', 'reply', 'audio-start', 'audio-end', 'talk-state', 'error']) {
+  el.addEventListener(t, (e) => {
+    window.__events.push({ t, d: e.detail, at: Math.round(performance.now()) })
+    if (t !== 'talk-state') log(`${t}: ${JSON.stringify(e.detail)}`)
+  })
+}
+const origFetch = window.fetch
+window.fetch = async (url, init) => {
+  if (String(url).endsWith('/call')) {
+    const b = JSON.parse(init.body)
+    log(`POST /call ${JSON.stringify({ ...b, audio: b.audio ? `<${b.audio.length} b64 chars>` : null })}`)
+  }
+  return origFetch(url, init)
+}
+document.getElementById('to').onchange = (e) => tb.setTo(e.target.value)
+document.getElementById('ring').onclick = async () => {
+  const tap = await (await fetch('/api/wiretap?a=' + document.getElementById('to').value + '&b=zarnia')).json()
+  tb.playLine(tap.lines[0].audio_url, tap.lines[0].speaker)
+}
+log('ready')
+</script>
+</body>
+</html>
