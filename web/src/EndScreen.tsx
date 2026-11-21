@@ -1,6 +1,6 @@
-import type { GameState, SessionScore } from './state'
+import type { GameState, PresidentScore } from './state'
 
-const scoreLabels: Record<keyof SessionScore, string> = {
+const scoreLabels: Record<keyof PresidentScore, string> = {
   months_in_power: 'Months in power',
   peace_months: 'Months at peace',
   gdp_change: 'Economy change',
@@ -16,12 +16,23 @@ const endReasons: Record<string, string> = {
 }
 
 const signed = new Intl.NumberFormat('en', { signDisplay: 'exceptZero', maximumFractionDigits: 1 })
-const scoreKeys = Object.keys(scoreLabels) as (keyof SessionScore)[]
+const percent = new Intl.NumberFormat('en', { style: 'percent' })
+const scoreKeys = Object.keys(scoreLabels) as (keyof PresidentScore)[]
 
 export function EndScreen({ state, online }: { state: GameState; online: boolean }) {
   const ending = state.ending
   const dispatches = state.news.slice(-3).reverse()
-  const seat = state.seat.nation ? state.nations[state.seat.nation]?.name : undefined
+  const seat = state.seat.nation ? state.nations[state.seat.nation]?.name : 'Independent mediator'
+  const score = ending?.score
+  const metrics: [string, string | number][] = []
+  if (score && 'peaceful_crises' in score) {
+    metrics.push(['Peaceful crises', score.peaceful_crises], ['Average trust', percent.format(score.average_trust)])
+  } else if (score) {
+    for (const key of scoreKeys) {
+      const value = key === 'gdp_change' || key === 'stability_change' ? signed.format(score[key]) : score[key]
+      metrics.push([scoreLabels[key], value])
+    }
+  }
   return (
     <main className="ending-screen">
       <article className="ending-sheet" aria-labelledby="ending-heading">
@@ -30,14 +41,9 @@ export function EndScreen({ state, online }: { state: GameState; online: boolean
           <h2 id="ending-heading">Session complete</h2>
           {ending?.reason && <p className="ending-reason">{endReasons[ending.reason] ?? ending.reason.replaceAll('_', ' ')}</p>}
         </header>
-        {ending && (
-          <dl className="ending-score">
-            {scoreKeys.map((key) => (
-              <div key={key}>
-                <dt>{scoreLabels[key]}</dt>
-                <dd>{key === 'gdp_change' || key === 'stability_change' ? signed.format(ending.score[key]) : ending.score[key]}</dd>
-              </div>
-            ))}
+        {metrics.length > 0 && (
+          <dl className="ending-score" data-mediator={state.seat.role === 'mediator'}>
+            {metrics.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
           </dl>
         )}
         <section className="historian-verdict" aria-labelledby="historian-heading">
