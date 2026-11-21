@@ -106,6 +106,57 @@ export const WaterMotion = memo(function WaterMotion() {
   </g>
 })
 
+// --- harbours and lakes -------------------------------------------------------------------
+
+/** Each port's own traffic, in the harbour's frame (the pier runs along +x): a cargo ship
+ *  that waits at its berth, sails out to sea and comes back, and two warships rocking at
+ *  their moorings. These used to be painted still into the static harbour drawing. */
+function HarbourTraffic({ state }: { state: GameState }) {
+  return <g className="harbour-traffic">
+    {harbours.map(({ nation, province, x, y, angle }, i) => {
+      const owner = state.provinces[province] ?? nation
+      if (!state.nations[owner]) return null
+      const out: Pt[] = [[32, -29], [96, -29], [180, -62], [300, -70], [420, -40]]
+      const loop = roundTrip(out)
+      const seconds = 44
+      const begin = `${-f1((i * 11) % seconds)}s`
+      return <g key={nation} transform={`translate(${f1(x)} ${f1(y)}) rotate(${f1(angle)})`} style={nationStyle(owner)}>
+        <g className="mover">
+          {/* wait at the berth, sail out, turn, sail back, wait again */}
+          <animateMotion path={polyline(loop)} dur={`${seconds}s`} begin={begin} rotate="auto" calcMode="linear"
+            keyPoints="0;0;0.5;1;1" keyTimes="0;0.18;0.5;0.82;1" repeatCount="indefinite" />
+          <Vessel kind="cargo" />
+        </g>
+        <Mover path="M30,17 L31.4,18.2 L30,19.2 L28.8,18 Z" seconds={6.5} offset={i} rotate="180"><Vessel kind="frigate" /></Mover>
+        <Mover path="M28,39 L29.2,40.4 L28,41.4 L26.8,40.2 Z" seconds={7.5} offset={i * 2} rotate="0"><Vessel kind="destroyer" /></Mover>
+      </g>
+    })}
+  </g>
+}
+
+const lakeLoops: Pt[][] = ((map as unknown as { lakes?: string[] }).lakes ?? []).flatMap((lake, i) => {
+  if (frozenLakes.has(i)) return []
+  const pts = (lake.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? []).reduce<Pt[]>((acc, n, k, all) => (k % 2 ? acc : [...acc, [n, all[k + 1]]]), [])
+  if (pts.length < 3) return []
+  const cx = pts.reduce((sum, p) => sum + p[0], 0) / pts.length
+  const cy = pts.reduce((sum, p) => sum + p[1], 0) / pts.length
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1])
+  const rx = (Math.max(...xs) - Math.min(...xs)) / 2, ry = (Math.max(...ys) - Math.min(...ys)) / 2
+  if (Math.min(rx, ry) < 24) return []
+  return [ellipse(cx, cy, rx * .38, ry * .38, 0, 24)]
+})
+
+/** Fishing boats circling the inland lakes (not the frozen ones). */
+const LakeBoats = memo(function LakeBoats() {
+  return <g className="lake-boats">
+    {lakeLoops.map((loop, i) => (
+      <Mover key={i} path={polyline(loop)} seconds={lengthOf(loop) / 7} offset={i * 9}>
+        <Vessel kind="fishing" />
+      </Mover>
+    ))}
+  </g>
+})
+
 // --- public life --------------------------------------------------------------------------
 
 function laneFrom(nation: string, key: string, limit: number): Pt[] {
@@ -243,6 +294,8 @@ export function PublicLife({ state, overview }: { state: GameState; overview: bo
   const m = useMarkerScale()
   const scale = Math.max(1, m * .45)
   return <g className="public-life" aria-hidden="true">
+    <HarbourTraffic state={state} />
+    <LakeBoats />
     <Shipping state={state} scale={scale} />
     {!overview && <CityTraffic />}
     {!overview && <RoadTraffic state={state} />}
@@ -278,7 +331,7 @@ export function Military({ state, overview }: { state: GameState; overview: bool
           {unit === 'tank' ? <Tank /> : unit === 'jeep' ? <Jeep /> : <ArmyTruck />}
         </Mover>))
       units.push(<Mover key={`h${province}`} path={polyline(ellipse(x, y, 120, 80, .4))} seconds={18} offset={i * 3} style={style}>
-        <g transform={`scale(${scale})`}><Helicopter /></g>
+        <g transform={`scale(${scale * 1.15})`}><Helicopter /></g>
       </Mover>)
       // Convoys run the nation's own roads out of the base province.
       if (!overview) {

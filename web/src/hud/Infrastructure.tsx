@@ -7,7 +7,7 @@ import type { GameState } from '../state'
 import { nationStyle } from '../theme'
 import sea from '../../../data/sea_routes.json'
 import { useMarkerScale } from './scale'
-import { Tank, Vessel, Wagon } from './sprites'
+import { Tank, Wagon } from './sprites'
 import './infrastructure.css'
 
 const centers = new Map(atlas.provinces.map(({ id, center }) => [id, center]))
@@ -272,9 +272,7 @@ export function Harbours({ state }: { state: GameState }) {
             <path fill="#d0b25e" d="M-14-26h8v5h-8Zm10 7h8v5h-8Z" /><path fill="#7a9a5c" d="M-14-12h8v5h-8Z" />
             <path fill="none" stroke="#e0a83a" strokeWidth="1.8" d="M20-46v14M40-24v14" />
             <path fill="none" stroke="#e0a83a" strokeWidth="1.1" d="M14-46h14M34-24h14" />
-            <g transform="translate(32 -29)"><Vessel kind="cargo" /></g>
-            <g transform="translate(30 17) rotate(180)"><Vessel kind="frigate" /></g>
-            <g transform="translate(28 39)"><Vessel kind="destroyer" /></g>
+            {/* Ships berthed here move in the motion layer (Life.tsx HarbourTraffic). */}
             <path fill="var(--nation-accent)" d="M-16 30h6v4h-6Z" />
           </g>
         )
