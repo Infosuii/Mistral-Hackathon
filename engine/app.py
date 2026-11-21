@@ -23,7 +23,7 @@ from contracts.models import (
 )
 from engine.futures import futures
 from engine.snapshots import load
-from engine.game import GAME, allowed_crises
+from engine.game import GAME, allowed_crises, public_leader, public_view
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("gambit.engine")
@@ -35,19 +35,19 @@ router = APIRouter()
 async def start(req: StartRequest) -> State:
     async with GAME.lock:
         try:
-            return GAME.reset(req.seed, req.seat)
+            return public_view(GAME.reset(req.seed, req.seat))
         except ValueError as e:  # a seat that is not enabled (GAMBIT_MEDIATOR)
             raise HTTPException(400, str(e))
 
 
 @router.get("/state", response_model=State)
 async def get_state() -> State:
-    return GAME.state
+    return public_view(GAME.state)
 
 
 @router.post("/turn", response_model=State)
 async def turn() -> State:
-    return await GAME.turn()
+    return public_view(await GAME.turn())
 
 
 @router.post("/crisis/start", response_model=State)
@@ -57,7 +57,7 @@ async def crisis_start(req: CrisisStartRequest) -> State:
     async with GAME.lock:
         if GAME.state.phase != "strategy":
             raise HTTPException(409, f"cannot start a crisis during phase {GAME.state.phase!r}")
-        return GAME.start_crisis(req.id)
+        return public_view(GAME.start_crisis(req.id))
 
 
 @router.post("/end", response_model=State)
@@ -66,7 +66,7 @@ async def end() -> State:
     async with GAME.lock:
         if GAME.state.phase == "ended":
             raise HTTPException(409, "the session has already ended")
-        return GAME.end("ended")
+        return public_view(GAME.end("ended"))
 
 
 @router.post("/futures", response_model=FuturesResponse)
@@ -87,7 +87,7 @@ async def post_futures(req: FuturesRequest) -> FuturesResponse:
 async def leader(nation: str) -> LeaderDetail:
     if nation not in NATION_IDS:
         raise HTTPException(404, f"unknown nation {nation!r}")
-    return GAME.leader(nation)
+    return public_leader(GAME.state, GAME.leader(nation))
 
 
 app = FastAPI(title="GAMBIT")
