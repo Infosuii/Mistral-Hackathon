@@ -8,6 +8,10 @@ import { WORLD } from './scale'
 
 type Biome = keyof typeof infrastructure.biomes
 const region: Record<string, string> = infrastructure.regions
+const climate = infrastructure.climate as { polar: string[]; frozen_rivers: number[]; ice: number[][] }
+export const polar = new Set(climate.polar)
+const frozenLakes = new Set((map as unknown as { frozenLakes?: number[] }).frozenLakes ?? [])
+const frozenRivers = new Set(climate.frozen_rivers)
 export const terrainOf = Object.fromEntries(Object.entries(region).map(([province, id]) =>
   [province, { id, ...infrastructure.biomes[id as Biome] }]))
 export const coastPath = map.coast
@@ -70,7 +74,7 @@ export const Sea = memo(function Sea({ x, y, width, height }: { x: number; y: nu
 export const Lakes = memo(function Lakes() {
   const lakes = (map as unknown as { lakes?: string[] }).lakes ?? []
   return <g className="lakes map-decoration">
-    {lakes.map((d, i) => <g key={i} data-lake={i}>
+    {lakes.map((d, i) => <g key={i} data-lake={i} data-frozen={frozenLakes.has(i)}>
       <path className="lake-shore" d={d} />
       <path className="lake-water" d={d} />
       <path className="lake-shallows" d={d} />
@@ -88,7 +92,7 @@ const regions = infrastructure.regions as Record<string, string>
 export const GroundCover = memo(function GroundCover() {
   const paths: Record<string, string> = {}
   for (const settlement of infrastructure.settlements) {
-    const tones = patchTones[regions[settlement.id]] ?? patchTones.farmland
+    const tones = polar.has(settlement.id) ? ['#eef3f0', '#d2dfde', '#bccdca'] : patchTones[regions[settlement.id]] ?? patchTones.farmland
     for (const [x, y, r, tone] of settlement.patches) {
       const colour = tones[tone]
       paths[colour] = (paths[colour] ?? '') + `M${x - r},${y}a${r},${r * .7} 0 1,0 ${2 * r},0a${r},${r * .7} 0 1,0 ${-2 * r},0`
@@ -126,8 +130,9 @@ const circle = (cx: number, cy: number, rr: number) =>
   `M${f1(cx - rr)},${f1(cy)}a${f1(rr)},${f1(rr)} 0 1,0 ${f1(2 * rr)},0a${f1(rr)},${f1(rr)} 0 1,0 ${f1(-2 * rr)},0`
 const flora = (() => {
   let shade = '', canopy = '', light = '', pines = '', pineLight = '', rock = '', rockLight = '', snow = ''
-  let autumn = '', autumnLight = '', reeds = '', shrubs = ''
+  let autumn = '', autumnLight = '', reeds = '', shrubs = '', pineSnow = '', frost = ''
   for (const settlement of infrastructure.settlements) {
+    const cold = polar.has(settlement.id)
     for (const [x, y, r, kind] of settlement.flora) {
       if (kind === 2) {
         rock += `M${f1(x - r)},${f1(y + r * .5)}L${f1(x)},${f1(y - r * .8)}L${f1(x + r)},${f1(y + r * .5)}Z`
@@ -137,6 +142,7 @@ const flora = (() => {
         shade += `M${f1(x + r * .5)},${f1(y - r * 1.2)}L${f1(x + r * 1.6)},${f1(y + r * 1.3)}L${f1(x - r * .4)},${f1(y + r * 1.3)}Z`
         pines += `M${f1(x)},${f1(y - r * 1.9)}L${f1(x + r)},${f1(y + r)}L${f1(x - r)},${f1(y + r)}Z`
         pineLight += `M${f1(x)},${f1(y - r * 1.9)}L${f1(x)},${f1(y + r)}L${f1(x - r)},${f1(y + r)}Z`
+        if (cold) pineSnow += `M${f1(x)},${f1(y - r * 1.9)}L${f1(x + r * .5)},${f1(y - r * .45)}L${f1(x)},${f1(y - r * .75)}L${f1(x - r * .55)},${f1(y - r * .4)}Z`
       } else if (kind === 4) {
         reeds += `M${f1(x - r)},${f1(y)}l${f1(r * .3)},${f1(-r * 1.8)}M${f1(x)},${f1(y)}v${f1(-r * 2.2)}M${f1(x + r)},${f1(y)}l${f1(-r * .3)},${f1(-r * 1.8)}`
       } else if (kind === 5) {
@@ -146,6 +152,8 @@ const flora = (() => {
         if (kind === 3) {
           autumn += circle(x, y, r)
           autumnLight += circle(x - r * .3, y - r * .35, r * .5)
+        } else if (cold) {
+          frost += circle(x, y, r)
         } else {
           canopy += circle(x, y, r)
           light += circle(x - r * .3, y - r * .35, r * .5)
@@ -153,7 +161,7 @@ const flora = (() => {
       }
     }
   }
-  return { shade, canopy, light, pines, pineLight, rock, rockLight, snow, autumn, autumnLight, reeds, shrubs }
+  return { shade, canopy, light, pines, pineLight, rock, rockLight, snow, autumn, autumnLight, reeds, shrubs, pineSnow, frost }
 })()
 
 /** Forest stands and highland peaks, placed by the atlas generator clear of towns and fields. */
@@ -170,17 +178,94 @@ export const TerrainFeatures = memo(function TerrainFeatures() {
       <path d={flora.autumn} fill="#b5652f" />
       <path d={flora.autumnLight} fill="#e0a548" />
       <path d={flora.reeds} fill="none" stroke="#a8a35e" strokeWidth=".8" strokeLinecap="round" />
+      <path d={flora.frost} fill="#a9bdb4" />
       <path d={flora.pines} fill="#24503f" />
       <path d={flora.pineLight} fill="#3f7a5c" />
+      <path d={flora.pineSnow} fill="#f1f5f2" />
     </g>
   )
+})
+
+type Pt = [number, number]
+const poly = (points: Pt[]) => `M${points.map(([px, py]) => `${f1(px)},${f1(py)}`).join('L')}Z`
+const along = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
+
+/** Mountain ranges: shaded peaks with a lit western face, a shadowed eastern face, scree at the
+ *  foot and snowcaps on the high or polar summits. Drawn back to front so ridges overlap. */
+const ranges = (() => {
+  let scree = '', lit = '', shadow = '', snow = '', snowShade = '', strata = ''
+  const peaks = infrastructure.settlements.flatMap((settlement) =>
+    (settlement.peaks as number[][]).map((peak) => [...peak, polar.has(settlement.id) ? 1 : 0]))
+    .sort((a, b) => a[1] - b[1])
+  for (const [x, y, size, snowy, cold] of peaks) {
+    const h = size * .74
+    const apex: Pt = [x + size * .04, y - h]
+    const left: Pt = [x - size * .5, y], right: Pt = [x + size * .5, y], foot: Pt = [x + size * .1, y]
+    const shoulderL: Pt = [x - size * .24, y - h * .52], shoulderR: Pt = [x + size * .27, y - h * .47]
+    scree += `M${f1(x - size * .62)},${f1(y)}a${f1(size * .62)},${f1(size * .13)} 0 1,0 ${f1(size * 1.24)},0a${f1(size * .62)},${f1(size * .13)} 0 1,0 ${f1(-size * 1.24)},0`
+    lit += poly([left, shoulderL, apex, foot])
+    shadow += poly([apex, shoulderR, right, foot])
+    strata += `M${f1(x - size * .12)},${f1(y - h * .32)}l${f1(-size * .14)},${f1(h * .2)}M${f1(x + size * .2)},${f1(y - h * .26)}l${f1(size * .1)},${f1(h * .18)}`
+    if (snowy) {
+      const depth = cold ? .62 : .4
+      const capL = along(apex, shoulderL, depth * 1.4 > 1 ? 1 : depth * 1.4)
+      const capR = along(apex, shoulderR, depth * 1.3 > 1 ? 1 : depth * 1.3)
+      const ridge = along(apex, foot, depth * .8)
+      snow += poly([apex, capL, [capL[0] + size * .07, capL[1] - h * .06], [ridge[0] - size * .04, ridge[1] + h * .03], ridge])
+      snowShade += poly([apex, ridge, [ridge[0] + size * .05, ridge[1] - h * .02], capR])
+    }
+  }
+  return { scree, lit, shadow, snow, snowShade, strata }
+})()
+
+const ridgeBands = infrastructure.settlements.flatMap((settlement) =>
+  ((settlement as { ridges?: [number, number[][]][] }).ridges ?? []).map(([width, points], i) => ({
+    key: `${settlement.id}:${i}`, width, cold: polar.has(settlement.id),
+    d: `M${points.map((point) => point.join(',')).join('L')}`,
+  })))
+
+export const Mountains = memo(function Mountains() {
+  return <g className="mountain-ranges map-decoration">
+    {ridgeBands.map(({ key, width, cold, d }) => <g key={key} data-ridge={key}>
+      <path d={d} fill="none" stroke={cold ? '#aebbbb' : '#86785d'} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" opacity=".6" />
+      <path d={d} fill="none" stroke={cold ? '#93a2a5' : '#6b5f4b'} strokeWidth={width * .5} strokeLinecap="round" strokeLinejoin="round" opacity=".45" />
+    </g>)}
+    <path d={ranges.scree} fill="#2c2a22" opacity=".28" />
+    <path d={ranges.lit} fill="#ae9f80" />
+    <path d={ranges.shadow} fill="#675d4d" />
+    <path d={ranges.strata} fill="none" stroke="#4f483c" strokeWidth="1.1" strokeLinecap="round" opacity=".55" />
+    <path d={ranges.snow} fill="#f2f5f2" />
+    <path d={ranges.snowShade} fill="#c3d0d6" />
+  </g>
+})
+
+/** Pack ice drifting off the polar coast: irregular floes with a shadow on the water. */
+const floes = (() => {
+  let ice = '', under = ''
+  for (const [x, y, r, turn] of climate.ice) {
+    const points: Pt[] = Array.from({ length: 6 }, (_, k) => {
+      const a = (turn + k * 60 + ((turn * (k + 3)) % 23) - 11) * Math.PI / 180
+      const reach = r * (.68 + ((turn * (k + 7)) % 31) / 100)
+      return [x + Math.cos(a) * reach, y + Math.sin(a) * reach]
+    })
+    ice += poly(points)
+    under += poly(points.map(([px, py]) => [px + r * .18, py + r * .22] as Pt))
+  }
+  return { ice, under }
+})()
+
+export const SeaIce = memo(function SeaIce() {
+  return <g className="sea-ice map-decoration">
+    <path d={floes.under} fill="#1d4152" opacity=".35" />
+    <path d={floes.ice} fill="#e8f1f2" stroke="#a7c4cd" strokeWidth=".9" strokeLinejoin="round" />
+  </g>
 })
 
 export const Rivers = memo(function Rivers() {
   return <g className="rivers map-decoration">
     {infrastructure.rivers.map((river, index) => {
       const d = `M${river.points.map((point) => point.join(',')).join(' L')}`
-      return <g key={index} data-river-width={river.width}>
+      return <g key={index} data-river-width={river.width} data-frozen={frozenRivers.has(index)}>
         <path className="river-bank" d={d} style={{ strokeWidth: river.width + 7 }} />
         <path className="river-water" d={d} style={{ strokeWidth: river.width }} />
       </g>

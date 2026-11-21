@@ -26,6 +26,8 @@ const capitals = map.capitals as Record<string, Pt>
 const centers = new Map(map.provinces.map(({ id, center }) => [id, center as Pt]))
 
 const f1 = (n: number) => Math.round(n * 10) / 10
+const frozenRivers = new Set(infrastructure.climate.frozen_rivers)
+const frozenLakes = new Set((map as unknown as { frozenLakes?: number[] }).frozenLakes ?? [])
 const polyline = (points: Pt[]) => `M${points.map(([x, y]) => `${f1(x)},${f1(y)}`).join('L')}`
 const lengthOf = (points: Pt[]) => points.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - points[i][0], p[1] - points[i][1]), 0)
 /** Out and back along the same line, so a sprite with rotate="auto" faces the way it travels. */
@@ -95,10 +97,10 @@ function Train({ points, seconds, offset, passenger, cars }: { points: Pt[]; sec
 export const WaterMotion = memo(function WaterMotion() {
   return <g className="water-motion" aria-hidden="true">
     <path className="coast-foam" d={coastPath} />
-    {infrastructure.rivers.map((river, i) => (
+    {infrastructure.rivers.map((river, i) => frozenRivers.has(i) ? null : (
       <path key={i} className="river-flow" d={polyline(river.points)} style={{ strokeWidth: river.width * .25, animationDelay: `${-i * 1.7}s` }} />
     ))}
-    {(map as unknown as { lakes?: string[] }).lakes?.map((lake, i) => (
+    {(map as unknown as { lakes?: string[] }).lakes?.map((lake, i) => frozenLakes.has(i) ? null : (
       <path key={i} className="lake-ripple" d={lake} style={{ animationDelay: `${-i * 2.3}s` }} />
     ))}
   </g>

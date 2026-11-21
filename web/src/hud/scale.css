@@ -37,5 +37,18 @@
 .political-map[data-map-mode='biomes'] .province[data-biome='marsh'] { fill: #3f8a78; }
 .political-map[data-map-mode='biomes'] .province[data-biome='highlands'] { fill: #9a8560; }
 .political-map[data-map-mode='biomes'] .province[data-biome='dryland'] { fill: #c9a45f; }
-.political-map .ground-cover { opacity: .55; }
+.political-map .ground-cover { opacity: .32; }
 .political-map .coast-land { fill: #7d8a50; }
+
+/* Nordhaven is polar: snowfields under a light national tint, frozen lakes and rivers. */
+.political-map[data-map-mode='political'] .province[data-climate='polar'] { --land: #d9e3e0; fill: color-mix(in srgb, var(--land) 80%, var(--nation-fill)); }
+.political-map[data-map-mode='political'] .province[data-climate='polar'][data-biome='highlands'] { --land: #c3cdcb; }
+.political-map[data-detail='overview'][data-map-mode='political'] .province[data-climate='polar'] { fill: color-mix(in srgb, var(--land) 62%, var(--nation-fill)); }
+.political-map[data-map-mode='biomes'] .province[data-climate='polar'] { fill: #c9d8d6; }
+/* Highland stone: warm grey so the ranges read as rock, not haze. */
+.political-map[data-map-mode='political'] .province[data-biome='highlands'] { --land: #94866a; }
+.lakes [data-frozen='true'] .lake-water { fill: #d6e7eb; stroke: #f4f9f9; }
+.lakes [data-frozen='true'] .lake-shallows { stroke: #eef6f7; opacity: .7; }
+.lakes [data-frozen='true'] .lake-shore { fill: #e6ece9; stroke: #b9c8c4; }
+.rivers [data-frozen='true'] .river-water { stroke: #d3e5ea; }
+.rivers [data-frozen='true'] .river-bank { stroke: #a9bfc2; }

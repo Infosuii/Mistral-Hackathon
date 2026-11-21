@@ -207,6 +207,7 @@ def generate():
         "width": WIDTH, "height": HEIGHT, "coast": path_for(shores),
         "landFraction": ratio, "scale": SCALE,
         "lakes": [path_for(affinity.scale(lake, SCALE, SCALE, origin=(0, 0))) for lake in lakes],
+        "frozenLakes": [i for i, lake in enumerate(lakes) if land["island"].buffer(30).intersects(lake)],
         "capitals": {nation: centers[p] for nation, p in capital_provinces.items()},
     }, (("provinces", provinces), ("borders", borders)))
     write_data(DATA / "atlas_adjacency.json", {p: sorted(q) for p, q in adjacency.items()})

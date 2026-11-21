@@ -19,3 +19,4 @@
 .roof-ridge { fill: none; stroke: #f2ebd9; stroke-width: .55; opacity: .55; }
 .political-map[data-detail='overview'] .roof-ridge,
 .political-map[data-detail='overview'] .park-trees { display: none; }
+.farm-fields path[data-snow] { stroke: #a9b8b3; }
