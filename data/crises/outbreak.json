@@ -1,0 +1,104 @@
+{
+  "id": "outbreak",
+  "title": "Grey Fever",
+  "ticks_total": 12,
+  "intro_news": "A fever spreads through Zarnia's border towns. Nordhaven holds the only vaccine batch, enough for one country.",
+  "deadlines": {
+    "zarnia": 6,
+    "kessaria": 7,
+    "nordhaven": 8,
+    "ostrava": 9,
+    "valdoria": 10
+  },
+  "actions": {
+    "zarnia": ["first_doses", "cover_up", "blame_kessaria"],
+    "kessaria": ["first_doses", "close_border", "open_corridor"],
+    "nordhaven": ["ship_zarnia", "ship_kessaria", "split_batch", "hold_batch"],
+    "ostrava": ["exploit", "stay_out", "send_medics"],
+    "valdoria": ["fund_second_batch", "send_food", "stay_out"]
+  },
+  "rules": {
+    "public_backdown_cost": {"junta": 3, "democracy": 2, "one_party": 2, "monarchy": 1, "technocracy": 1},
+    "promise_bonus": 4,
+    "contradiction_trust_factor": 0.4,
+    "kept_trust": 0.15,
+    "broken_trust": -0.2,
+    "payoffs": {
+      "zarnia": {
+        "first_doses": {"base": 0.5},
+        "cover_up": {"base": 0.5, "low_resolve": 1},
+        "blame_kessaria": {"base": -0.5, "low_resolve": 1.5}
+      },
+      "kessaria": {
+        "first_doses": {"base": 0},
+        "close_border": {"base": 1.5},
+        "open_corridor": {"base": -0.5}
+      },
+      "nordhaven": {
+        "ship_zarnia": {"base": 0},
+        "ship_kessaria": {"base": 0.5},
+        "split_batch": {"base": 1},
+        "hold_batch": {"base": -0.5}
+      },
+      "ostrava": {
+        "exploit": {"base": 0, "low_resolve": 3},
+        "stay_out": {"base": 1},
+        "send_medics": {"base": -1}
+      },
+      "valdoria": {
+        "fund_second_batch": {"base": 1},
+        "send_food": {"base": 1},
+        "stay_out": {"base": 0}
+      }
+    },
+    "outcomes": [
+      {"when": {"zarnia": "cover_up"},
+       "effects": {"stats": {"zarnia": {"stability": -10, "approval": -5}, "kessaria": {"stability": -4}},
+                   "news": "Zarnia's cover-up fails; the fever crosses into Kessaria."}},
+      {"when": {"zarnia": "first_doses", "nordhaven": ["ship_zarnia", "split_batch"]},
+       "effects": {"stats": {"zarnia": {"stability": 6}}, "relations": {"nordhaven|zarnia": 10},
+                   "news": "Doses reach Zarnia; the fever slows."}},
+      {"when": {"zarnia": "first_doses", "nordhaven": ["ship_kessaria", "hold_batch"]},
+       "effects": {"stats": {"zarnia": {"stability": -6}}, "relations": {"nordhaven|zarnia": -15},
+                   "news": "Zarnia admitted the fever and got nothing for it."}},
+      {"when": {"kessaria": "first_doses", "nordhaven": ["ship_kessaria", "split_batch"]},
+       "effects": {"stats": {"kessaria": {"stability": 4}}, "relations": {"kessaria|nordhaven": 10}}},
+      {"when": {"kessaria": "close_border"},
+       "effects": {"stats": {"kessaria": {"gdp": -4}}, "relations": {"kessaria|zarnia": -15},
+                   "news": "Kessaria closes its border with Zarnia."}},
+      {"when": {"kessaria": "open_corridor"},
+       "effects": {"stats": {"kessaria": {"approval": -3}}, "relations": {"kessaria|zarnia": 10}}},
+      {"when": {"zarnia": "blame_kessaria"},
+       "effects": {"relations": {"kessaria|zarnia": -20}}},
+      {"when": {"zarnia": "blame_kessaria", "kessaria": "close_border"},
+       "effects": {"war": ["kessaria", "zarnia"], "news": "Shots at the closed border: Zarnia and Kessaria are at war."}},
+      {"when": {"ostrava": "exploit"},
+       "effects": {"stats": {"zarnia": {"stability": -5}}, "relations": {"ostrava|zarnia": -20, "ostrava|valdoria": -10},
+                   "news": "Ostrava masses troops on its sick neighbour's border."}},
+      {"when": {"ostrava": "exploit", "zarnia": ["cover_up", "blame_kessaria"]},
+       "effects": {"war": ["ostrava", "zarnia"], "news": "Ostrava crosses into a weakened Zarnia."}},
+      {"when": {"ostrava": "send_medics"},
+       "effects": {"relations": {"ostrava|zarnia": 10}}},
+      {"when": {"nordhaven": "hold_batch"},
+       "effects": {"stats": {"nordhaven": {"approval": -4}}, "news": "Nordhaven keeps its vaccine at home."}},
+      {"when": {"valdoria": "fund_second_batch"},
+       "effects": {"stats": {"valdoria": {"gdp": -5}, "zarnia": {"stability": 3}, "kessaria": {"stability": 3}},
+                   "relations": {"nordhaven|valdoria": 5},
+                   "news": "Valdoria pays for a second batch; Nordhaven ships it within the week."}},
+      {"when": {"valdoria": "send_food"},
+       "effects": {"stats": {"valdoria": {"food": -8}, "zarnia": {"food": 10}}, "relations": {"valdoria|zarnia": 8}}}
+    ]
+  },
+  "scripted": [
+    {"tick": 1, "type": "incoming_call", "from": "zarnia", "emotion": "tense",
+     "opening_line": "There is no fever in Zarnia. But if Nordhaven's doses came to us first, quietly, we would not forget it."},
+    {"tick": 3, "type": "incoming_call", "from": "kessaria", "emotion": "urgent",
+     "opening_line": "Sick families are at my border gates. Promise me the first doses, or I close the border tonight.",
+     "announces": "close_border"},
+    {"tick": 5, "type": "compare_notes", "between": ["zarnia", "kessaria"]},
+    {"tick": 6, "type": "forecast", "text": "Forecast: Nordhaven's labs could make a second batch within a week, if someone pays."},
+    {"tick": 7, "type": "incoming_call", "from": "ostrava", "emotion": "confident",
+     "opening_line": "Zarnia is sick and weak. Stay out of my way and Ostrava will remember it.",
+     "announces": "exploit"}
+  ]
+}

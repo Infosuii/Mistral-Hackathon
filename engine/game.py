@@ -47,6 +47,28 @@ def available_roles() -> Optional[list[str]]:
     return ["president", "mediator"] if MEDIATOR else None
 
 
+EXTRA_CRISES = os.environ.get("GAMBIT_EXTRA_CRISES", "").lower() in ("1", "true", "on", "yes")
+
+
+def available_crises() -> Optional[list[dict]]:
+    """Crises /crisis/start accepts beyond One Berth (DECIDED 13:12): every file in
+    data/crises/ that loads, One Berth first. None (One Berth only) unless the flag is on."""
+    if not EXTRA_CRISES:
+        return None
+    from engine.crisis import available
+    out = []
+    for cid in available():
+        try:
+            out.append({"id": cid, "title": crisis_file(cid).title})
+        except Exception as e:  # a broken file is simply not offered
+            log.warning("crisis %s does not load: %s", cid, e)
+    return sorted(out, key=lambda c: (c["id"] != "one_berth", c["id"]))
+
+
+def allowed_crises() -> list[str]:
+    return [c["id"] for c in available_crises() or []] or ["one_berth"]
+
+
 PRIVATE_STRATEGY = os.environ.get("GAMBIT_PRIVATE_STRATEGY", "").lower() in ("1", "true", "on", "yes")
 
 
@@ -142,6 +164,8 @@ class Game:
         self.state = new_game(seed, seat)
         if available_roles():
             self.state = self.state.model_copy(update={"available_roles": available_roles()})
+        if available_crises():
+            self.state = State.model_validate({**self.state.model_dump(), "available_crises": available_crises()})
         self.leaders: dict[str, LeaderDetail] = {}
         self.inbox: dict[str, list[ReceivedMessage]] = {n: [] for n in NATION_IDS}
         self.queued: list[Action] = []  # agreed on the phone; applied next turn
