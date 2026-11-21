@@ -132,3 +132,22 @@ def test_backend_down_is_one_plain_line(monkeypatch):
     monkeypatch.setattr(server, "GAMBIT_URL", f"http://127.0.0.1:{_free_port()}")
     text = asyncio.run(server.gambit_state())
     assert "not reachable" in text and "Traceback" not in text
+
+
+def test_overlapping_calls_each_report_their_own_result(monkeypatch):
+    from gambit_mcp import server
+
+    async def request(method, path, body=None, **kwargs):
+        if path == "/call":
+            return {"call_id": body["to"], "pending": True, "reply_text": "Agreed."}
+        assert method == "GET" and path.startswith("/calls/")
+        nation = path.split("/")[-1]
+        return {"call_id": nation, "promises": [{"to": nation, "what": nation + " goods"}]}
+
+    async def calls():
+        return await asyncio.gather(server.gambit_call("kessaria", "Trade?"),
+                                    server.gambit_call("zarnia", "Trade?"))
+    monkeypatch.setattr(server, "_request", request)
+    first, second = asyncio.run(calls())
+    assert "kessaria goods" in first and "zarnia goods" not in first
+    assert "zarnia goods" in second and "kessaria goods" not in second

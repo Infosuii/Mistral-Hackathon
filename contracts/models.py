@@ -319,6 +319,7 @@ class LeaderView(Model):
     state: State
     advice: list[Advice]
     messages_received: list[ReceivedMessage] = Field(default_factory=list)
+    earlier_private_intents: list[str] = Field(default_factory=list)
     # The leader's own plan for the game or the current crisis (DECIDED 13:07), when written.
     private_strategy: Optional[str] = None
 
