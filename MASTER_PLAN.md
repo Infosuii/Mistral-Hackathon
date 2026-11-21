@@ -392,6 +392,14 @@ scripts/wait_for_tag.sh <Name> <your-issue-number> [max-minutes] [path-to-watch]
 
 It returns when a board comment names you (or "all") after the arrow, when someone else comments on your issue, or when the watched path changes on `main`. So **to hand work to someone, name them after the arrow**: their agent is waiting for that line.
 
+**Who checks that `main` works as a whole:** the Coordinator, and it gets stricter as the demo gets closer.
+
+| When | Who merges | What the Coordinator runs |
+|---|---|---|
+| Until 13:30 (pieces are separate) | Each agent, its own-folder PRs | `python -m contracts.validate` after every merge |
+| 13:30 to 16:15 (pieces connect) | Each agent, its own-folder PRs | `scripts/smoke.sh` after every merge. A failure means `BLOCKED` to the author whose merge broke it: fix first |
+| After the 16:15 freeze | The Coordinator only | `scripts/smoke.sh` on the branch before merging and on `main` after. Fixes only |
+
 Agents stop for a human only for: a contract change, a scope or ownership conflict, a choice between two design directions, anything destructive, or the same failure three times.
 
 What a human still does: paste the kickoff prompt once, set the tool to run commands without asking each time (within the repo), answer those stop questions, and switch to Vibe when quota runs out.
