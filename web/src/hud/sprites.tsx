@@ -97,10 +97,19 @@ export function Fighter() {
 }
 
 export function Helicopter() {
-  return <g>
-    <path fill="#13252b" opacity=".3" transform="translate(6 7)" d="M-4-2h7v4h-7ZM-10-.5h6v1h-6Z" />
-    <path fill="color-mix(in srgb, var(--nation-fill, #4d5b3f), #4f5a3a 50%)" d="M-4-2h7v4h-7ZM-10-.5h6v1h-6Z" />
-    <path className="rotor" stroke="#cfd5c6" strokeWidth=".7" d="M-7 0H7M0-7V7" />
+  // About the size of an airliner sprite: body, cockpit, tail boom, tail rotor, skids, main rotor.
+  const body = 'color-mix(in srgb, var(--nation-fill, #4d5b3f), #4f5a3a 45%)'
+  return <g className="helicopter-sprite">
+    <path fill="#13252b" opacity=".28" transform="translate(9 11)" d="M-7-3.6h12l3 3.6-3 3.6h-12ZM-21-1h14v2h-14Z" />
+    <path fill="#28383a" d="M-6-5.4h3v-1h6v1h3M-6 5.4h3v1h6v-1h3" stroke="#28383a" strokeWidth=".9" />
+    <path fill={body} d="M-8-3.8h12q4 0 5 3.8-1 3.8-5 3.8h-12q-2-3.8 0-7.6Z" />
+    <path fill="#7fb1c7" d="M4-2.6q3 .6 3.6 2.6-.6 2-3.6 2.6Z" opacity=".9" />
+    <path fill={body} d="M-22-1h14v2h-14Z" />
+    <path fill={body} d="M-23-3.2h3v6.4h-3Z" />
+    <path fill="var(--nation-accent, #c6a469)" d="M-5-1h6v2h-6Z" opacity=".8" />
+    <path className="rotor tail-rotor" stroke="#cfd5c6" strokeWidth=".8" d="M-21.5-4.2v8.4" />
+    <path className="rotor" stroke="#dfe4d6" strokeWidth="1.3" strokeLinecap="round" d="M-15 0H15M0-15V15" />
+    <circle r="1.6" fill="#2b3a3d" />
   </g>
 }
 
