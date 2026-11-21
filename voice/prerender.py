@@ -14,11 +14,10 @@ import json
 import sys
 from pathlib import Path
 
-from .audio import PRERENDERED, cache_key, find_audio, stream_speech
+from .audio import FALLBACK_LINE, PRERENDERED, cache_key, find_audio, stream_speech
 
 ROOT = Path(__file__).resolve().parent.parent
 CASTING = json.loads((Path(__file__).parent / "casting.json").read_text())
-FALLBACK_LINE = ("The line is breaking up. Say that again.", "tense")  # matches voice/api.py
 
 
 def demo_lines() -> list[tuple[str, str, str, str]]:

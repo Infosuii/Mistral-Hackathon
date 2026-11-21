@@ -39,6 +39,7 @@
     ]
   },
   "rules": {
+    "resolver": "one_berth",
     "second_berth_requires": {
       "nation": "nordhaven",
       "action": "send_tugs",

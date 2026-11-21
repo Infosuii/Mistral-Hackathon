@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from contracts.models import CallOutput, CallRequest, CallView
 
 from . import mock_agents
-from .audio import EMOTIONS, JOBS, find_audio, speak, transcribe
+from .audio import EMOTIONS, FALLBACK_LINE, JOBS, find_audio, speak, transcribe
 
 router = APIRouter()
 CASTING = json.loads((Path(__file__).parent / "casting.json").read_text())
@@ -108,8 +108,8 @@ def _history(nation: str, state: dict) -> list[dict]:
 
 
 FALLBACK_REPLY = {
-    "reply_text": "The line is breaking up. Say that again.",
-    "emotion": "tense", "promises": [], "actions": [],
+    "reply_text": FALLBACK_LINE[0],
+    "emotion": FALLBACK_LINE[1], "promises": [], "actions": [],
     "belief_updates": {"trust_in_player": 0, "resolve_of_player": 0}, "ends_call": False,
 }
 
@@ -118,6 +118,10 @@ FALLBACK_REPLY = {
 async def call(req: CallRequest):
     voice_id = voice_for(req.to)
     t0 = time.perf_counter()
+    if req.interrupted:  # takes effect now, not when the reply has been worked out
+        interrupt = getattr(_game(), "interrupt", None)
+        if interrupt:
+            interrupt(req.to)
     if req.text is not None:
         transcript = req.text.strip()
     elif req.audio:
@@ -150,7 +154,9 @@ async def call(req: CallRequest):
     # Speech first: the TTS request goes out before anything else happens.
     url = await speak(raw["reply_text"], voice_id, raw["emotion"])
     history += [{"role": "player", "text": transcript}, {"role": "leader", "text": raw["reply_text"]}]
-    _calls[req.to]["at"] = time.time()
+    # The previous turn's interpret() may have ended this call meanwhile (ends_call pops
+    # it), so put the conversation back instead of assuming it is still there.
+    _calls.setdefault(req.to, {"at": 0.0, "turns": history})["at"] = time.time()
 
     response = {
         "transcript": transcript,

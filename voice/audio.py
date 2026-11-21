@@ -39,6 +39,9 @@ CACHE = Path(__file__).resolve().parent / "cache"  # gitignored, per machine
 PRERENDERED = Path(__file__).resolve().parent / "prerendered"  # committed demo lines (V3)
 AUDIO_BASE = os.environ.get("VOICE_AUDIO_BASE", "/audio")
 
+# Said when a reply cannot be produced or spoken. Pre-rendered for every cast voice (voice/prerender.py).
+FALLBACK_LINE = ("The line is breaking up. Say that again.", "tense")
+
 # MASTER_PLAN.md section 4.6. Anything else is silently ignored by Voxtral.
 EMOTIONS = {
     "angry", "anxious", "assertive", "calm", "confident", "critical", "determined",
@@ -163,6 +166,12 @@ async def _run(name: str, text: str, voice_id: str, emotion: str | None, fmt: st
     except Exception as e:  # surfaced to the audio request and the log
         job.error = str(e)
         print(f"[voice] synthesis failed for {name}: {e}")
+        fallback = find_audio(f"{cache_key(FALLBACK_LINE[0], voice_id, FALLBACK_LINE[1], fmt)}.{fmt}")
+        if fallback is not None and not job.chunks:  # e.g. a 403 guardrail block: never leave the call silent
+            async with job.cond:
+                job.chunks.append(fallback.read_bytes())
+                job.cond.notify_all()
+            print(f"[voice] played the pre-rendered fallback line instead of {name}")
     finally:
         async with job.cond:
             job.done = True
