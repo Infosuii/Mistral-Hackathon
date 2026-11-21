@@ -329,7 +329,8 @@ def _judge_rules(state: dict, nation: str) -> str:
     extra = ("" if vocab is None else
              f'\nIn this crisis "what" must be one of {vocab} (the berth itself, or a crisis action), and for the berth '
              f'"when" must be one of {list(SLOTS)} (all_day if no time was given). "condition" is null unless the player '
-             "made it conditional.")
+             "made it conditional. If the player asks you to take one of your own moves and offers something for it, "
+             "record a promise with \"what\" set to that move, even if you have not agreed yet.")
     return JUDGE_RULES.replace("{vocab}", extra)
 
 
@@ -384,10 +385,14 @@ def _crisis_vocab(state: dict, nation: str) -> Optional[list[str]]:
         return None
     try:
         from engine.crisis import crisis_file  # type: ignore
-        ids = [a for a in crisis_file(c["id"]).actions.get(nation, []) if "berth" not in a]
+        cf = crisis_file(c["id"])
+        ids = [a for a in cf.actions.get(nation, []) if "berth" not in a]
+        needs = cf.rules.get("needs_berth")
     except Exception:  # noqa: BLE001
-        ids = []
-    return ["berth"] + ids
+        ids, needs = [], None
+    # Only nations that need the berth can be promised it (a "second berth" asked of
+    # Nordhaven is the tugs, not a berth for Nordhaven).
+    return (["berth"] if needs is None or nation in needs else []) + ids
 
 
 def _norm_what(what: str, vocab: list[str]) -> Optional[str]:
@@ -411,6 +416,31 @@ def _norm_when(when: str, what: str) -> str:
     return "all_day"  # "the berth is yours" with no time: the whole day
 
 
+# Words that name a crisis move a player might ask a leader for (Reviewer's REQUEST: the tugs
+# request must always register). Moves a player would not ask for (blockade, close_port...)
+# are left to the model.
+ASKABLE = {
+    "send_tugs": r"\btugs?\b|\btow(ing|s)?\b|second berth",
+    "wait": r"\bwait\b|hold (off|back)|stand (down|by)",
+    "split_day": r"split (the )?day|share the berth|half (a )?day each",
+}
+OFFER = re.compile(r"\b(pay|pays|paying|paid|cover|covers|in return|in exchange|offer|give you|guarantee|compensat\w*|"
+                   r"reward|cost of|we will|i will|i'll|we'll|you'll get|you will get)\b", re.I)
+
+
+def _requested_moves(transcript: str, nation: str, state: dict) -> list[str]:
+    """Crisis moves of `nation` that the player asked for while offering something."""
+    c = state.get("crisis")
+    if not c or not OFFER.search(transcript or ""):
+        return []
+    try:
+        from engine.crisis import crisis_file  # type: ignore
+        own = crisis_file(c["id"]).actions.get(nation, [])
+    except Exception:  # noqa: BLE001
+        return []
+    return [a for a in own if a in ASKABLE and re.search(ASKABLE[a], transcript, re.I)]
+
+
 def _parse_promises(data: dict, v: CallView, state: dict) -> list[dict]:
     """Only promises made to the leader on the line count: the other leaders did not hear
     them. In a crisis, what/when are mapped onto the engine's vocabulary or dropped."""
@@ -431,6 +461,13 @@ def _parse_promises(data: dict, v: CallView, state: dict) -> list[dict]:
         cond = p.get("condition")
         cond = str(cond).strip() if cond and str(cond).strip().lower() not in ("none", "null", "no") else None
         out.append({"to": v.nation, "what": what, "when": when or "now", "condition": cond})
+    # A request for one of this leader's own moves, with something offered for it, is always
+    # recorded, even if the model missed it or the reply was non-committal.
+    for move in _requested_moves(v.transcript, v.nation, state):
+        if not any(p["what"] == move for p in out):
+            slot = _norm_when("", v.transcript)
+            out.append({"to": v.nation, "what": move, "when": slot if slot != "all_day" or "day" in v.transcript.lower() else "now",
+                        "condition": None})
     return out
 
 
