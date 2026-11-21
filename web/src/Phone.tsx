@@ -117,6 +117,13 @@ export function Phone({ state, selected, online, onActivity }: {
     }
   }, [onActivity])
 
+  useEffect(() => {
+    if (!incomingKey) {
+      playedOpening.current = undefined
+      setDismissed(undefined)
+    }
+  }, [incomingKey])
+
   useEffect(() => setShowPreview(false), [target])
   useEffect(() => {
     const list = transcriptList.current
