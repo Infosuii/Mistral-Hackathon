@@ -429,6 +429,8 @@ In two to four sentences: your goal, who you will court and who you will squeeze
 Reply with ONLY this JSON object: {{"strategy": str}}"""
 
 STRATEGY_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_STRATEGY_S", "90"))
+# Large 4 usually answers in 20-35 s; past that, medium races it so a crisis plan lands early.
+STRATEGY_HEDGE_S = float(os.environ.get("GAMBIT_STRATEGY_HEDGE_S", "30"))
 
 
 def strategy_enabled() -> bool:
@@ -448,7 +450,7 @@ def _private_strategy(view: Any) -> Optional[str]:
 
 async def strategize(state: Any, nation: str) -> str:
     """One leader's private strategy for the game (strategy phase) or for the current crisis,
-    on Large 4 (medium joins after 60% of the budget). The engine stores the result for this
+    on Large 4 (medium joins after STRATEGY_HEDGE_S, 30 s). The engine stores the result for this
     session and passes it back as LeaderView.private_strategy. Run it in the background at
     game start and when a crisis starts. Never raises: falls back to the persona card's
     private agenda."""
@@ -477,7 +479,7 @@ async def strategize(state: Any, nation: str) -> str:
         deadline = time.perf_counter() + STRATEGY_BUDGET_S
         out = await llm.hedged(lambda m: llm.chat_json(msgs, parse, deadline=deadline, model=m,
                                                        max_tokens=400, temperature=0.9),
-                               after=STRATEGY_BUDGET_S * 0.6)
+                               after=STRATEGY_HEDGE_S)
     except Exception:  # noqa: BLE001
         agenda = next((ln.split(":", 1)[-1].strip(" *") for ln in card(nation).splitlines()
                        if "private agenda" in ln.lower()), "")
