@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { CrisisBar, crisisTime } from './CrisisBar'
 import { EndScreen } from './EndScreen'
 import { Intelligence } from './Intelligence'
@@ -8,6 +8,8 @@ import { WarForecast } from './WarForecast'
 import { PoliticalMap } from './PoliticalMap'
 import { relationBetween, statLabels, systemLabels, type GameState, type Nation, type Stats } from './state'
 import { nationStyle, theme } from './theme'
+import { StatIcon } from './hud/Icons'
+import { flagOf, mood, portraitOf } from './hud/MapLayers'
 
 const nationArtwork = import.meta.glob<string>('./nations/*.svg', { eager: true, query: '?url', import: 'default' })
 
@@ -25,6 +27,10 @@ function TurnClock({ state }: { state: GameState }) {
 
 function ResourceBar({ state, controls }: { state: GameState; controls: ReactNode }) {
   const seat = state.seat.nation ? state.nations[state.seat.nation] : undefined
+  // Month-over-month change: remember the seat's stats the first time each month is seen.
+  const seen = useRef(new Map<number, Stats>())
+  if (seat && !seen.current.has(state.turn)) seen.current.set(state.turn, { ...seat.stats })
+  const before = seen.current.get(state.turn - 1)
   return (
     <header className="topbar">
       <h1 className="wordmark">
@@ -39,12 +45,16 @@ function ResourceBar({ state, controls }: { state: GameState; controls: ReactNod
       </div>
       {seat && (
         <dl className="resources" aria-label={`${seat.name} resources`}>
-          {resourceKeys.map((key) => (
-            <div key={key}>
-              <dt>{statLabels[key]}</dt>
-              <dd>{seat.stats[key]}</dd>
-            </div>
-          ))}
+          {resourceKeys.map((key) => {
+            const delta = before ? Math.round((seat.stats[key] - before[key]) * 10) / 10 : 0
+            return (
+              <div key={key} className="resource" title={statLabels[key]}>
+                <dt><StatIcon name={key} />{statLabels[key]}</dt>
+                <dd>{Math.round(seat.stats[key] * 10) / 10}</dd>
+                {delta !== 0 && <span className="delta" data-sign={Math.sign(delta)}>{delta > 0 ? '▲' : '▼'}{Math.abs(delta)}</span>}
+              </div>
+            )
+          })}
         </dl>
       )}
       {controls}
@@ -64,15 +74,31 @@ function NationRail({ state, selected, onSelect }: {
       <ul>
         {Object.entries(state.nations).map(([id, nation]) => (
           <li key={id} style={nationStyle(id)}>
-            <button className="nation-button" data-protests={nation.status.includes('PROTESTS')} onClick={() => onSelect(id)} aria-pressed={id === selected}>
-              {nationArtwork[`./nations/${id}-flag.svg`] ? (
-                <img className="nation-flag nation-mark" src={nationArtwork[`./nations/${id}-flag.svg`]} alt="" />
-              ) : <span className="nation-mark" aria-hidden="true" />}
+            <button className="nation-button leader-card" data-protests={nation.status.includes('PROTESTS')}
+              data-mood={id === state.seat.nation ? 'self' : mood(state, id).tone}
+              data-calling={state.incoming_call?.from === id}
+              onClick={() => onSelect(id)} aria-pressed={id === selected}>
+              <span className="card-portrait">
+                {portraitOf(id) ? <img src={portraitOf(id)} alt="" /> : <span className="nation-mark" aria-hidden="true" />}
+                {flagOf(id) && <img className="card-flag" src={flagOf(id)} alt="" />}
+              </span>
               <span className="nation-contact">
                 <strong>{nation.name}</strong>
                 <span>{nation.leader}</span>
+                {id === state.seat.nation ? <em className="card-mood">Your nation</em> : (
+                  <em className="card-mood">
+                    {mood(state, id).label}
+                    {relationBetween(state, state.seat.nation, id) !== undefined && <b> {new Intl.NumberFormat('en', { signDisplay: 'exceptZero' }).format(relationBetween(state, state.seat.nation, id)!)}</b>}
+                    {nation.status.includes('PROTESTS') && <i> · Protests</i>}
+                  </em>
+                )}
+                {nation.beliefs && (
+                  <span className="trust-bar" title={`Trust in you ${Math.round(nation.beliefs.trust_in_player * 100)}%`}>
+                    <span style={{ width: `${nation.beliefs.trust_in_player * 100}%` }} />
+                  </span>
+                )}
               </span>
-              {id === state.seat.nation && <span className="seat-label">You</span>}
+              {state.incoming_call?.from === id && <span className="calling-pill">Calling</span>}
             </button>
           </li>
         ))}
@@ -176,7 +202,7 @@ export function App({ state, controls, online, clockHeld, onPhoneActivity }: {
         <div className="left-rail">
           <NationRail state={state} selected={selected} onSelect={setSelection} />
           {canReplay && <ReplayPanel nations={state.nations} online={online} />}
-          <Dispatches news={news.slice(0, 2)} />
+          <Dispatches news={news.slice(0, 1)} />
         </div>
         <div className="right-rail">
           <WarForecast forecast={state.last_futures} />
@@ -188,8 +214,14 @@ export function App({ state, controls, online, clockHeld, onPhoneActivity }: {
         </div>
       </main>
       <footer className="ticker">
-        <strong>Latest dispatch</strong>
-        <p>{headline?.text ?? 'No dispatches yet.'}</p>
+        <strong>Live</strong>
+        <div className="ticker-track" aria-live="polite">
+          <p key={headline?.text}>
+            {[0, 1].flatMap((copy) => (news.length ? news.slice(0, 8) : [{ turn: 0, text: 'No dispatches yet.' }]).map(({ turn, text }, i) => (
+              <span key={`${copy}-${i}`} aria-hidden={copy === 1}><b>M{turn}</b> {text}</span>
+            )))}
+          </p>
+        </div>
       </footer>
     </div>
   )

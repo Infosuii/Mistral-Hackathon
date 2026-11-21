@@ -2,6 +2,19 @@
 
 ## Direction
 
+**21 Nov, Abi (co-owner): grand-strategy game screen.** Abi wants the genre feel of browser war games and HOI4-style map games, not a dashboard: the map is the game. We take the genre's conventions and draw our own art (no copied maps, icons, unit art or layouts). The leaders must feel alive on the map, and judges should have things to hover and click.
+
+- Full-bleed map: the sea fills the window behind floating glass panels; the continent stays centred between the rails.
+- Terrain: procedural relief shading (soft-light over nation colours), seeded mountain, forest and hill glyphs per province, sea graticule and swell.
+- Borders: thin dashed province lines; thick ink national borders computed from ownership, so they move with conquests. Large spaced nation names across each nation's territory.
+- Units: military-map counters (infantry symbol, stacked by army strength) at capitals and on war fronts.
+- Leaders on the map: portrait medallion at each capital with a mood ring (hostile/wary/neutral/friendly from relations or trust), a pulse when calling, the crisis decision tag, and a speech bubble: one leader speaks at a time, fresh statements first.
+- HUD: icon resource bar with month-over-month change; nation list as leader cards (portrait, mood, relations, trust bar, protests); scrolling news wire.
+- Crisis on the map: pulsing Port Kessar focus, the two grain ships waiting (they dock when a nation chooses dock), a storm.
+- Code: `src/hud/` (Terrain, MapLayers, Icons, hud.css); tokens in `theme.ts`.
+
+Earlier direction:
+
 Tamim, Abi and Om share ownership of website design. List your in-progress files
 in [Tamim's #26](https://github.com/Infosuii/Mistral-Hackathon/issues/26),
 [Om's #27](https://github.com/Infosuii/Mistral-Hackathon/issues/27) or
@@ -50,6 +63,8 @@ on that last command to preview the optional screens. Start design work in
 Run `npm --prefix web run build` and the shared smoke check before merging.
 
 ## Decisions
+
+- 2026-11-21 — (Abi) Grand-strategy pass: terrain map, unit counters, leader medallions with mood and speech, hover dossier cards, icon HUD, news wire, crisis focus. Interactivity (player actions from the map) proposed for Om.
 
 - 2026-11-21 — The first view opens on Valdoria's seat with Ostrava selected. News is a paper dispatch at the bottom of the map.
 - 2026-11-21 — `src/theme.ts` holds the visual tokens. `src/map.json` holds fixed geography, and the state supplies province ownership. The initial IDs and owners match `contracts/examples/state.json`.
