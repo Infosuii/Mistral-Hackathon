@@ -26,19 +26,31 @@ def test_end_endpoint_scores_and_plain_verdict():
 
 def test_session_ends_at_the_month_limit():
     g = Game(seed=7, use_agents=False, needle=False)
-    for _ in range(30):
+    for _ in range(40):
         asyncio.run(g.turn())
-    assert g.state.phase == "ended" and g.state.ending.reason == "time" and g.state.turn == 12
+    assert g.state.phase == "ended" and g.state.ending.reason == "time" and g.state.turn == 36
+
+
+def test_three_year_term_has_a_review_each_year_but_the_last():
+    g = Game(seed=7, use_agents=False, needle=False)
+    for _ in range(40):
+        asyncio.run(g.turn())
+    reviews = [e for e in g.session_log if e["type"] == "year_review"]
+    if g.state.ending.reason == "time":  # an ousted leader stops early and sees fewer reviews
+        assert [(e["turn"], e["year"], e["years"]) for e in reviews] == [(12, 1, 3), (24, 2, 3)]
+    assert all(e["nation"] == "valdoria" and "approval" in e for e in reviews)
+    news = [n["text"] for n in g.session_log if n["type"] == "news" and n["text"].startswith("Year ")]
+    assert len(news) == len(reviews)
 
 
 def test_voted_out_ends_the_session():
     g = Game(seed=7, use_agents=False, needle=False)
-    for _ in range(5):
+    for _ in range(11):
         asyncio.run(g.turn())
-    g.state.nations["valdoria"].stats.approval = 10  # month 6 is an election
+    g.state.nations["valdoria"].stats.approval = 10  # month 12 is the yearly election
     asyncio.run(g.turn())
     assert g.state.phase == "ended" and g.state.ending.reason == "voted_out"
-    assert g.state.ending.score.months_in_power == 5
+    assert g.state.ending.score.months_in_power == 11
 
 
 def test_crisis_promises_count_in_the_score():
