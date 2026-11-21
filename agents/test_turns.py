@@ -56,7 +56,7 @@ async def main(turns: int = 20) -> None:
     head = [f"# A1 results ({time.strftime('%H:%M')}): {'PASS' if ok else 'FAIL'}", "",
             f"- {turns} months, seed 7, model `{llm.MODEL}`, {len(calls)} decide() calls, {wall:.0f}s wall "
             f"({wall / turns:.1f}s per month with leaders in parallel).",
-            f"- decide() median {calls[len(calls) // 2]:.1f}s, max {calls[-1]:.1f}s; fallbacks to advisers: {fallbacks}.",
+            f"- decide() median {calls[len(calls) // 2]:.1f}s, max {calls[-1]:.1f}s; fallbacks to advisers: {fallbacks}; answered by {llm.STATS['by_model']}.",
             f"- Leaders defied advice {defied} times; took an action (not wait) {acted} times.", ""]
     Path(__file__).with_name("A1_RESULTS.md").write_text("\n".join(head + lines) + "\n")
     print("\n".join(head))
