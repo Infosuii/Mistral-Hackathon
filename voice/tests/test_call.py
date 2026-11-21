@@ -100,17 +100,28 @@ def test_pending_call_fills_last_call(client):
     assert last["promises"][0]["what"] == "berth"
 
 
-def test_failing_reply_still_speaks(client):
+def test_failing_reply_still_speaks_and_records_promises(client):
+    seen = {}
+
     async def speak_fast(view):
         raise RuntimeError("model down")
 
     async def interpret(view, reply_text):
-        raise AssertionError("should not run")
+        seen["reply_text"] = reply_text
+        return {"promises": [], "actions": [],
+                "belief_updates": {"trust_in_player": -0.3, "resolve_of_player": 0}, "ends_call": False}
 
     fake_agents(speak_fast=speak_fast, interpret=interpret)
+    before = trust(client)
     r = client.post("/api/call", json=CALL)
     assert r.status_code == 200
     assert r.json()["reply_text"] == api.FALLBACK_REPLY["reply_text"]
+    for _ in range(50):  # what the player said still counts
+        if trust(client) != before:
+            break
+        time.sleep(0.05)
+    assert trust(client) == pytest.approx(before - 0.3)
+    assert seen["reply_text"] == api.FALLBACK_REPLY["reply_text"]
 
 
 def test_single_call_reply_is_applied_at_once(client):

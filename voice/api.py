@@ -144,7 +144,7 @@ async def call(req: CallRequest):
             raw["emotion"] = "calm"
     except Exception as e:  # never leave the player in silence
         print(f"[voice] leader reply failed, using fallback line: {e}")
-        raw, interp = dict(FALLBACK_REPLY), None
+        raw = dict(FALLBACK_REPLY)  # the player still said it: interpret below records their promises
     t_llm = time.perf_counter()
 
     # Speech first: the TTS request goes out before anything else happens.
