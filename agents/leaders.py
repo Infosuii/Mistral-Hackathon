@@ -8,6 +8,7 @@ Personality lives in agents/personas/*.md (the design file; edit those, not this
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import random
@@ -53,6 +54,33 @@ def _who(state: dict, nation: str) -> str:
     return f"{n.get('leader', 'the leader')} of {n.get('name', nation.title())} (nation id: {nation})"
 
 
+SEAT_STYLE = {  # how leaders see the player in each seat (ideas.md section 4)
+    "president": "Treat them as a head of state: their promises commit {nation}.",
+    "diplomat": "They are {nation}'s envoy; their president can overrule them, so their promises are worth less and you may "
+                "ask whether their president agrees.",
+    "mediator": "They are a neutral mediator with no army, no money and no nation behind them, only their word. Press them "
+                "to carry your demands to the other side, test whether they are truly neutral, and trust them less the "
+                "moment they seem to favour anyone. Their promises are about what they will broker, not what they will give.",
+}
+
+
+def _player(state: dict) -> str:
+    """Who the player is, for the prompts: 'the president of Valdoria', 'a neutral mediator', ..."""
+    seat = state.get("seat") or {}
+    role, nid = seat.get("role", "president"), seat.get("nation")
+    name = (state.get("nations", {}).get(nid) or {}).get("name", str(nid or "").title())
+    if role == "mediator":
+        return "a neutral mediator"
+    return f"the {role} of {name}" if name else f"the {role}"
+
+
+def _seat_style(state: dict) -> str:
+    seat = state.get("seat") or {}
+    nid = seat.get("nation")
+    name = (state.get("nations", {}).get(nid) or {}).get("name", str(nid or "").title())
+    return SEAT_STYLE.get(seat.get("role", "president"), SEAT_STYLE["president"]).format(nation=name)
+
+
 def _brief(state: dict, nation: str) -> dict:
     """What a leader knows: public numbers, own beliefs, own relations, news, and in a
     crisis only the promises made to it and the public commitments."""
@@ -66,7 +94,8 @@ def _brief(state: dict, nation: str) -> dict:
     seat = state.get("seat") or {}
     brief: dict[str, Any] = {
         "you": nation, "month": state.get("turn"), "phase": state.get("phase"),
-        "player": f"{seat.get('role', 'president')} of {seat.get('nation')}",
+        "player": _player(state),
+        "how_to_treat_the_player": _seat_style(state),
         "your_beliefs_about_player": me.get("beliefs"),
         "nations": nations,
         "your_relations": {k: v for k, v in state.get("relations", {}).items() if nation in k.split("|")},
@@ -105,6 +134,7 @@ DECIDE_RULES = """GAMBIT is a strategy game of five fictional nations. You are {
 It is your move. Your advisers have scored every option, best first. You may follow them or take any other option. Real leaders sometimes overrule their advisers out of pride, fear, ambition or a grudge, and your persona says when you do; when you do, say why in "reason", in your own voice.
 Your public statement is what the world hears. Your private intent is what you really plan. They often differ: bluff, flatter or threaten in public if it serves your plan.
 Messages are private notes to other leaders (they never reach the player directly): use them to bargain, threaten or scheme. Send zero to two.
+If you have a private strategy, pursue it: pick the option that advances it unless events have overtaken it, and let your private intent say how this move serves it.
 Reply with ONLY this JSON object:
 {{"choice": int (number of the option you take), "public_statement": str (one or two sentences, in your voice), "private_intent": str (one sentence), "reason": str (one short sentence), "messages": [{{"to": nation id, "text": str}}]}}"""
 
@@ -149,6 +179,7 @@ async def decide(view: LeaderView | dict) -> LeaderOutput:
     past = [f"month {t}: {i}" for t, i in _MEMORY.get(key, []) if t < (state.get("turn") or 0)][-3:]
     user = {
         "situation": _brief(state, v.nation),
+        "your_private_strategy": _strategy_for(v, state),
         "private_messages_received": [f"{m.from_}: {m.text}" for m in v.messages_received][-6:],
         "your_earlier_private_intents": past,
         "options_ranked_by_your_advisers": [
@@ -172,7 +203,7 @@ async def decide(view: LeaderView | dict) -> LeaderOutput:
 
 # --- the phone: speak_fast + interpret (DECIDED 12:29), and the one-call call_reply ---
 
-CALL_VOICE = """You are {who}, on a live phone call with the player, the {player}. Stay in character.
+CALL_VOICE = """You are {who}, on a live phone call with the player, {player}. Stay in character.
 Answer in at most TWO short spoken sentences. Plain speech: no stage directions, no lists, no emoji.
 Pick one emotion for your voice from: {emotions}."""
 
@@ -240,13 +271,14 @@ def _call_context(v: CallView) -> tuple[str, dict, list[dict]]:
     seat = state.get("seat") or {}
     user = {
         "situation": _brief(state, v.nation),
+        "your_private_strategy": _strategy_for(v, state),
         "call_so_far": [f"{t.role}: {t.text}" for t in (v.history or [])][-8:],
         "player_just_said": v.transcript,
         "how_they_said_it": cues or ["normally"],
         "options_you_could_agree_to_now": [f"{i}. {_label(o)}" for i, o in enumerate(options)],
     }
     system = card(v.nation) + "\n\n" + CALL_VOICE.format(
-        who=_who(state, v.nation), player=f"{seat.get('role', 'president')} of {seat.get('nation', 'another nation')}",
+        who=_who(state, v.nation), player=_player(state),
         emotions=", ".join(EMOTIONS))
     return system, user, options
 
@@ -387,6 +419,79 @@ async def call_reply(view: CallView | dict) -> CallOutput:
         deadline=time.perf_counter() + CALL_BUDGET_S, model=llm.CALL_MODEL, max_tokens=300, temperature=0.8)
 
 
+# --- strategy: Large 4 writes each leader's private plan (DECIDED 13:06) --------
+
+STRATEGY_RULES = """GAMBIT is a strategy game of five fictional nations. You are {who}. Stay in character.
+{when} Write your PRIVATE strategy, which you will follow in every later decision and phone call. Nobody else sees it.
+In two to four sentences: your goal, who you will court and who you will squeeze, your red line, what you will say in public to hide it, and what would make you abandon the plan. Be concrete: name nations and moves available in this game.
+Reply with ONLY this JSON object: {{"strategy": str}}"""
+
+STRATEGY_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_STRATEGY_S", "90"))
+_STRATEGY: dict[tuple[int, str, str], str] = {}  # (seed, crisis id or "", nation) -> strategy
+
+
+def _strategy_key(state: dict, nation: str) -> tuple[int, str, str]:
+    return int(state.get("seed", 0)), str((state.get("crisis") or {}).get("id", "")), nation
+
+
+def _strategy_for(view: Any, state: dict) -> Optional[str]:
+    """The strategy passed in the view (optional field, once the engine adds it), else the
+    one strategize() cached for this game and phase, else the game-start one in a crisis."""
+    given = getattr(view, "strategy", None)
+    if isinstance(given, str) and given.strip():
+        return given.strip()
+    seed, crisis, nation = _strategy_key(state, view.nation)
+    return _STRATEGY.get((seed, crisis, nation)) or _STRATEGY.get((seed, "", nation))
+
+
+async def strategize(state: Any, nation: str) -> str:
+    """One leader's private strategy for the game (strategy phase) or for the current crisis,
+    on Large 4 (medium joins after 60% of the budget). Cached so decide() and the phone
+    follow it. Run it in the background at game start and when a crisis starts. Never raises:
+    falls back to the persona card's private agenda."""
+    st = _dump(state)
+    c = st.get("crisis")
+    if c:
+        try:
+            from engine.crisis import crisis_file  # type: ignore
+            cf = crisis_file(c["id"])
+            when = (f"A crisis has begun: {cf.title}. {cf.intro_news} It lasts {cf.ticks_total} hours; you must commit by "
+                    f"hour {cf.deadlines.get(nation)}. Your possible moves: {cf.actions.get(nation, [])}.")
+        except Exception:  # noqa: BLE001
+            when = f"A crisis has begun: {c.get('id')}. You must commit by hour {(c.get('deadlines') or {}).get(nation)}."
+    else:
+        when = ("The game is starting: it runs for a year, month by month. Each month you may trade, set tariffs, "
+                "propose alliances, declare war or make peace.")
+    msgs = [{"role": "system", "content": card(nation) + "\n\n" + STRATEGY_RULES.format(who=_who(st, nation), when=when)},
+            {"role": "user", "content": _j({"situation": _brief(st, nation)})}]
+
+    def parse(d: Any) -> str:
+        out = str(d["strategy"]).strip()
+        if len(out.split()) < 8:
+            raise ValueError('"strategy" must be two to four sentences')
+        return out
+    try:
+        deadline = time.perf_counter() + STRATEGY_BUDGET_S
+        out = await llm.hedged(lambda m: llm.chat_json(msgs, parse, deadline=deadline, model=m,
+                                                       max_tokens=400, temperature=0.9),
+                               after=STRATEGY_BUDGET_S * 0.6)
+    except Exception:  # noqa: BLE001
+        agenda = next((ln.split(":", 1)[-1].strip(" *") for ln in card(nation).splitlines()
+                       if "private agenda" in ln.lower()), "")
+        out = agenda or "Protect the regime, give nothing away for free, and wait for others to overreach."
+    _STRATEGY[_strategy_key(st, nation)] = out
+    return out
+
+
+async def strategize_all(state: Any) -> dict[str, str]:
+    """strategize() for every AI nation (all but the player's seat), in parallel."""
+    st = _dump(state)
+    seat = (st.get("seat") or {}).get("nation")
+    ai = [n for n in NATION_IDS if n != seat or (st.get("seat") or {}).get("role") == "mediator"]
+    outs = await asyncio.gather(*(strategize(st, n) for n in ai))
+    return dict(zip(ai, outs))
+
+
 # --- headline, why, historian, wiretap (never raise) -------------------------
 
 async def _one_field(system: str, user: str, field: str, timeout: float, max_tokens: int = 200) -> str:
@@ -482,7 +587,7 @@ async def wiretap(a: str, b: str, state: Any = None, messages: Optional[list[dic
                "their_private_messages": [m for m in (messages or []) if {m.get("from"), m.get("to")} <= {a, b}],
                "their_private_intents": {k: v for k, v in intents.items() if k in (a, b)}}
         system = WIRETAP_RULES.format(
-            player=f"{seat.get('role', 'president')} of {seat.get('nation', 'valdoria')}",
+            player=_player(st) if st else "the president of Valdoria",
             a_who=_who(st, a), b_who=_who(st, b), a_card=card(a), b_card=card(b), emotions=", ".join(EMOTIONS))
         msgs = [{"role": "system", "content": system}, {"role": "user", "content": _j(ctx)}]
         deadline = time.perf_counter() + 12.0
