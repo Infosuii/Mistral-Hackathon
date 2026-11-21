@@ -52,6 +52,8 @@
     ]
   },
 
+  "call": {"proud": ["ostrava", "zarnia"], "interrupt_relation_proud": -5},
+
   "personality_bias": {
     "ostrava":   {"escalation": 2},
     "nordhaven": {"wait": 2},
