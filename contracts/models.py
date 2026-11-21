@@ -199,6 +199,26 @@ class CallResult(Model):
     ends_call: bool = False
 
 
+# --- End of session (W7; proposed 12:44, Tamim to confirm) -------------------
+
+
+class Score(Model):
+    months_in_power: int
+    peace_months: int
+    gdp_change: float
+    stability_change: float
+    promises_kept: int
+    promises_broken: int
+
+
+class Ending(Model):
+    """Set when phase becomes "ended". verdict is null until the historian has written it."""
+
+    reason: Literal["ended", "voted_out", "coup", "time"]
+    score: Score
+    verdict: Optional[str] = None
+
+
 # --- 4.2 State (continued) ---------------------------------------------------
 
 
@@ -217,6 +237,7 @@ class State(Model):
     crisis: Optional[Crisis] = None
     last_futures: Optional[FuturesResponse] = None
     last_call: Optional[CallResult] = None  # the latest call's promises and actions
+    ending: Optional[Ending] = None  # set when phase is "ended"
 
     @field_validator("relations")
     @classmethod

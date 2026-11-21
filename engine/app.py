@@ -58,6 +58,15 @@ async def crisis_start(req: CrisisStartRequest) -> State:
         return GAME.start_crisis(req.id)
 
 
+@router.post("/end", response_model=State)
+async def end() -> State:
+    """End the session now (the end screen's trigger). state.ending.verdict follows."""
+    async with GAME.lock:
+        if GAME.state.phase == "ended":
+            raise HTTPException(409, "the session has already ended")
+        return GAME.end("ended")
+
+
 @router.post("/futures", response_model=FuturesResponse)
 async def post_futures(req: FuturesRequest) -> FuturesResponse:
     """War odds six months ahead: the snapshot (before) against the current state (after).
