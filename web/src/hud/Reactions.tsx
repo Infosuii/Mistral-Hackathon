@@ -40,6 +40,12 @@ export function BreakingNews({ state }: { state: GameState }) {
 export function RelationPops({ state }: { state: GameState }) {
   const seat = state.seat.nation
   const before = useRef<Record<string, number>>({})
+  const timers = useRef(new Set<number>())
+
+  useEffect(() => {
+    const active = timers.current
+    return () => active.forEach(timer => window.clearTimeout(timer))
+  }, [])
   const [pops, setPops] = useState<{ id: string; delta: number; key: number }[]>([])
 
   useEffect(() => {
@@ -55,8 +61,11 @@ export function RelationPops({ state }: { state: GameState }) {
     }
     if (!fresh.length) return
     setPops((p) => [...p, ...fresh])
-    const timer = window.setTimeout(() => setPops((p) => p.filter((x) => !fresh.includes(x))), 2600)
-    return () => window.clearTimeout(timer)
+    const timer = window.setTimeout(() => {
+      setPops(p => p.filter(x => !fresh.includes(x)))
+      timers.current.delete(timer)
+    }, 2600)
+    timers.current.add(timer)
   }, [state, seat])
 
   return (
