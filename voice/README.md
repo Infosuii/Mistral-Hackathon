@@ -42,6 +42,7 @@ interruption penalty land in the state. If the leader call fails, the player hea
 | `GET /wiretap?a=&b=` | two nation ids | `{"lines": [{speaker, text, audio_url}]}` |
 | `POST /transcribe` | raw audio body | `{text, seconds, bytes}` |
 | `GET /audio/{file}` | from `speak()` | mp3, streamed while still rendering |
+| `GET /voice/talk-button.js` | | the talk button module ([TALK_BUTTON.md](TALK_BUTTON.md)) |
 
 If the web dev server proxies `/api` to port 8000 with the prefix kept, set
 `VOICE_AUDIO_BASE=/api/audio` so the returned URLs go through the proxy.
