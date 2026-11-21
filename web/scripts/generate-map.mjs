@@ -16,22 +16,16 @@ const coast = [
   [94, 454], [108, 413], [80, 391], [95, 355], [68, 330], [85, 295],
 ]
 
-// The order defines stable IDs shared with the engine. Append new seeds at the end.
+// Match the starting owners in contracts/examples/state.json. Keep this seed
+// order stable because each index identifies a province in the engine state.
 const regions = {
   valdoria: [[244, 365], [142, 378], [164, 463], [233, 486], [309, 470], [351, 393], [313, 331], [188, 315]],
-  ostrava: [[776, 232], [864, 183], [896, 246], [878, 309], [799, 316], [713, 275], [666, 207], [755, 156]],
+  ostrava: [[776, 232], [864, 183], [896, 246], [878, 309], [799, 316], [713, 275], [666, 207], [755, 156], [644, 141]],
+  zarnia: [[774, 432], [706, 346], [710, 415], [815, 380], [878, 397], [783, 502], [571, 207], [540, 271], [572, 347], [619, 405]],
+  kessaria: [[549, 465], [388, 482], [441, 532], [518, 550], [465, 414]],
   nordhaven: [[337, 174], [125, 227], [200, 207], [230, 158], [275, 241], [366, 253], [419, 196], [426, 133]],
-  kessaria: [[549, 465], [385, 487], [442, 536], [513, 548], [459, 450], [469, 368], [564, 349], [616, 407]],
-  zarnia: [[774, 432], [706, 346], [710, 415], [815, 380], [878, 397], [783, 502], [571, 207], [540, 271]],
 }
-const seeds = [
-  regions.valdoria[0],
-  ...regions.ostrava,
-  ...regions.valdoria.slice(1),
-  ...regions.nordhaven,
-  ...regions.kessaria,
-  ...regions.zarnia,
-]
+const seeds = Object.values(regions).flat()
 
 // Subdivide the coast with seeded offsets to give the chart small inlets and headlands.
 let seed = 7
