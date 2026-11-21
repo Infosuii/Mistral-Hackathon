@@ -168,7 +168,9 @@ export function App({ state, controls, online, clockHeld, onPhoneActivity }: {
   return (
     <div className="game-screen" style={theme as CSSProperties} data-crisis={Boolean(state.crisis)}>
       <ResourceBar state={state} controls={controls} />
-      {state.crisis && <CrisisBar crisis={state.crisis} nations={state.nations} clockHeld={clockHeld} />}
+      {state.crisis && <CrisisBar
+        crisis={state.crisis} nations={state.nations} catalog={state.available_crises} clockHeld={clockHeld}
+      />}
       <main className="theatre">
         <PoliticalMap state={state} selected={selected} onSelect={setSelection} />
         <div className="left-rail">
