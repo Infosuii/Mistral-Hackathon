@@ -82,6 +82,14 @@ def _check_layout(page: Page, beat: str) -> list[str]:
     )
 
 
+def _start_seed_seven(page: Page) -> None:
+    page.get_by_role("button", name="New Seed", exact=True).click()
+    dialog = page.get_by_role("dialog")
+    dialog.get_by_label("World seed").fill("7")
+    dialog.get_by_role("button", name="Start new world", exact=True).click()
+    dialog.wait_for(state="hidden")
+
+
 def _pause_if_running(page: Page) -> None:
     btn = page.locator(".session-controls button", has_text="Pause")
     if btn.count() > 0 and btn.first.is_visible() and btn.first.is_enabled():
@@ -197,8 +205,7 @@ def run_walkthrough(
         page.wait_for_timeout(1200)
 
         # Beat 1: Start game as President of Valdoria
-        start_btn = page.locator(".session-controls button").filter(has_text="game").first
-        start_btn.click()
+        _start_seed_seven(page)
         page.wait_for_timeout(1200)
         _pause_if_running(page)
         page.wait_for_timeout(400)
@@ -271,9 +278,9 @@ def run_walkthrough(
         page.wait_for_timeout(500)
         snap(page, "10_end_screen.jpg")
 
-        # Also capture a 1280x720 laptop check on the live screen by clicking New game
+        # Also capture a 1280x720 laptop check on the live screen after restarting the seed-7 game
         page.set_viewport_size({"width": 1280, "height": 720})
-        page.locator(".session-controls button", has_text="New game").click()
+        _start_seed_seven(page)
         page.wait_for_timeout(1200)
         _pause_if_running(page)
         snap(page, "11_laptop_1280x720.jpg")
