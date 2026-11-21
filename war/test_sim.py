@@ -183,3 +183,20 @@ def test_war_started_by_the_engine_appears_in_the_war_room():
     s.links.append(Link(type="war", a="zarnia", b="kessaria"))
     room.advance(s)
     assert room.at_war("zarnia", "kessaria")
+def test_war_room_follows_wars_the_engine_starts_and_ends():
+    """Coordinator, 16:38: after a normal month /state said peace while /war still showed
+    a war. The room now follows state.links both ways."""
+    from contracts.models import Link
+    s, clock = game(), Clock()
+    room = WarRoom(s, clock=clock)
+    room.declare(s, "valdoria", "kessaria")
+    assert room.at_war("valdoria", "kessaria")
+    # the engine makes peace in its monthly step: the link goes, the room must follow
+    s.links[:] = [l for l in s.links if l.type != "war"]
+    room.advance(s)
+    assert not room.at_war("valdoria", "kessaria") and room.view(s)["wars"] == []
+    # the engine starts a war on its own (an AI leader, a crisis outcome)
+    s.links.append(Link(type="war", a="ostrava", b="zarnia"))
+    room.advance(s)
+    assert room.at_war("ostrava", "zarnia")
+

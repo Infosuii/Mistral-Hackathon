@@ -217,6 +217,8 @@ class WarRoom:
             from contracts.models import Link
             state.links.append(Link(type="war", a=by, b=target))
         state.relations[key] = max(-100, state.relations.get(key, 0) - 40)
+        from contracts.models import Event
+        state.events.append(Event(turn=state.turn, type="war", nation=by, target=target, text=f"{by} declares war on {target}"))
         for n in (by, target):
             if "WAR" not in state.nations[n].status:
                 state.nations[n].status.append("WAR")
