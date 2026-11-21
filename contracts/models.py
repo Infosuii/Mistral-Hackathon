@@ -231,6 +231,13 @@ class Ending(Model):
     verdict: Optional[str] = None
 
 
+class CrisisOption(Model):
+    """One entry of state.available_crises (DECIDED 13:12)."""
+
+    id: str
+    title: str
+
+
 # --- 4.2 State (continued) ---------------------------------------------------
 
 
@@ -251,6 +258,7 @@ class State(Model):
     last_call: Optional[CallResult] = None  # the latest call's promises and actions
     ending: Optional[Ending] = None  # set when phase is "ended"
     available_roles: Optional[list[Role]] = None  # seats /start accepts; missing means president only
+    available_crises: Optional[list[CrisisOption]] = None  # crises /crisis/start accepts; missing means One Berth only
 
     @field_validator("relations")
     @classmethod
