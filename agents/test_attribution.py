@@ -45,6 +45,14 @@ def test_move_asked_for_with_an_offer_is_still_recorded():
     assert [p["what"] for p in _promises("nordhaven", line, [])] == ["send_tugs"]
 
 
+def test_the_demo_tug_request_is_still_recorded():
+    """e2e/demo_path.py's Nordhaven line offers no payment in so many words."""
+    line = ("Chancellor Lindqvist, Port Kessar is about to erupt into war unless we open a second berth. "
+            "Valdoria guarantees port stability if Nordhaven agrees to send tugs before your deadline.")
+    got = _promises("nordhaven", line, [{"what": "send tugs", "when": "now"}])
+    assert [p["what"] for p in got] == ["send_tugs"]
+
+
 def test_offer_made_earlier_in_the_call_still_counts():
     history = [CallTurn(role="player", text="The mediation fund will cover your losses if you wait."),
                CallTurn(role="leader", text="Go on.")]
