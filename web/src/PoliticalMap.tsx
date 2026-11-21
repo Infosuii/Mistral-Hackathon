@@ -6,6 +6,7 @@ import { nationStyle } from './theme'
 import { CapitalMarkers, CrisisFocus, flagOf, LeaderMedallions, NationalBorders, TerritoryLabels, UnitCounters } from './hud/MapLayers'
 import { OrdersBar } from './hud/OrdersBar'
 import { BreakingNews, RelationPops } from './hud/Reactions'
+import { attackable, useWar, WarMapLayer, WarRoomPanel } from './hud/War'
 import { Relief, Sea, TerrainDefs, TerrainFeatures, terrainLabel, terrainOf } from './hud/Terrain'
 
 interface Props {
@@ -80,6 +81,8 @@ function ProvinceCard({ state, id, x, y }: { state: GameState; id: string; x: nu
 export function PoliticalMap({ state, selected, onSelect }: Props) {
   const [view, setView] = useState(homeView)
   const [mode, setMode] = useState<MapMode>('political')
+  const warCtl = useWar(state)
+  const targets = warCtl.attackMode ? attackable(state, warCtl.war) : null
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null)
   const relations = mode === 'relations' && Boolean(state.seat.nation)
   const shownMode: MapMode = mode === 'relations' && !relations ? 'political' : mode
@@ -165,7 +168,11 @@ export function PoliticalMap({ state, selected, onSelect }: Props) {
                   data-hover={hover?.id === id}
                   onPointerMove={(event) => hoverProvince(id, event)}
                   onPointerLeave={() => setHover(null)}
-                  onClick={() => nation && onSelect(owner)}>
+                  data-war-target={Boolean(targets?.has(id))}
+                  onClick={() => {
+                    if (targets?.has(id)) void warCtl.attack(id)
+                    else if (nation) onSelect(owner)
+                  }}>
                   <title>{nation?.name ?? 'Unclaimed'} · {id.toUpperCase()}</title>
                 </path>
               )
@@ -183,12 +190,14 @@ export function PoliticalMap({ state, selected, onSelect }: Props) {
           <CrisisFocus state={state} />
           <CapitalMarkers state={state} />
           <UnitCounters state={state} />
+          <WarMapLayer state={state} controls={warCtl} showAll={shownMode === 'military'} />
           <LeaderMedallions state={state} selected={selected} onSelect={onSelect} />
           <RelationPops state={state} />
         </g>
         <rect className="map-decoration" x={VB.x} y={VB.y} width={VB.w} height={VB.h} fill="url(#vignette)" />
       </svg>
       {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} />}
+      <WarRoomPanel state={state} selected={selected} controls={warCtl} />
       <div className="map-hud-top">
         <div className="map-mode" role="group" aria-label="Map view">
           {(Object.keys(modeLabels) as MapMode[])
