@@ -2,6 +2,8 @@
 // labels, unit counters, and each leader's medallion with mood ring and speech bubble.
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import map from '../map.json'
+import oneBerth from '../../../data/crises/one_berth.json'
+import { grainShips, kessarPort, ShipSilhouette, straitPatrol, tugBerth } from './DecisionMotion'
 import { relationBetween, type GameState } from '../state'
 import { nationStyle } from '../theme'
 
@@ -196,36 +198,51 @@ export function CapitalMarkers({ state }: { state: GameState }) {
   )
 }
 
-function Ship({ x, y, id, label }: { x: number; y: number; id: string; label: string }) {
+function Ship({ at: [x, y], from, id, label }: { at: number[]; from?: number[]; id: string; label: string }) {
+  const dx = from ? from[0] - x : 0
+  const dy = from ? from[1] - y : 0
   return (
-    <g className="ship" transform={`translate(${x} ${y}) scale(1.45)`} style={nationStyle(id)}>
+    <g className="ship" style={nationStyle(id)}>
       <title>{label}</title>
-      <g className="ship-bob">
-        <path className="ship-wake" d="M14,2 q10,3 22,0" />
-        <path className="ship-hull" d="M-13,0 L13,0 L9,6 L-10,6 Z" />
-        <rect className="ship-deck" x="-7" y="-6" width="10" height="6" />
-        <path className="ship-mast" d="M5,-10 L5,0" />
+      <g className="crisis-ship" style={{ transform: `translate(${x}px, ${y}px)` }}>
+        <g className="crisis-ship" data-arriving={Boolean(from)} style={{
+          '--cue-x': `${dx}px`, '--cue-y': `${dy}px`,
+          '--cue-mid-x': `${dx / 2}px`, '--cue-mid-y': `${dy / 2}px`,
+        } as CSSProperties}>
+          <g transform="scale(1.45)"><g className="ship-bob"><ShipSilhouette /></g></g>
+        </g>
       </g>
     </g>
   )
 }
 
-/** The crisis on the map: a pulsing focus at Port Kessar, and the ships waiting to dock. */
+/** One Berth has a physical map location. Other crises use their own decision indicators. */
 export function CrisisFocus({ state }: { state: GameState }) {
   const c = state.crisis
-  if (!c) return null
-  const port = [612, 548]
-  const docked = (id: string) => c.decisions[id]?.action === 'dock'
+  if (c?.id !== 'one_berth') return null
+  const tugRule = oneBerth.rules.second_berth_requires
+  const tugs = c.decisions[tugRule.nation]
+  const secondBerth = tugs?.action === tugRule.action && tugs.tick <= tugRule.by_tick
+  const blockade = c.decisions.ostrava?.action === 'blockade'
+  const closed = c.decisions.kessaria?.action === 'close_port'
+  const [x, y] = kessarPort
   return (
     <g className="crisis-focus map-decoration">
-      <circle cx={port[0]} cy={port[1]} r="14" className="focus-pulse" />
-      <circle cx={port[0]} cy={port[1]} r="7" className="focus-core" />
-      <g transform={`translate(${port[0]} ${port[1] - 20})`}>
-        <rect x="-62" y="-10" width="124" height="16" rx="3" className="focus-tag" />
-        <text y="2" className="focus-tag-text">Port Kessar · 1 berth</text>
+      <circle cx={x} cy={y} r="14" className="focus-pulse" />
+      <circle cx={x} cy={y} r="7" className="focus-core" />
+      <g transform={`translate(${x} ${y - 20})`}>
+        <rect x="-74" y="-10" width="148" height="16" rx="3" className="focus-tag" />
+        <text y="2" className="focus-tag-text">Port Kessar · {closed ? 'Closed' : secondBerth ? '2 berths' : '1 berth'}</text>
       </g>
-      {state.nations.ostrava && <Ship id="ostrava" x={docked('ostrava') ? 618 : 668} y={docked('ostrava') ? 572 : 600} label="Ostravan grain ship" />}
-      {state.nations.zarnia && <Ship id="zarnia" x={docked('zarnia') ? 600 : 560} y={docked('zarnia') ? 575 : 640} label="Zarnian grain ship" />}
+      {Object.entries(grainShips).map(([id, ship]) => {
+        if (!state.nations[id]) return null
+        const name = state.nations[id].name
+        const approaching = !closed && c.decisions[id]?.action === 'dock' && !(blockade && id === 'zarnia')
+        return <Ship key={id} id={id} at={approaching ? ship.approach : ship.waiting}
+          label={`${name} grain ship · ${approaching ? 'approaching port' : 'offshore'}`} />
+      })}
+      {secondBerth && <Ship id="nordhaven" at={tugBerth} from={[780, 649]} label="Nordhaven tugs · second berth available" />}
+      {blockade && <Ship id="ostrava" at={straitPatrol} from={[782, 633]} label="Ostrava blockade patrol" />}
       <path className="storm" d="M700,520 q14,-12 28,0 q14,12 28,0 M712,536 q12,-10 24,0 q12,10 24,0" />
     </g>
   )
