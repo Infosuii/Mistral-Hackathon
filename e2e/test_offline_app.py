@@ -103,3 +103,37 @@ def test_offline_app_audio_matches_reply_and_never_plays_unrelated_fallback():
             assert line.audio_url not in FALLBACK_URLS
             audio_resp = client.get(line.audio_url)
             assert audio_resp.status_code == 200 and len(audio_resp.content) > 1024
+
+
+def test_offline_app_supports_all_extra_crises_without_berth_wording(monkeypatch):
+    import engine.game as eng_game
+    import e2e.offline_app as offline_mod
+
+    monkeypatch.setattr(eng_game, "EXTRA_CRISES", True)
+
+    cases = [
+        ("outbreak", "zarnia", "Zarnia gets the first doses from Nordhaven.", "first_doses"),
+        ("coup", "ostrava", "Valdoria stands with Ostrava with full backing today.", "valdoria_backing"),
+        ("pipeline_cut", "nordhaven", "Nordhaven should pay the fair price to reopen supply.", "pay_price"),
+        ("pipeline_cut", "ostrava", "Ostrava will be named sole supplier.", "sole_supplier"),
+    ]
+    with TestClient(offline_mod.app) as client:
+        for cid, nation, line, expected_what in cases:
+            client.post("/start", json={"seed": 7, "seat": {"role": "president", "nation": "valdoria"}})
+            r_start = client.post("/crisis/start", json={"id": cid})
+            assert r_start.status_code == 200, r_start.text
+            st1 = State.model_validate(client.post("/turn").json())
+            assert st1.incoming_call is not None and st1.incoming_call.audio_url is not None
+            aud = client.get(st1.incoming_call.audio_url)
+            assert aud.status_code == 200 and len(aud.content) > 1024
+
+            r_call = client.post(
+                "/call",
+                json={"to": nation, "audio": None, "text": line, "interrupted": False, "hesitation_ms": 400},
+            )
+            assert r_call.status_code == 200, r_call.text
+            resp = CallResponse.model_validate(r_call.json())
+            low = resp.reply_text.lower()
+            assert not any(w in low for w in ("berth", "ship", "tug")), f"One Berth wording leaked on {cid}: {resp.reply_text}"
+            st_after = _settle(client, resp.call_id)
+            assert any(p.to == nation and p.what == expected_what for p in st_after.crisis.promises)
