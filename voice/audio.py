@@ -51,7 +51,8 @@ EMOTIONS = {
 
 # Proper nouns the player will say; biases transcription towards them.
 BIAS_TERMS = ["Ostrava", "Zarnia", "Nordhaven", "Kessaria", "Valdoria", "Port Kessar",
-              "Dravic", "berth", "blockade", "tugs"]
+              "Dravic", "Lindqvist", "Oryn", "Isolde", "Varga",  # leaders' names (noise test)
+              "berth", "blockade", "tugs"]
 
 _clients: dict[int, httpx.AsyncClient] = {}
 
