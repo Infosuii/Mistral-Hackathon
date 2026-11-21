@@ -22,10 +22,7 @@ function openCall() {
 function openDossierTab(label: 'Intel' | 'Wiretap') {
   const button = [...document.querySelectorAll<HTMLButtonElement>('.intelligence-controls button')]
     .find((b) => b.textContent?.trim() === label)
-  if (!button) return
-  if (button.getAttribute('aria-expanded') !== 'true') button.click()
-  button.scrollIntoView({ block: 'nearest' })
-  button.focus({ preventScroll: true })
+  if (button?.getAttribute('aria-expanded') === 'false') button.click()
 }
 
 export function OrdersBar({ state, selected }: { state: GameState; selected?: string }) {

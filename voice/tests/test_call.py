@@ -100,7 +100,9 @@ def test_pending_call_fills_last_call(client):
     assert last["promises"][0]["what"] == "berth"
 
 
-def test_failing_reply_still_speaks_and_records_promises(client):
+def test_failing_reply_still_speaks_and_records_promises(client, monkeypatch):
+    # A keyed server whose model failed: the keyless "setup problem" reply is a separate case.
+    monkeypatch.setenv("MISTRAL_API_KEY", "test-dummy-not-used")
     seen = {}
 
     async def speak_fast(view):
@@ -186,3 +188,33 @@ def test_transcription_quota_returns_typed_fallback(client, monkeypatch):
     assert res.status_code == 429
     assert res.headers["retry-after"] == "8"
     assert "Type a message" in res.json()["detail"]
+
+
+def test_a_keyless_live_server_says_so_instead_of_faking_a_bad_line(client, monkeypatch):
+    """Real agents but no MISTRAL_API_KEY: the reply names the setup problem, with no audio."""
+    async def speak_fast(view):
+        raise RuntimeError("MISTRAL_API_KEY is not set")
+
+    async def interpret(view, reply_text):
+        raise RuntimeError("MISTRAL_API_KEY is not set")
+
+    fake_agents(speak_fast=speak_fast, interpret=interpret)
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    r = client.post("/call", json=CALL).json()
+    assert "MISTRAL_API_KEY" in r["reply_text"] and "breaking up" not in r["reply_text"]
+    assert r["reply_audio_url"] is None and r["promises"] == []
+
+
+def test_a_keyless_server_whose_replies_work_is_left_alone(client, monkeypatch):
+    """Offline mode: no key by design, replies come from a cache. No setup message."""
+    async def speak_fast(view):
+        return {"reply_text": "The berth is ours, then.", "emotion": "assertive"}
+
+    async def interpret(view, reply_text):
+        return {"promises": [], "actions": [], "ends_call": False,
+                "belief_updates": {"trust_in_player": 0, "resolve_of_player": 0}}
+
+    fake_agents(speak_fast=speak_fast, interpret=interpret)
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    r = client.post("/call", json=CALL).json()
+    assert r["reply_text"] == "The berth is ours, then." and r["reply_audio_url"]

@@ -16,41 +16,41 @@ os.environ["VOICE_WIRETAP"] = "demo"
 os.environ["VOICE_MOCK"] = "fixed"
 os.environ.pop("MISTRAL_API_KEY", None)
 
-from contracts.models import CallOutput  # noqa: E402
+from contracts.models import CallOutput, CallView  # noqa: E402
 import engine.app as eng_app  # noqa: E402
 import voice.api as v_api  # noqa: E402
-from voice.audio import PRERENDERED, cache_key  # noqa: E402
+from voice.audio import PRERENDERED, cache_key, find_audio  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 CASTING = json.loads((ROOT / "voice" / "casting.json").read_text(encoding="utf-8"))
-FALLBACK_LINE = ("The line is breaking up. Say that again.", "tense")
 
 # Ensure stub mode even if engine.game was imported before env vars were set.
 eng_app.GAME._decide_fn = None
 
 
-def _offline_audio_url(text: str, voice_id: str, emotion: str | None = None, fmt: str = "mp3") -> str:
-    """Return an existing pre-rendered file URL: exact match first, else that leader's clip."""
+def _offline_audio_url(text: str, voice_id: str, emotion: str | None = None, fmt: str = "mp3") -> str | None:
+    """Return an audio URL only when an exact recording exists for (text, voice_id, emotion).
+
+    Uncached offline replies return None so the phone displays the written reply cleanly
+    instead of playing an unrelated clip such as 'The line is breaking up'.
+    """
     exact = f"{cache_key(text, voice_id, emotion, fmt)}.{fmt}"
-    if (PRERENDERED / exact).exists():
+    if find_audio(exact) is not None:
         return f"/audio/{exact}"
-    # Fall back to the leader's pre-rendered fallback clip so audio always plays offline.
-    fb = f"{cache_key(FALLBACK_LINE[0], voice_id, FALLBACK_LINE[1], 'mp3')}.mp3"
-    if (PRERENDERED / fb).exists():
-        return f"/audio/{fb}"
-    any_mp3 = sorted(p.name for p in PRERENDERED.glob("*.mp3"))
-    return f"/audio/{any_mp3[0]}" if any_mp3 else "/audio/missing.mp3"
+    return None
 
 
 async def _offline_transcribe(audio: bytes, mime: str | None = None) -> str:
     return "We can offer you the berth in the morning if you hold off."
 
 
-async def _offline_speak(text: str, voice_id: str, emotion: str | None = None, fmt: str = "mp3") -> str:
+async def _offline_speak(text: str, voice_id: str, emotion: str | None = None, fmt: str = "mp3") -> str | None:
     return _offline_audio_url(text, voice_id, emotion, fmt)
 
 
 def _offline_reply(view) -> tuple[str, str, CallOutput]:
+    if not isinstance(view, CallView):
+        view = CallView.model_validate(view)
     nation = view.nation
     t = (view.transcript or "").lower()
     phase = view.state.phase
@@ -124,7 +124,7 @@ async def _offline_interpret(view, reply_text: str) -> CallOutput:
     return out
 
 
-v_api._phone = lambda: (_offline_fast, _offline_interpret, True)
+v_api._phone = lambda: (_offline_fast, _offline_interpret, False)
 v_api.speak = _offline_speak
 v_api.transcribe = _offline_transcribe
 

@@ -54,7 +54,7 @@
     },
     "berth_prior": 0.3,
     "promise_weight": 0.5,
-    "promise_bonus": 4,
+    "promise_bonus": 6,
     "contradiction_trust_factor": 0.4,
     "compatible_when": [
       [
@@ -186,7 +186,8 @@
     "escalations": [
       "blockade",
       "mobilise",
-      "close_port"
+      "close_port",
+      "stay_out"
     ],
     "max_defiance_escalation": 0.0
   },

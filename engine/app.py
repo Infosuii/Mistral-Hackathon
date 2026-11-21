@@ -124,8 +124,11 @@ def _player_actions_enabled() -> None:
 
 @router.get("/actions", response_model=PlayerActions)
 async def get_actions() -> PlayerActions:
-    """The one-sided moves the player's nation may make now, and the one queued."""
-    _player_actions_enabled()
+    """The one-sided moves the player's nation may make now, and the one queued. With
+    GAMBIT_PLAYER_ACTIONS off it lists nothing (200, not 404), so the page's console stays
+    clean (Neon, #27 14:28); POST /action is still refused."""
+    if not _game_mod.PLAYER_ACTIONS:
+        return PlayerActions(actions=[], queued=None)
     return PlayerActions(actions=GAME.player_options(), queued=GAME.player_action)
 
 
