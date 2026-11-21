@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from contracts.models import (
     NATION_IDS, Action, Advice, Crisis, CrisisFile, Decision, Event, IncomingCall, NewsItem,
@@ -380,22 +380,27 @@ def _scores(advice: list[Advice]) -> dict[str, float]:
 
 
 def rerun_crisis(start: State, calls: list, cached: dict[str, Decision],
-                 cached_advice: dict[str, list[Advice]], announces: list[tuple[int, Action]],
-                 seed: int) -> tuple[State, dict[str, str]]:
+                 cached_advice: dict[str, list[Advice]], seed: int) -> tuple[State, dict[str, str]]:
     """Play a crisis again from its first state, with the player's calls at new ticks.
 
     `calls` is [(tick, to, CallOutput, interrupted)]; a call at tick t happens after the
-    world reaches t, as in the live game. A leader whose advice comes out the same as it
-    did originally keeps its cached decision; one whose advice changed takes its
-    advisers' new top. Pure, no model calls. Returns the final state and every decision."""
+    world reaches t, as in the live game, and its agreed actions apply on the next tick.
+    `cached` holds each leader's OWN choice (never one agreed on the phone): it is kept if
+    the advisers' top recommendation is unchanged, otherwise the leader takes the new top.
+    Scripted threats ("announces") are re-derived each tick: one goes public on the next
+    tick unless an interrupting call to that leader happens at the tick it was made.
+    Pure, no model calls. Returns the final state and every decision."""
     from engine.calls import apply_call_effects
 
     s = start.model_copy(deep=True)
     queued: list[Action] = []
+    pending: list[Optional[Action]] = [None]
 
     def take_calls(state: State, tick: int) -> State:
         for t, to, out, interrupted in calls:
             if t == tick:
+                if interrupted and pending[0] is not None and pending[0].by == to:
+                    pending[0] = None  # cut off before the threat went public
                 state, _ = apply_call_effects(state, to, out, interrupted)
                 queued.extend(out.actions)
         return state
@@ -403,7 +408,7 @@ def rerun_crisis(start: State, calls: list, cached: dict[str, Decision],
     s = take_calls(s, 0)
     while s.phase == "crisis":
         nxt = s.crisis.tick + 1
-        actions = [a for t, a in announces if t == nxt] + queued
+        actions = ([pending[0]] if pending[0] else []) + queued
         queued_by = {a.by for a in queued}
         queued.clear()
         for n, d in cached.items():
@@ -417,7 +422,12 @@ def rerun_crisis(start: State, calls: list, cached: dict[str, Decision],
             else:
                 actions.append(Action(type=d.action, by=n))
         s = crisis_step(s, actions, seed)
+        pending[0] = None
         if s.crisis:
+            for e in scripted_now(s):
+                announces = (e.model_extra or {}).get("announces")
+                if e.type == "incoming_call" and announces:
+                    pending[0] = Action(type="announce", by=e.from_, params={"action": announces})
             s = take_calls(s, s.crisis.tick)
     resolved = next(e for e in reversed(s.events) if e.type == "crisis_resolved")
     return s, dict(resolved.model_extra["decisions"])
