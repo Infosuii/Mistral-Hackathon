@@ -1,6 +1,6 @@
 // Grand-strategy map layers drawn from the live state: national borders, territory
 // labels, unit counters, and each leader's medallion with mood ring and speech bubble.
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import map from '../atlas.json'
 import { useMarkerScale, world } from './scale'
 import oneBerth from '../../../data/crises/one_berth.json'
@@ -28,15 +28,64 @@ export function NationalBorders({ state }: { state: GameState }) {
 }
 
 /** Large spaced nation names across each nation's territory; they follow conquests. */
-export function TerritoryLabels({ state, selected }: { state: GameState; selected?: string; zoom: number }) {
+/** Screen-space boxes of everything a country name must not sit on: other labels, site
+ *  tags, army counters, leader medallions, capital stars and the minimap. */
+function blockers(own: Element): DOMRect[] {
+  const svg = own.closest('svg')
+  const inMap = svg ? [...svg.querySelectorAll('text, .site-label rect, .unit, .leader, .capital-star, .city-marker')] : []
+  const overlays = [...document.querySelectorAll('.minimap, .orders-bar, .map-hud-top, .map-footer')]
+  return [...inMap, ...overlays].filter((el) => !own.contains(el)).map((el) => el.getBoundingClientRect())
+    .filter((r) => r.width > 0 && r.height > 0)
+}
+
+const overlapArea = (a: DOMRect, b: DOMRect) =>
+  Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+
+export function TerritoryLabels({ state, selected, zoom }: { state: GameState; selected?: string; zoom: number }) {
   const m = useMarkerScale()
+  const ref = useRef<SVGGElement>(null)
+  const layout = Object.entries(state.provinces).sort().join()
+  // Country names move to the nearest clear spot instead of printing over towns, ports,
+  // the strait or the minimap. Measured on screen after render, again on zoom or conquest.
+  useLayoutEffect(() => {
+    const group = ref.current
+    if (!group) return
+    const run = () => {
+      const boxes = blockers(group)
+      for (const text of group.querySelectorAll<SVGTextElement>('text')) {
+        const x0 = Number(text.dataset.x), y0 = Number(text.dataset.y), size = Number(text.dataset.size)
+        let best: [number, number, number] = [x0, y0, 1]
+        let least = Infinity
+        // Full size first; a crowded small country (Kessaria) may shrink a little to fit.
+        search: for (const shrink of [1, .82, .68]) {
+          text.style.fontSize = `${size * shrink}px`
+          for (const [dx, dy] of [[0, 0], [0, -1.2], [0, 1.2], [0, -2.4], [0, 2.4], [-3, 0], [3, 0], [-3, -1.2], [3, 1.2], [0, -3.6], [0, 3.6]]) {
+            const [x, y] = [x0 + dx * size, y0 + dy * size]
+            text.setAttribute('x', String(x))
+            text.setAttribute('y', String(y))
+            const r = text.getBoundingClientRect()
+            const overlap = boxes.reduce((sum, b) => sum + overlapArea(r, b), 0)
+            const cost = overlap + Math.hypot(dx, dy) * 40 + (1 - shrink) * 4000
+            if (cost < least) { least = cost; best = [x, y, shrink] }
+            if (overlap === 0) break search
+          }
+        }
+        text.setAttribute('x', String(best[0]))
+        text.setAttribute('y', String(best[1]))
+        text.style.fontSize = `${size * best[2]}px`
+      }
+    }
+    run()
+    const late = window.setTimeout(run, 400) // after city markers and counters settle
+    return () => window.clearTimeout(late)
+  }, [layout, zoom, m])
   const owned = new Map<string, number[][]>()
   for (const [pid, owner] of Object.entries(state.provinces)) {
     const c = centers.get(pid)
     if (c) owned.set(owner, [...(owned.get(owner) ?? []), c])
   }
   return (
-    <g className="territory-labels map-decoration">
+    <g ref={ref} className="territory-labels map-decoration">
       {[...owned].map(([id, pts]) => {
         const nation = state.nations[id]
         if (!nation) return null
@@ -47,7 +96,8 @@ export function TerritoryLabels({ state, selected }: { state: GameState; selecte
         if (cap && Math.abs(cap[1] - y) < 55 * m && Math.abs(cap[0] - x) < 150 * m) y = cap[1] + (y >= cap[1] ? 62 : -62) * m
         const size = Math.max(22, Math.min(44, 12 + Math.sqrt(pts.length) * 9)) * m
         return (
-          <text key={id} x={x} y={y + 6} style={{ ...nationStyle(id), fontSize: size } as CSSProperties}
+          <text key={id} x={x} y={y + 6} data-x={x} data-y={y + 6} data-size={size}
+            style={{ ...nationStyle(id), fontSize: size } as CSSProperties}
             data-selected={id === selected}>{nation.name}</text>
         )
       })}

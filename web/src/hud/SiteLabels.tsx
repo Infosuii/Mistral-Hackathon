@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react'
 import counties from '../../../data/counties.json'
 import rail from '../../../data/rail.json'
 import type { GameState } from '../state'
@@ -34,7 +35,30 @@ const ICONS = {
 /** Names for every port, airport and engine building; minor sites only when zoomed in. */
 export function SiteLabels({ state }: { state: GameState }) {
   const m = useMarkerScale()
-  return <g className="site-labels">
+  const ref = useRef<SVGGElement>(null)
+  // Declutter: ports always show; an airport or works tag that would print over a town's
+  // name or an earlier tag hides until you zoom in far enough for it to fit.
+  useLayoutEffect(() => {
+    const group = ref.current
+    if (!group) return
+    const run = () => {
+      const towns = [...(group.closest('svg')?.querySelectorAll('.city-marker text') ?? [])].map((t) => t.getBoundingClientRect())
+      const kept: DOMRect[] = []
+      const tags = [...group.querySelectorAll<SVGGElement>('.site-label')]
+        .sort((a, b) => Number(b.dataset.siteLabel === 'port') - Number(a.dataset.siteLabel === 'port'))
+      for (const tag of tags) {
+        tag.style.display = ''
+        const r = tag.getBoundingClientRect()
+        const hits = (o: DOMRect) => r.left < o.right && o.left < r.right && r.top < o.bottom && o.top < r.bottom
+        if (tag.dataset.siteLabel !== 'port' && (towns.some(hits) || kept.some(hits))) tag.style.display = 'none'
+        else kept.push(r)
+      }
+    }
+    run()
+    const late = window.setTimeout(run, 400)
+    return () => window.clearTimeout(late)
+  })
+  return <g ref={ref} className="site-labels">
     {harbours.map(({ nation, province, x, y }) => {
       const owner = state.provinces[province] ?? nation
       return <Tag key={nation} x={x} y={y} dy={-30} icon={ICONS.port} text={`Port of ${placeName(province)}`} kind="port" owner={owner} m={m} />
