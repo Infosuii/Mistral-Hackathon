@@ -27,6 +27,9 @@ EMOTIONS: tuple[str, ...] = Emotion.__args__  # type: ignore[attr-defined]
 # The engine waits 8 s (engine/game.py); finish or raise before that.
 DECIDE_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_DECIDE_S", "7.5"))
 CALL_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_CALL_S", "6"))
+# Large 4 first; the hedge model joins if Large 4 has not answered by then.
+HEDGE_AFTER_S = float(os.environ.get("GAMBIT_HEDGE_AFTER_S", "3"))
+INTERPRET_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_INTERPRET_S", "45"))
 MAX_OPTIONS = 10
 HESITATION_MS = 2500  # ideas.md 6b
 
@@ -154,26 +157,34 @@ async def decide(view: LeaderView | dict) -> LeaderOutput:
         user["your_instinct_this_month"] = (
             f"You distrust your advisers' first choice. You defy advice when {defies_when(v.nation)} "
             "Look for a reason in the situation and take a different option, unless it would be suicidal.")
-    out = await llm.chat_json(
-        [{"role": "system", "content": card(v.nation) + "\n\n" + DECIDE_RULES.format(who=_who(state, v.nation))},
-         {"role": "user", "content": _j(user)}],
-        lambda d: _parse_decide(d, options, [a.score for a in v.advice[:len(options)]], v.nation),
-        deadline=deadline, max_tokens=500, temperature=0.9)
+    msgs = [{"role": "system", "content": card(v.nation) + "\n\n" + DECIDE_RULES.format(who=_who(state, v.nation))},
+            {"role": "user", "content": _j(user)}]
+    scores = [a.score for a in v.advice[:len(options)]]
+    out = await llm.hedged(lambda m: llm.chat_json(
+        msgs, lambda d: _parse_decide(d, options, scores, v.nation),
+        deadline=deadline, model=m, max_tokens=500, temperature=0.9), after=HEDGE_AFTER_S)
     _MEMORY.setdefault(key, []).append((state.get("turn") or 0, out.private_intent))
     return out
 
 
-# --- call_reply --------------------------------------------------------------
+# --- the phone: speak_fast + interpret (DECIDED 12:29), and the one-call call_reply ---
 
-CALL_RULES = """You are {who}, on a live phone call with the player, the {player}. Stay in character.
+CALL_VOICE = """You are {who}, on a live phone call with the player, the {player}. Stay in character.
 Answer in at most TWO short spoken sentences. Plain speech: no stage directions, no lists, no emoji.
-Pick one emotion for your voice from: {emotions}.
-"promises": what the PLAYER committed to in what they just said, as {{"to": nation id the promise is made to, "what": short noun phrase, "when": short or "now", "condition": short or null}}. Only record real commitments; usually none.
+Pick one emotion for your voice from: {emotions}."""
+
+SPEAK_JSON = """Reply with ONLY this JSON object: {"reply_text": str, "emotion": str}"""
+
+JUDGE_RULES = """"promises": what the PLAYER committed to in what they just said, as {"to": nation id the promise is made to, "what": short noun phrase, "when": short or "now", "condition": short or null}. Only record real commitments; usually none.
 "action": the number of an option you agree to take right now, or null (usually null; only if you were persuaded).
 "trust_delta" in -0.3..0.3: how much more or less you trust the player after this. A contradiction of an earlier promise, or a promise you know they made to a rival, is strongly negative.
 "resolve_delta" in -0.2..0.2: how firm the player sounded (a credible threat or clear red line is positive; pleading or vagueness is negative).
-"ends_call": true only if you hang up or the conversation is clearly over.
-Reply with ONLY this JSON object: {{"reply_text": str, "emotion": str, "promises": [], "action": int or null, "trust_delta": number, "resolve_delta": number, "ends_call": bool}}"""
+"ends_call": true only if you hang up or the conversation is clearly over."""
+
+CALL_JSON = """Reply with ONLY this JSON object: {"reply_text": str, "emotion": str, "promises": [], "action": int or null, "trust_delta": number, "resolve_delta": number, "ends_call": bool}"""
+
+INTERPRET_JSON = """You already answered the player out loud with: "{reply}"
+Now, as this leader, judge what happened on this line. Reply with ONLY this JSON object: {{"promises": [], "action": int or null, "trust_delta": number, "resolve_delta": number, "ends_call": bool}}"""
 
 
 def _two_sentences(text: str) -> str:
@@ -198,44 +209,12 @@ def _clamp(x: Any, lo: float, hi: float) -> float:
         return 0.0
 
 
-def _parse_call(data: dict, v: CallView, options: list[dict]) -> CallOutput:
-    reply = _two_sentences(str(data.get("reply_text") or ""))
-    if not reply:
-        raise ValueError('"reply_text" must be one or two spoken sentences')
-    proud = v.nation in PROUD
-    emotion = data.get("emotion") if data.get("emotion") in EMOTIONS else ("tense" if proud else "calm")
-    promises = []
-    for p in data.get("promises") or []:
-        if not isinstance(p, dict) or not str(p.get("what") or "").strip():
-            continue
-        promises.append({"to": p.get("to") if p.get("to") in NATION_IDS else v.nation,
-                         "what": str(p["what"]).strip(), "when": str(p.get("when") or "now").strip(),
-                         "condition": (str(p["condition"]).strip() or None) if p.get("condition") else None})
-    actions = []
-    a = data.get("action")
-    if isinstance(a, int) and 0 <= a < len(options) and options[a]["type"] != "wait":
-        actions.append(dict(options[a], by=v.nation))
-    # ideas.md 6b: trust from what was said; resolve from how it was said.
-    trust = _clamp(data.get("trust_delta"), -0.3, 0.3)
-    resolve = _clamp(data.get("resolve_delta"), -0.2, 0.2)
-    if v.interrupted:
-        resolve += 0.10
-        if proud:
-            trust -= 0.05  # an insult; the engine also cuts relations by 5
-    if (v.hesitation_ms or 0) > HESITATION_MS:
-        resolve -= 0.15
-    return CallOutput.model_validate({
-        "reply_text": reply, "emotion": emotion, "promises": promises, "actions": actions,
-        "belief_updates": {"trust_in_player": round(_clamp(trust, -1, 1), 3),
-                           "resolve_of_player": round(_clamp(resolve, -1, 1), 3)},
-        "ends_call": bool(data.get("ends_call", False)),
-    })
+def _call_view(view: CallView | dict) -> CallView:
+    return view if isinstance(view, CallView) else CallView.model_validate(view)
 
 
-async def call_reply(view: CallView | dict) -> CallOutput:
-    """The called leader's spoken answer. Raises llm.LLMError within CALL_BUDGET_S."""
-    deadline = time.perf_counter() + CALL_BUDGET_S
-    v = view if isinstance(view, CallView) else CallView.model_validate(view)
+def _call_context(v: CallView) -> tuple[str, dict, list[dict]]:
+    """(system prompt head, user payload, legal options) shared by every phone function."""
     state = _dump(v.state)
     proud = v.nation in PROUD
     cues = []
@@ -254,24 +233,103 @@ async def call_reply(view: CallView | dict) -> CallOutput:
         "how_they_said_it": cues or ["normally"],
         "options_you_could_agree_to_now": [f"{i}. {_label(o)}" for i, o in enumerate(options)],
     }
-    system = card(v.nation) + "\n\n" + CALL_RULES.format(
+    system = card(v.nation) + "\n\n" + CALL_VOICE.format(
         who=_who(state, v.nation), player=f"{seat.get('role', 'president')} of {seat.get('nation', 'another nation')}",
         emotions=", ".join(EMOTIONS))
+    return system, user, options
+
+
+def _parse_voice(data: dict, v: CallView) -> dict:
+    reply = _two_sentences(str(data.get("reply_text") or ""))
+    if not reply:
+        raise ValueError('"reply_text" must be one or two spoken sentences')
+    emotion = data.get("emotion") if data.get("emotion") in EMOTIONS else ("tense" if v.nation in PROUD else "calm")
+    return {"reply_text": reply, "emotion": emotion}
+
+
+def _parse_judgement(data: dict, v: CallView, options: list[dict]) -> dict:
+    promises = []
+    for p in data.get("promises") or []:
+        if not isinstance(p, dict) or not str(p.get("what") or "").strip():
+            continue
+        promises.append({"to": p.get("to") if p.get("to") in NATION_IDS else v.nation,
+                         "what": str(p["what"]).strip(), "when": str(p.get("when") or "now").strip(),
+                         "condition": (str(p["condition"]).strip() or None) if p.get("condition") else None})
+    actions = []
+    a = data.get("action")
+    if isinstance(a, int) and 0 <= a < len(options) and options[a]["type"] != "wait":
+        actions.append(dict(options[a], by=v.nation))
+    # ideas.md 6b: trust from what was said; resolve from how it was said.
+    trust = _clamp(data.get("trust_delta"), -0.3, 0.3)
+    resolve = _clamp(data.get("resolve_delta"), -0.2, 0.2)
+    if v.interrupted:
+        resolve += 0.10
+        if v.nation in PROUD:
+            trust -= 0.05  # an insult; the engine also cuts relations by 5
+    if (v.hesitation_ms or 0) > HESITATION_MS:
+        resolve -= 0.15
+    return {"promises": promises, "actions": actions,
+            "belief_updates": {"trust_in_player": round(_clamp(trust, -1, 1), 3),
+                               "resolve_of_player": round(_clamp(resolve, -1, 1), 3)},
+            "ends_call": bool(data.get("ends_call", False))}
+
+
+async def speak_fast(view: CallView | dict) -> dict:
+    """The spoken reply only: {reply_text, emotion}, about 1 s on the fast model. Falls back
+    to llm.FAST_FALLBACK (Large 4) if the fast model fails. Raises llm.LLMError on failure."""
+    v = _call_view(view)
+    system, user, _ = _call_context(v)
+    msgs = [{"role": "system", "content": system + "\n" + SPEAK_JSON}, {"role": "user", "content": _j(user)}]
+    try:
+        return await llm.chat_json(msgs, lambda d: _parse_voice(d, v), model=llm.FAST_MODEL,
+                                   deadline=time.perf_counter() + CALL_BUDGET_S, max_tokens=150, temperature=0.8)
+    except llm.LLMError:
+        return await llm.chat_json(msgs, lambda d: _parse_voice(d, v), model=llm.FAST_FALLBACK,
+                                   deadline=time.perf_counter() + 20, max_tokens=150, temperature=0.8)
+
+
+async def interpret(view: CallView | dict, reply_text: str) -> CallOutput:
+    """What the call changed, on Large 4, run in the background after speak_fast():
+    promises, agreed actions, belief_updates, ends_call (reply_text is the line spoken;
+    emotion is a placeholder the caller overrides). Raises llm.LLMError on failure."""
+    v = _call_view(view)
+    system, user, options = _call_context(v)
+    msgs = [{"role": "system", "content": system + "\n" + JUDGE_RULES + "\n" + INTERPRET_JSON.format(reply=reply_text)},
+            {"role": "user", "content": _j(user)}]
+    deadline = time.perf_counter() + INTERPRET_BUDGET_S
+    judged = await llm.hedged(lambda m: llm.chat_json(
+        msgs, lambda d: _parse_judgement(d, v, options), deadline=deadline, model=m,
+        max_tokens=300, temperature=0.3), after=INTERPRET_BUDGET_S * 0.6)
+    return CallOutput.model_validate({"reply_text": reply_text or "...", "emotion": "calm", **judged})
+
+
+async def call_reply(view: CallView | dict) -> CallOutput:
+    """Spoken reply and its effects in one fast call (used when the split path is off).
+    Raises llm.LLMError within CALL_BUDGET_S."""
+    v = _call_view(view)
+    system, user, options = _call_context(v)
+    msgs = [{"role": "system", "content": system + "\n" + JUDGE_RULES + "\n" + CALL_JSON},
+            {"role": "user", "content": _j(user)}]
     return await llm.chat_json(
-        [{"role": "system", "content": system}, {"role": "user", "content": _j(user)}],
-        lambda d: _parse_call(d, v, options),
-        deadline=deadline, model=llm.CALL_MODEL, max_tokens=300, temperature=0.8)
+        msgs, lambda d: CallOutput.model_validate({**_parse_voice(d, v), **_parse_judgement(d, v, options)}),
+        deadline=time.perf_counter() + CALL_BUDGET_S, model=llm.CALL_MODEL, max_tokens=300, temperature=0.8)
 
 
 # --- headline, why, historian, wiretap (never raise) -------------------------
 
 async def _one_field(system: str, user: str, field: str, timeout: float, max_tokens: int = 200) -> str:
-    raw = await llm.chat([{"role": "system", "content": system + f' Reply as JSON {{"{field}": str}}.'},
-                          {"role": "user", "content": user}],
-                         timeout=timeout, max_tokens=max_tokens, temperature=0.8)
-    out = str(llm.loads(raw)[field]).strip().strip('"')
-    if not out:
-        raise ValueError("empty")
+    """Large 4 for one string field, hedged after 40% of the timeout."""
+    msgs = [{"role": "system", "content": system + f' Reply as JSON {{"{field}": str}}.'},
+            {"role": "user", "content": user}]
+
+    def parse(d: Any) -> str:
+        out = str(d[field]).strip().strip('"')
+        if not out:
+            raise ValueError(f'"{field}" is empty')
+        return out
+    deadline = time.perf_counter() + timeout
+    out = await llm.hedged(lambda m: llm.chat_json(msgs, parse, deadline=deadline, model=m,
+                                                   max_tokens=max_tokens, temperature=0.8), after=timeout * 0.4)
     return out
 
 
@@ -305,7 +363,7 @@ async def historian(log: list[dict]) -> str:
             "You are a historian writing, years later, one paragraph (80-120 words) judging the player's time "
             "as a leader in this fictional world. Name the turning point and one leader who was deceived or "
             "betrayed, if any. Wry and specific; no bullet points.",
-            _j(log[-60:]), "verdict", 20.0, 400)
+            _j(log[-60:]), "verdict", 40.0, 600)
     except Exception:  # noqa: BLE001
         return ("History records a short and turbulent tenure, the details of which "
                 "the archives have not yet released.")
@@ -354,10 +412,13 @@ async def wiretap(a: str, b: str, state: Any = None, messages: Optional[list[dic
         system = WIRETAP_RULES.format(
             player=f"{seat.get('role', 'president')} of {seat.get('nation', 'valdoria')}",
             a_who=_who(st, a), b_who=_who(st, b), a_card=card(a), b_card=card(b), emotions=", ".join(EMOTIONS))
-        raw = await llm.chat([{"role": "system", "content": system}, {"role": "user", "content": _j(ctx)}],
-                             timeout=10.0, max_tokens=500, temperature=0.9)
+        msgs = [{"role": "system", "content": system}, {"role": "user", "content": _j(ctx)}]
+        deadline = time.perf_counter() + 12.0
+        data = await llm.hedged(lambda m: llm.chat_json(msgs, lambda d: d if isinstance(d.get("lines"), list) else {}[0],
+                                                        deadline=deadline, model=m, max_tokens=500, temperature=0.9),
+                                after=4.0)
         lines = []
-        for ln in llm.loads(raw).get("lines") or []:
+        for ln in data.get("lines") or []:
             who = {"A": a, "B": b}.get(str(ln.get("speaker")).strip().upper(), ln.get("speaker"))
             text = _two_sentences(str(ln.get("text") or ""))
             if who in (a, b) and text:
