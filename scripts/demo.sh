@@ -140,6 +140,7 @@ export GAMBIT_PLAYER_ACTIONS="${GAMBIT_PLAYER_ACTIONS:-1}"
 export GAMBIT_EXTRA_CRISES="${GAMBIT_EXTRA_CRISES:-1}"
 export GAMBIT_MEDIATOR="${GAMBIT_MEDIATOR:-1}"
 export GAMBIT_ROLLOUTS="${GAMBIT_ROLLOUTS:-120}"
+export GAMBIT_WAR="${GAMBIT_WAR:-1}"  # War Room on (Tamim 16:53: features ship on by default)
 
 if [ "$OFFLINE" -eq 1 ]; then
   export GAMBIT_AGENTS=stub
