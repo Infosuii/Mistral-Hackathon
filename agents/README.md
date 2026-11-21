@@ -31,6 +31,7 @@ GAMBIT_DECIDE_MODEL=mistral-medium-latest  # decide (default; also the hedge mod
 GAMBIT_PRIVATE_STRATEGY=1                  # decide follows LeaderView.private_strategy (off by default)
 GAMBIT_LEADER_MODEL=mistral-large-4        # interpret, headline, why, historian, wiretap
 GAMBIT_HEDGE_MODEL=mistral-medium-latest   # races Large 4 when it is slow
+GAMBIT_DECIDE_BACKUP=mistral-small-latest  # races decide() on medium after 3.5 s (a different model)
 GAMBIT_HEDGE_AFTER_S=3.5                   # decide's head start (default 2.5 if Large 4)
 GAMBIT_FAST_MODEL=mistral-large-2512       # speak_fast, call_reply
 GAMBIT_FAST_FALLBACK=mistral-medium-latest  # races 2512 after GAMBIT_SPEAK_HEDGE_S=2.5, one 6 s deadline

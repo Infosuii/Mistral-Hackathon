@@ -35,6 +35,9 @@ MODEL = os.environ.get("GAMBIT_LEADER_MODEL", "mistral-large-4")
 # (DECIDED 13:07): one request per decision, and 2512's 30/min stays free for speech.
 DECIDE_MODEL = os.environ.get("GAMBIT_DECIDE_MODEL", "mistral-medium-latest")
 HEDGE_MODEL = os.environ.get("GAMBIT_HEDGE_MODEL", "mistral-medium-latest")
+# decide()'s own backup: a different model, so a slow medium reply is raced without a
+# second request to medium (live: one medium decide hung 7.5 s).
+DECIDE_BACKUP = os.environ.get("GAMBIT_DECIDE_BACKUP", "mistral-small-latest")
 FAST_MODEL = os.environ.get("GAMBIT_FAST_MODEL", os.environ.get("PHONE_FAST_MODEL", "mistral-large-2512"))
 FAST_FALLBACK = os.environ.get("GAMBIT_FAST_FALLBACK", "mistral-medium-latest")
 CALL_MODEL = FAST_MODEL  # the one-call call_reply()
