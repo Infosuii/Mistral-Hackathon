@@ -22,12 +22,14 @@
   "alliance": {"min_relation": 20, "relation": 10, "accept_min_relation": 25, "leave_relation": -20},
   "war": {"relation": -40, "monthly_army": -4, "monthly_gdp": -3, "monthly_stability": -3,
           "monthly_approval_democracy": -5, "noise": 15, "morale_base": 0.5, "ally_share": 0.5,
-          "min_relation_to_declare": -15, "plunder": 8, "min_months_before_peace": 3},
+          "min_relation_to_declare": -15, "plunder": 8, "min_months_before_peace": 3,
+          "disrupted_output": 0.5, "capture_unrest_months": 2},
   "peace": {"relation": 15},
 
   "monthly": {
     "relation_drift": 1,
     "revert_stats": ["gdp", "oil", "food", "chips", "stability", "approval"], "revert_rate": 0.15,
+    "revert_rates": {"gdp": 0.05, "oil": 0.05, "food": 0.05, "chips": 0.05},
     "food_low": 30, "food_low_stability": -1.5, "food_high": 60, "food_high_stability": 0.5,
     "oil_low": 20, "oil_low_gdp": -1,
     "approval_per_gdp": 0.5, "approval_per_stability": 0.3,
