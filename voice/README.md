@@ -73,7 +73,7 @@ Tests: `python -m pytest voice/tests -q` (fake agents, no network).
 | Test | Result |
 |---|---|
 | Talk → reply → first audio | **1.8 s** median with `mistral-large-2512` (STT 0.4 + reply 1.0 + TTS first chunk 0.3). **7.6 s** with `mistral-large-4` at `reasoning_effort="low"` (the lowest it accepts; `none` and `minimal` are rejected), range 5–20 s |
-| Emotion tag changes the voice | Measured on the same line: pitch rises from calm to angry by 32% for Howard `voice_3147` (119 → 157 Hz) and 37% for Harriet `voice_590` (174 → 238 Hz), with wider pitch swings; loudness is normalised. Blind clips are in `voice/v0_out/blind_A/B/C.mp3` (key in `blind_key.json`); a teammate listen is still pending |
+| Emotion tag changes the voice | **Passed blind: 6/6** (Ashish, two leaders × angry/calm/tense, shuffled, at `/voice-static/blind.html` on the voice dev server). Measured on the same line, pitch rises from calm to angry: +32% for Howard `voice_3147` (119 → 157 Hz), +37% for Harriet `voice_590` (174 → 238 Hz) |
 | Browser recording format | Chrome `audio/webm;codecs=opus` from MediaRecorder accepted as-is (1 s). wav, mp3, ogg/opus and flac also accepted. No WAV encoding needed |
 
 Rerun with `python -m voice.v0 all` and the page at `/voice-static/v0.html` (there's a synthetic
