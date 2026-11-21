@@ -328,7 +328,7 @@ def main(argv: list[str] | None = None) -> int:
         for e in report["page_errors"]:
             print(f"  [pageerror] {e}")
         print(f"Layout notes: {len(report['layout_notes'])}")
-        return int(any(report[key] for key in ("page_errors", "console_errors", "http_errors")))
+        return int(any(report[key] for key in ("page_errors", "console_errors", "http_errors", "layout_notes")))
     finally:
         if proc is not None:
             proc.terminate()

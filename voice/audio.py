@@ -230,7 +230,7 @@ def start_speech(text: str, voice_id: str, emotion: str | None = None,
 _tasks: set[asyncio.Task] = set()
 
 
-async def speak(text: str, voice_id: str, emotion: str | None = None, fmt: str = "mp3") -> str:
+async def speak(text: str, voice_id: str, emotion: str | None = None, fmt: str = "mp3") -> str | None:
     """Start (or reuse) synthesis and return the URL the page can play right away."""
     return start_speech(text, voice_id, emotion, fmt)
 
