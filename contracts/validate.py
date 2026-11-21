@@ -32,6 +32,7 @@ SCHEMAS: dict[str, tuple[type[BaseModel], str]] = {
     "call_view.json": (m.CallView, "agents.call_reply input"),
     "call_reply.output.json": (m.CallOutput, "agents.call_reply output"),
     "call.response.json": (m.CallResponse, "POST /call response"),
+    "call.response.pending.json": (m.CallResponse, "POST /call response, split reply (pending)"),
     "futures.request.json": (m.FuturesRequest, "POST /futures body"),
     "futures.response.json": (m.FuturesResponse, "POST /futures response"),
     "replay.request.json": (m.ReplayRequest, "POST /replay body"),

@@ -37,3 +37,7 @@ state.model_dump(mode="json", by_alias=True)   # by_alias=True so `from_` is wri
 | `Action.target` | optional, because crisis actions such as `dock` have no target |
 | `links[].type` | `trade`, `alliance` or `war` (the three map overlays) |
 | `belief_updates` | deltas between -1 and 1; the engine clamps the result to 0–1 |
+
+## Split phone replies (decided by Tamim, 12:29)
+
+`/call` answers as soon as the spoken reply is ready, with `pending: true`, a `call_id`, and empty `promises` and `actions` (`examples/call.response.pending.json`). When Mistral Large 4 has interpreted the call, `state.last_call` holds `{call_id, to, pending: false, promises, actions, ends_call}` (`examples/state.crisis.json`). The page already polls `/state`, so it shows the promises when they land. Engine side: `GAME.begin_call(to)` returns a `call_id` and sets `last_call` to pending; `GAME.apply_call(to, out, interrupted, hesitation_ms, call_id=...)` fills it in.
