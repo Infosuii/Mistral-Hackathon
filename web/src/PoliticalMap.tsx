@@ -1,17 +1,21 @@
-import { useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import map from './map.json'
+import counties from '../../data/counties.json'
 import { MapOverlays } from './MapOverlays'
+import { NavalFleets } from './hud/NavalFleets'
 import { DecisionMotion } from './hud/DecisionMotion'
-import { relationBetween, statLabels, type GameState } from './state'
+import './hud/world-map.css'
+import { relationBetween, statLabels, type GameState, type MapEvent } from './state'
 import { nationStyle } from './theme'
 import { CapitalMarkers, CrisisFocus, flagOf, LeaderMedallions, NationalBorders, TerritoryLabels, UnitCounters } from './hud/MapLayers'
 import { OrdersBar } from './hud/OrdersBar'
 import { BreakingNews, RelationPops } from './hud/Reactions'
-import { Relief, Sea, TerrainDefs, TerrainFeatures, terrainLabel, terrainOf } from './hud/Terrain'
+import { Biomes, coastPath, OffshoreIslands, Relief, Sea, TerrainDefs, TerrainFeatures, terrainLabel, terrainOf } from './hud/Terrain'
 
 interface Props {
   state: GameState
   online: boolean
+  historyFocus: MapEvent | null
   selected: string | undefined
   onSelect: (id: string) => void
 }
@@ -29,8 +33,10 @@ function limitView(view: typeof homeView) {
   }
 }
 
-const modeLabels = { political: 'Political', relations: 'Relations', military: 'Military', unrest: 'Unrest' }
+const modeLabels = { political: 'Political', relations: 'Relations', military: 'Military', unrest: 'Unrest', regions: 'Regions', world: 'World' }
 type MapMode = keyof typeof modeLabels
+const countyOf = new Map(counties.flatMap((county) => county.provinces.map((id) => [id, county] as const)))
+const countyEdges = map.borders.filter(({ between: [a, b] }) => countyOf.get(a) !== countyOf.get(b))
 
 function provinceStyle(state: GameState, owner: string, mode: MapMode): CSSProperties {
   const style = nationStyle(owner)
@@ -57,6 +63,10 @@ function ProvinceCard({ state, id, x, y }: { state: GameState; id: string; x: nu
   if (!nation) return null
   const rel = relationBetween(state, state.seat.nation, owner)
   const flag = flagOf(owner)
+  const county = countyOf.get(id)
+  const controlled = county?.provinces.filter((province) => state.provinces[province] === owner).length ?? 0
+  const contested = !!county && controlled < county.provinces.length
+  const morale = county ? Math.min(100, Math.max(0, Math.round(nation.stats.stability + county.morale - (contested ? 8 : 0)))) : 0
   const atWar = state.links.some((l) => l.type === 'war' && (l.a === owner || l.b === owner))
   return (
     <div className="province-card" style={{ ...nationStyle(owner), left: x + 18, top: y + 18 } as CSSProperties} role="tooltip">
@@ -64,13 +74,18 @@ function ProvinceCard({ state, id, x, y }: { state: GameState; id: string; x: nu
         {flag && <img src={flag} alt="" />}
         <div>
           <strong>{nation.name}</strong>
-          <span>Province {id.toUpperCase()} · {terrainLabel[terrainOf[id]]}</span>
+          <span>{county?.name ?? id.toUpperCase()} · {terrainLabel[terrainOf[id]]}</span>
         </div>
       </header>
       <dl>
         <div><dt>{statLabels.army}</dt><dd>{Math.round(nation.stats.army)}</dd></div>
         <div><dt>{statLabels.stability}</dt><dd>{Math.round(nation.stats.stability)}</dd></div>
         <div><dt>Provinces</dt><dd>{nation.stats.territory}</dd></div>
+        {county && <>
+          <div><dt>County morale</dt><dd>{morale}%</dd></div>
+          <div><dt>County output</dt><dd>{county.output.toFixed(1)} {county.resource}/mo</dd></div>
+          <div><dt>Controlled</dt><dd>{controlled}/{county.provinces.length}</dd></div>
+        </>}
         {rel !== undefined && <div><dt>Relations</dt><dd data-sign={Math.sign(rel)}>{rel > 0 ? `+${rel}` : rel}</dd></div>}
       </dl>
       <p>{atWar ? 'At war. ' : ''}{nation.status.includes('PROTESTS') ? 'Protests in the streets. ' : ''}{nation.leader}</p>
@@ -79,15 +94,28 @@ function ProvinceCard({ state, id, x, y }: { state: GameState; id: string; x: nu
   )
 }
 
-export function PoliticalMap({ state, online, selected, onSelect }: Props) {
+export function PoliticalMap({ state, online, historyFocus, selected, onSelect }: Props) {
   const [view, setView] = useState(homeView)
   const [mode, setMode] = useState<MapMode>('political')
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null)
   const relations = mode === 'relations' && Boolean(state.seat.nation)
+  const globe = mode === 'world'
   const shownMode: MapMode = mode === 'relations' && !relations ? 'political' : mode
   const drag = useRef<{ id: number; x: number; y: number; view: typeof homeView; moved: boolean } | null>(null)
   const suppressClick = useRef(false)
   const windowRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!historyFocus) return
+    const center = historyFocus.province
+      ? map.provinces.find(({ id }) => id === historyFocus.province)?.center
+      : historyFocus.nation && (map.capitals as Record<string, number[]>)[historyFocus.nation]
+    if (!center) return
+    const zoom = 2
+    setMode('political')
+    setHover(null)
+    setView(limitView({ zoom, x: 500 - center[0] * zoom, y: 340 - center[1] * zoom }))
+  }, [historyFocus])
 
   function zoom(delta: number) {
     setView((current) => {
@@ -104,7 +132,7 @@ export function PoliticalMap({ state, online, selected, onSelect }: Props) {
   function startDrag(event: PointerEvent<SVGSVGElement>) {
     if (event.button !== 0 || !event.isPrimary) return
     suppressClick.current = false
-    if (view.zoom > 1) {
+    if (!globe && view.zoom > 1) {
       drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, view, moved: false }
     }
   }
@@ -150,20 +178,38 @@ export function PoliticalMap({ state, online, selected, onSelect }: Props) {
           }
         }}>
         <defs>
-          <clipPath id="land"><path d={map.coast} /></clipPath>
+          <clipPath id="land"><path d={coastPath} /></clipPath>
           <TerrainDefs />
+          <clipPath id="globe-disc"><ellipse cx="500" cy="340" rx="445" ry="355" /></clipPath>
+          <radialGradient id="globe-ocean" cx="39%" cy="30%" r="72%">
+            <stop offset="0%" stopColor="#307487" />
+            <stop offset="65%" stopColor="#123c57" />
+            <stop offset="100%" stopColor="#091f35" />
+          </radialGradient>
         </defs>
-        <g data-map-camera transform={`translate(${view.x} ${view.y}) scale(${view.zoom})`}>
-          <Sea x={VB.x - 1200} y={VB.y - 900} width={VB.w + 2400} height={VB.h + 1800} />
-          <path d={map.coast} className="coast-halo" />
-          <path d={map.coast} className="coast-shelf" />
+        {globe && (
+          <g className="world-disc map-decoration" clipPath="url(#globe-disc)">
+            <ellipse cx="500" cy="340" rx="445" ry="355" fill="url(#globe-ocean)" />
+            {[120, 200, 270, 410, 480, 560].map((y) => (
+              <path key={y} d={`M55 340 Q500 ${2 * y - 340} 945 340`} />
+            ))}
+            {[95, 190, 295, 390].map((rx) => <ellipse key={rx} cx="500" cy="340" rx={rx} ry="355" />)}
+          </g>
+        )}
+        <g data-map-camera transform={globe ? 'translate(165 112) scale(.67)' : `translate(${view.x} ${view.y}) scale(${view.zoom})`}>
+          {!globe && <Sea x={VB.x - 1200} y={VB.y - 900} width={VB.w + 2400} height={VB.h + 1800} />}
+          <OffshoreIslands />
+          <path d={coastPath} className="coast-halo" />
+          <path d={coastPath} className="coast-shelf" />
+          <path d={coastPath} className="coast-reef" />
           <g clipPath="url(#land)">
+            <path d={coastPath} className="coast-land" />
             {map.provinces.map(({ id, path }) => {
               const owner = state.provinces[id]
               const nation = state.nations[owner]
               return (
                 <path key={id} d={path} className="province" style={provinceStyle(state, owner, shownMode)}
-                  data-province={id} data-owner={owner} data-selected={Boolean(nation && owner === selected)}
+                  data-province={id} data-county={countyOf.get(id)?.name} data-owner={owner} data-home={owner === state.seat.nation} data-selected={Boolean(nation && owner === selected)}
                   data-hover={hover?.id === id}
                   onPointerMove={(event) => hoverProvince(id, event)}
                   onClick={() => nation && onSelect(owner)}>
@@ -171,16 +217,30 @@ export function PoliticalMap({ state, online, selected, onSelect }: Props) {
                 </path>
               )
             })}
+            <Biomes />
             <Relief />
             <TerrainFeatures />
+            {shownMode === 'regions' && <g className="county-borders map-decoration">
+              {countyEdges.map(({ between, path }) => <path key={between.join('|')} d={path} />)}
+            </g>}
             <NationalBorders state={state} />
           </g>
-          <path d={map.coast} className="coastline map-decoration" />
+          <path d={coastPath} className="coastline map-decoration" />
           <text className="water-label map-decoration" x="500" y="45">North Sea</text>
           <text className="water-label map-decoration" x="665" y="625">Kessar Strait</text>
           <text className="water-label map-decoration" x="120" y="640">Western Ocean</text>
-          <TerritoryLabels state={state} selected={selected} />
+          {shownMode === 'regions' ? (
+            <g className="county-labels map-decoration">
+              {counties.map((county) => {
+                const centers = map.provinces.filter(({ id }) => county.provinces.includes(id)).map(({ center }) => center)
+                const x = centers.reduce((sum, center) => sum + center[0], 0) / centers.length
+                const y = centers.reduce((sum, center) => sum + center[1], 0) / centers.length
+                return <text key={county.name} x={x} y={y + 18}>{county.name}</text>
+              })}
+            </g>
+          ) : <TerritoryLabels state={state} selected={selected} />}
           <MapOverlays state={state} onSelect={onSelect} />
+          <NavalFleets state={state} />
           <CrisisFocus state={state} />
           <CapitalMarkers state={state} />
           <UnitCounters state={state} />
@@ -188,6 +248,7 @@ export function PoliticalMap({ state, online, selected, onSelect }: Props) {
           <RelationPops state={state} />
           <DecisionMotion state={state} online={online} />
         </g>
+        {globe && <ellipse className="world-limb map-decoration" cx="500" cy="340" rx="445" ry="355" />}
         <rect className="map-decoration" x={VB.x} y={VB.y} width={VB.w} height={VB.h} fill="url(#vignette)" />
       </svg>
       {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} />}
@@ -224,9 +285,9 @@ export function PoliticalMap({ state, online, selected, onSelect }: Props) {
             )}
           </div>
           <div className="map-zoom" role="group" aria-label="Map zoom">
-            <button onClick={() => zoom(-0.5)} disabled={view.zoom === 1} aria-label="Zoom out">−</button>
-            <button onClick={() => setView(homeView)} disabled={view.zoom === 1} aria-label="Reset map view">{view.zoom}×</button>
-            <button onClick={() => zoom(0.5)} disabled={view.zoom === maxZoom} aria-label="Zoom in">+</button>
+            <button onClick={() => zoom(-0.5)} disabled={globe || view.zoom === 1} aria-label="Zoom out">−</button>
+            <button onClick={() => setView(homeView)} disabled={globe || view.zoom === 1} aria-label="Reset map view">{view.zoom}×</button>
+            <button onClick={() => zoom(0.5)} disabled={globe || view.zoom === maxZoom} aria-label="Zoom in">+</button>
           </div>
         </div>
         <OrdersBar state={state} selected={selected} />

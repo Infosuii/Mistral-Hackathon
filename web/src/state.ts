@@ -74,6 +74,7 @@ export interface MapEvent {
   crisis?: string
   contradiction?: boolean
   holders?: Record<string, string>
+  text?: string
 }
 
 export interface GameState {
@@ -87,6 +88,7 @@ export interface GameState {
   relations: Record<string, number>
   links: { type: string; a: string; b: string }[]
   provinces: Record<string, string>
+  fleets?: Record<string, { target: string; arrival_turn: number; returning: boolean }>
   news: { turn: number; text: string }[]
   events: MapEvent[]
   incoming_call: { from: string; emotion: string; opening_line: string; audio_url?: string | null } | null

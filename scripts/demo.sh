@@ -127,6 +127,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+export GAMBIT_PLAYER_ACTIONS="${GAMBIT_PLAYER_ACTIONS:-1}"
 if [ "$OFFLINE" -eq 1 ]; then
   export GAMBIT_AGENTS=stub
   export VOICE_WIRETAP=demo

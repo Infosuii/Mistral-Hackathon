@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+from uuid import UUID
 
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,8 +20,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
 from contracts.models import (
-    Action, PlayerActions, NATION_IDS, CrisisStartRequest, FuturesRequest, FuturesResponse, LeaderDetail, StartRequest, State,
+    Action, Event, PlayerActions, NATION_IDS, CrisisStartRequest, FuturesRequest, FuturesResponse, LeaderDetail, StartRequest, State,
 )
+from engine import saves
 from engine.futures import futures
 from engine.snapshots import load
 from engine.game import GAME, allowed_crises, public_leader, public_view
@@ -44,6 +46,44 @@ async def start(req: StartRequest) -> State:
 @router.get("/state", response_model=State)
 async def get_state() -> State:
     return public_view(GAME.state)
+
+
+@router.get("/saves", response_model=list[saves.SaveInfo])
+async def list_saves() -> list[saves.SaveInfo]:
+    return saves.list_slots()
+
+
+@router.post("/saves", response_model=saves.SaveInfo, status_code=201)
+async def create_save(req: saves.SaveRequest) -> saves.SaveInfo:
+    async with GAME.lock:
+        try:
+            return saves.create(GAME, req.name)
+        except ValueError as e:
+            raise HTTPException(409, str(e)) from e
+
+
+@router.post("/saves/{slot}/load", response_model=State)
+async def load_save(slot: UUID) -> State:
+    async with GAME.lock:
+        try:
+            return public_view(saves.restore(GAME, slot))
+        except LookupError as e:
+            raise HTTPException(404, str(e)) from e
+        except ValueError as e:
+            raise HTTPException(409, str(e)) from e
+
+
+@router.get("/history", response_model=list[Event])
+async def history() -> list[Event]:
+    return [Event.model_validate(entry) for entry in GAME.session_log
+            if entry["type"] != "news"]
+
+
+@router.get("/dispatches", response_model=list[Event])
+async def dispatches() -> list[Event]:
+    if GAME.state.seat.role == "mediator":
+        raise HTTPException(403, "a mediator has access to public positions")
+    return [Event.model_validate(entry) for entry in GAME.dispatch_log]
 
 
 @router.post("/turn", response_model=State)
@@ -104,8 +144,10 @@ async def post_futures(req: FuturesRequest) -> FuturesResponse:
         before = load(req.snapshot_id)
     except KeyError as e:
         raise HTTPException(404, str(e))
+    epoch = GAME.epoch
     result = await asyncio.to_thread(futures, before, GAME.state, list(GAME.queued))
-    GAME.state = GAME.state.model_copy(update={"last_futures": result})
+    if GAME.epoch == epoch:
+        GAME.state = GAME.state.model_copy(update={"last_futures": result})
     return result
 
 

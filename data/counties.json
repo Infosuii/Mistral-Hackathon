@@ -1,0 +1,22 @@
+[
+  {"name":"Valdor Basin", "provinces":["p01","p08"], "resource":"food", "output":1.6, "morale":6},
+  {"name":"Bluewater", "provinces":["p02","p03"], "resource":"economy", "output":1.0, "morale":2},
+  {"name":"Mill Country", "provinces":["p04","p05"], "resource":"food", "output":2.0, "morale":3},
+  {"name":"Pinewatch", "provinces":["p06","p07"], "resource":"oil", "output":0.8, "morale":-4},
+  {"name":"Dravic Plain", "provinces":["p09","p10"], "resource":"food", "output":0.8, "morale":-3},
+  {"name":"Old Forts", "provinces":["p11","p12","p13"], "resource":"economy", "output":1.2, "morale":4},
+  {"name":"Iron Ridge", "provinces":["p14","p15"], "resource":"oil", "output":1.8, "morale":-2},
+  {"name":"East March", "provinces":["p16","p17"], "resource":"oil", "output":2.0, "morale":-7},
+  {"name":"Oryn Basin", "provinces":["p18","p21","p22"], "resource":"food", "output":1.1, "morale":5},
+  {"name":"Green Reach", "provinces":["p20","p23"], "resource":"food", "output":0.8, "morale":-2},
+  {"name":"Border Towns", "provinces":["p24","p25"], "resource":"economy", "output":0.8, "morale":-8},
+  {"name":"Copper Road", "provinces":["p19","p26","p27"], "resource":"chips", "output":1.1, "morale":-1},
+  {"name":"Kessar Crown", "provinces":["p28","p31"], "resource":"economy", "output":1.3, "morale":6},
+  {"name":"Toll Coast", "provinces":["p29"], "resource":"economy", "output":0.8, "morale":1},
+  {"name":"Salt Fields", "provinces":["p30"], "resource":"food", "output":0.6, "morale":-2},
+  {"name":"South Quay", "provinces":["p32"], "resource":"oil", "output":0.5, "morale":-3},
+  {"name":"Northwater", "provinces":["p33","p37"], "resource":"economy", "output":1.2, "morale":5},
+  {"name":"Fjord Gate", "provinces":["p34","p35"], "resource":"food", "output":0.7, "morale":-3},
+  {"name":"Silicon Vale", "provinces":["p36","p38","p39"], "resource":"chips", "output":2.1, "morale":4},
+  {"name":"Ice Cape", "provinces":["p40"], "resource":"oil", "output":0.6, "morale":-6}
+]

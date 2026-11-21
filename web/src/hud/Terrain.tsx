@@ -16,6 +16,29 @@ function rng(seed: number) {
 // One terrain kind per province, fixed by its id. Provinces near the coast lean to
 // plains and coast; inland ones to hills, forests and mountains.
 const coastPoints = map.coast.match(/\d+(\.\d+)?,\d+(\.\d+)?/g)!.map((p) => p.split(',').map(Number))
+// Round the corners of the authored shoreline along the original edges.
+const midpoint = (a: number[], b: number[]) => a.map((v, axis) => (v + b[axis]) / 2).join(',')
+const coastline = coastPoints.map((point, i) => {
+  const next = coastPoints[(i + 1) % coastPoints.length]
+  return `Q${point.join(',')} ${midpoint(point, next)}`
+}).join(' ')
+export const coastPath = `M${midpoint(coastPoints.at(-1)!, coastPoints[0])} ${coastline} Z`
+
+const islands = [
+  'M112,98 q-9,-15 6,-23 q12,-4 21,6 q8,8 -5,16 q-7,8 -22,1Z',
+  'M91,116 q-9,-7 -4,-13 q8,-6 14,1 q7,5 0,12 q-6,3 -10,0Z',
+  'M801,621 q-15,-8 -7,-25 q13,-14 30,-10 q12,3 11,15 q-3,8 -12,11 q-11,12 -22,9Z',
+  'M844,627 q-8,-5 -2,-12 q7,-5 15,0 q4,5 -1,9 q-6,5 -12,3Z',
+]
+
+export function OffshoreIslands() {
+  return (
+    <g className="offshore-islands map-decoration">
+      {islands.map((path) => <path key={path} d={path} />)}
+    </g>
+  )
+}
+
 function distanceToCoast([x, y]: number[]) {
   return Math.min(...coastPoints.map(([cx, cy]) => Math.hypot(cx - x, cy - y)))
 }
@@ -36,8 +59,8 @@ export function TerrainDefs() {
   return (
     <>
       <filter id="relief" x="0" y="0" width="100%" height="100%" filterUnits="userSpaceOnUse">
-        <feTurbulence type="fractalNoise" baseFrequency=".011" numOctaves="5" seed="7" result="noise" />
-        <feDiffuseLighting in="noise" surfaceScale="5.5" diffuseConstant="1.05" lightingColor="#fff" result="light">
+        <feTurbulence type="fractalNoise" baseFrequency=".009" numOctaves="3" seed="7" result="noise" />
+        <feDiffuseLighting in="noise" surfaceScale="3.5" diffuseConstant="1.05" lightingColor="#fff" result="light">
           <feDistantLight azimuth="315" elevation="38" />
         </feDiffuseLighting>
         <feColorMatrix in="light" type="saturate" values="0" />
@@ -48,16 +71,16 @@ export function TerrainDefs() {
       <filter id="label-glow" x="-10%" y="-40%" width="120%" height="180%">
         <feGaussianBlur stdDeviation="2.2" />
       </filter>
-      <pattern id="sea-swell" width="46" height="18" patternUnits="userSpaceOnUse">
-        <path d="M0 9 q11.5 -5 23 0 t23 0" fill="none" stroke="var(--sea-line)" strokeWidth=".8" />
+      <pattern id="sea-swell" width="91" height="72" patternUnits="userSpaceOnUse">
+        <path d="M9 14 h14 m-7 4 h12 M64 43 h15 m-6 4 h10 M28 61 h9" fill="none" stroke="var(--sea-line)" strokeWidth="1" />
       </pattern>
       <pattern id="war-hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
         <rect width="4" height="10" fill="var(--war)" opacity=".35" />
       </pattern>
       <radialGradient id="sea-depth" cx="50%" cy="48%" r="70%">
-        <stop offset="0%" stopColor="var(--sea-shallow)" />
-        <stop offset="55%" stopColor="var(--sea)" />
-        <stop offset="100%" stopColor="var(--sea-deep)" />
+        <stop offset="0%" stopColor="#24576c" />
+        <stop offset="57%" stopColor="#153a54" />
+        <stop offset="100%" stopColor="#091f35" />
       </radialGradient>
       <radialGradient id="vignette" cx="50%" cy="50%" r="75%">
         <stop offset="60%" stopColor="#000" stopOpacity="0" />
@@ -79,13 +102,24 @@ export function Sea({ x, y, width, height }: { x: number; y: number; width: numb
   return (
     <g className="map-decoration">
       <rect x={x} y={y} width={width} height={height} fill="url(#sea-depth)" />
-      <rect x={x} y={y} width={width} height={height} fill="url(#sea-swell)" opacity=".5" />
+      <rect x={x} y={y} width={width} height={height} fill="url(#sea-swell)" opacity=".42" />
       <g className="graticule">{lines}</g>
     </g>
   )
 }
 
 // Relief shading laid over the nation colours (inside the land clip).
+export function Biomes() {
+  return (
+    <g className="terrain-biomes map-decoration">
+      <path fill="#c7d8c0" d="M150 0H920V150q-100 52-172 5t-160 12q-75 35-136-9t-154 19q-100 27-148-22Z" />
+      <path fill="#285e31" d="M62 291q83-78 174-45t133 29q73 14 68 64t-97 46q-82 39-164 11t-114-35Z" />
+      <path fill="#35623c" d="M666 259q80-49 162 14t91 115q10 48-73 41t-133-58q-80-40-47-112Z" />
+      <path fill="#d6b879" d="M299 574q58-50 149-57t128-59q40-32 52 19t11 146H299Z" />
+    </g>
+  )
+}
+
 export function Relief() {
   return (
     <rect className="relief map-decoration" x="0" y="0" width={map.width} height={map.height} filter="url(#relief)" />
@@ -95,8 +129,9 @@ export function Relief() {
 function Mountain({ x, y, s }: { x: number; y: number; s: number }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${s})`}>
-      <path className="glyph-shade" d="M-9,5 L-1,-7 L3,-1 L6,-4 L12,5 Z" />
-      <path className="glyph-light" d="M-1,-7 L-3.5,-2.5 L-1,-3.5 L1,-1.5 L3,-1 Z" />
+      <path fill="#344b47" d="M-10 6v-2h2v-3h2v-3h2v-3h2v-3h3v3h2v3h2v3h2v-2h2v2h2v3h2v2Z" />
+      <path fill="#879688" d="M-9 4h2V1h2v-3h2v-3h2v8h-2v3h-6Z" />
+      <path fill="#e0e3d3" d="M-2-8h3v3h2v3h-3v-1h-2v1h-2v-3h2Z" />
     </g>
   )
 }
@@ -104,7 +139,9 @@ function Mountain({ x, y, s }: { x: number; y: number; s: number }) {
 function Tree({ x, y, s }: { x: number; y: number; s: number }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${s})`}>
-      <path className="glyph-shade" d="M0,-7 L5,2 L1.2,2 L1.2,5 L-1.2,5 L-1.2,2 L-5,2 Z" />
+      <path fill="#4b4332" d="M-1 2h2v4h-2Z" />
+      <path fill="#244538" d="M-1-8h2v2h2v3h2v3h2v3H-6V0h2v-3h2v-3h1Z" />
+      <path fill="#759258" d="M-1-7h2v3h2v2H1v3h-4v-2h1v-3h1Z" />
     </g>
   )
 }

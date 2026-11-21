@@ -23,6 +23,9 @@ interface PlayerActions {
 function label(a: Action) {
   if (a.type === 'set_tariff') return `Tariff ${a.params.pct}%`
   if (a.type === 'declare_war') return 'Declare war'
+  if (a.type === 'deploy_fleet') return 'Deploy fleet'
+  if (a.type === 'recall_fleet') return 'Recall fleet'
+  if (a.type === 'leave_alliance') return 'Leave alliance'
   if (a.type === 'make_peace') return 'Make peace'
   return a.type.replace(/_/g, ' ')
 }
@@ -51,6 +54,13 @@ export function Diplomacy({ state, target }: { state: GameState; target: string 
 
   async function queue(a: Action) {
     if (busy) return
+    if (a.type === 'leave_alliance' || a.type === 'declare_war') {
+      const nation = state.nations[target]?.name ?? target
+      const prompt = a.type === 'leave_alliance'
+        ? `End the alliance with ${nation} next month? Relations will fall.`
+        : `Declare war on ${nation} next month?`
+      if (!window.confirm(prompt)) return
+    }
     setBusy(true)
     try {
       setMoves(await post<PlayerActions>('/action', a))
@@ -72,7 +82,10 @@ export function Diplomacy({ state, target }: { state: GameState; target: string 
             type="button"
             className={`order order-${a.type}${queued ? ' order-queued' : ''}`}
             aria-pressed={queued}
-            title={queued ? 'Queued for next month' : 'Queue for next month'}
+            title={queued ? 'Queued for next month'
+              : a.type === 'deploy_fleet' ? 'Sail to the enemy coast and blockade its port'
+              : a.type === 'recall_fleet' ? 'Lift the blockade and recall the fleet'
+              : 'Queue for next month'}
             disabled={busy}
             onClick={() => queue(a)}
           >

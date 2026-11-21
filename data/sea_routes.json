@@ -1,0 +1,21 @@
+{
+  "ports": {
+    "valdoria": {"province": "p03", "position": [80, 500]},
+    "nordhaven": {"province": "p34", "position": [20, 200]},
+    "ostrava": {"province": "p10", "position": [880, 140]},
+    "kessaria": {"province": "p31", "position": [520, 640]},
+    "zarnia": {"province": "p23", "position": [760, 600]}
+  },
+  "routes": {
+    "kessaria|nordhaven": [[520, 640], [120, 540], [80, 500], [20, 200]],
+    "kessaria|ostrava": [[520, 640], [780, 580], [900, 460], [960, 380], [980, 220], [900, 140], [880, 140]],
+    "kessaria|valdoria": [[520, 640], [120, 540], [80, 500]],
+    "kessaria|zarnia": [[520, 640], [760, 600]],
+    "nordhaven|ostrava": [[20, 200], [100, 60], [820, 80], [880, 140]],
+    "nordhaven|valdoria": [[20, 200], [80, 500]],
+    "nordhaven|zarnia": [[20, 200], [80, 500], [160, 560], [540, 620], [760, 600]],
+    "ostrava|valdoria": [[880, 140], [720, 80], [100, 60], [60, 120], [40, 180], [60, 480], [80, 500]],
+    "ostrava|zarnia": [[880, 140], [940, 180], [980, 240], [960, 400], [760, 600]],
+    "valdoria|zarnia": [[80, 500], [160, 560], [540, 620], [760, 600]]
+  }
+}
