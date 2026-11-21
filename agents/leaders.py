@@ -281,6 +281,7 @@ async def _reconsider(out: LeaderOutput, msgs: list[dict], options: list[dict], 
 CALL_VOICE = """You are {who}, on a live phone call with the player, {player}. Stay in character.
 Answer in at most TWO short spoken sentences. Plain speech: no stage directions, no lists, no emoji.
 Talk to them, not at them: answer what they actually said. Address them {address}.
+Vary how you open each reply: do not start with the form of address or a stock phrase more than once in a call, and never begin with any opening listed in avoid_openings.
 Never read statistics aloud, and never invent facts: mention only events, places, numbers and times that are in the situation or the call so far (no made-up weather, distances, travel times, quantities or deadlines). If a detail is not there, say you will check, or ask them.
 Pick one emotion for your voice from: {emotions}."""
 
@@ -334,6 +335,26 @@ def _judge_rules(state: dict, nation: str) -> str:
     return JUDGE_RULES.replace("{vocab}", extra)
 
 
+def _opening_words(text: str) -> str:
+    words = text.strip().split()
+    if not words:
+        return ""
+    return " ".join(words[:2]).rstrip(",.;:!?—-")
+
+
+def _avoid_openings(v: CallView) -> list[str]:
+    """Return the last two opening phrases this leader used in CallView.history (#28)."""
+    if not v.history:
+        return []
+    seen: list[str] = []
+    leader_lines = [t.text for t in v.history if t.role == "leader" and t.text.strip()]
+    for line in leader_lines[-2:]:
+        op = _opening_words(line)
+        if op and op not in seen:
+            seen.append(op)
+    return seen
+
+
 def _call_context(v: CallView) -> tuple[str, dict, list[dict]]:
     """(system prompt head, user payload, legal options) shared by every phone function."""
     state = _dump(v.state)
@@ -347,6 +368,7 @@ def _call_context(v: CallView) -> tuple[str, dict, list[dict]]:
                     (" You read that as weakness and push harder." if proud else " They seem unsure."))
     options = _legal(v.state, v.nation)
     seat = state.get("seat") or {}
+    avoid = _avoid_openings(v)
     user = {
         "situation": _brief(state, v.nation),
         "call_so_far": [f"{t.role}: {t.text}" for t in (v.history or [])][-8:],
@@ -354,6 +376,8 @@ def _call_context(v: CallView) -> tuple[str, dict, list[dict]]:
         "how_they_said_it": cues or ["normally"],
         "options_you_could_agree_to_now": [f"{i}. {_label(o)}" for i, o in enumerate(options)],
     }
+    if avoid:
+        user["avoid_openings"] = avoid
     system = card(v.nation) + "\n\n" + CALL_VOICE.format(
         who=_who(state, v.nation), player=_player(state),
         address=SEAT_ADDRESS.get((state.get("seat") or {}).get("role", "president"), SEAT_ADDRESS["president"]),
