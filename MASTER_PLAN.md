@@ -61,6 +61,7 @@ MASTER_PROMPT.md  what to paste into your coding agent
 /voice      (Ashish)  transcribe, speak, /call, /wiretap, talk-button.js
 /web        (Tamim)   the page
 /replay     (Tamim)   /replay endpoint, code only
+/e2e        (Neon)    demo-path test, timings, browser walk-through
 /data       (shared)  weights.json, nations.json, crises/*.json
 ```
 
@@ -283,6 +284,18 @@ Response to the page: `{transcript, reply_text, reply_audio_url, emotion, promis
 | D1 | 14:15 | Run the playtest and record the backup video | File saved | — |
 | D2 | 16:15 | Demo script and who says what | Rehearsed twice | — |
 | D3 | 17:00 / 17:45 | Final video; submission | Submitted | — |
+
+### Neon — demo-path tests, one-command run, timings (`/e2e`, `scripts/demo.sh`, `README.md`)
+
+A fifth agent, added at 13:00 once the game was on `main`. It proves the demo works end to end and measures it. It reports bugs to owners as `REQUEST` notes and does not edit their folders. Work issue #67.
+
+| ID | Task | Done when | Tool |
+|---|---|---|---|
+| N1 | `e2e/demo_path.py`: the five-minute demo, beat by beat, against a live backend; typed calls, then real audio clips | Exits 0 twice in a row, or every failure filed as a `REQUEST` | Main |
+| N2 | `scripts/demo.sh` (one command, `--offline` mode) and a judge-ready `README.md` | A fresh clone runs with one command | Main |
+| N3 | `e2e/timings.py`: median and worst time per stage of a call, plus `/futures` and `/replay` | Numbers posted to Ashish for the pitch | Main |
+| N4 | Browser walk-through with a screenshot per beat | `DESIGN` note on #26 with anything broken | Main |
+| N5 | Workflow wrapper for the batch | Only if the Coordinator says go | Main |
 
 Starting voices, to audition and swap: Ostrava `voice_3147`, Zarnia `voice_591`, Nordhaven `voice_3149`, Kessaria `voice_590`, Valdoria `voice_1787`.
 
