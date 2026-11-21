@@ -16,8 +16,9 @@ echo
 echo "-- Checkpoints (local time) --"
 now=$(date +%H%M)
 for c in "1230 first tests posted, contracts on main" "1300 world runs 20 turns in a terminal" \
-         "1415 playable by voice, backup video" "1515 One Berth plays through" \
-         "1600 needle and replay" "1615 FREEZE" "1700 final video" "1745 SUBMIT"; do
+         "1440 Ashish plays One Berth by voice for five minutes and posts feedback" "1515 One Berth plays through" \
+         "1600 needle and replay" "1615 FREEZE" "1630 record and verify backup video" \
+         "1700 final video ready" "1745 SUBMIT"; do
   t=${c%% *}; label=${c#* }
   if [ "$now" -lt "$t" ]; then echo "next: ${t:0:2}:${t:2:2}  $label"; break; fi
 done
