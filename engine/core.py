@@ -151,7 +151,11 @@ def legal_actions(state: State, nation: str) -> list[Action]:
         if t == nation:
             continue
         if has_link(state, "war", nation, t):
-            acts.append(Action(type="make_peace", by=nation, target=t))
+            # A war lasts a few months before either side can simply call it off; otherwise an
+            # AI leader ends it the month after it starts and the War Room never sees a battle.
+            hold = w["war"].get("min_months_before_peace", 0)
+            if not (hold and (_recent(state, ("war",), nation, t, hold) or _recent(state, ("war",), t, nation, hold))):
+                acts.append(Action(type="make_peace", by=nation, target=t))
             continue
         if not _recent(state, ("tariff",), nation, t, w["tariff"]["cooldown_months"]):
             for pct in w["tariff"]["options_pct"]:
