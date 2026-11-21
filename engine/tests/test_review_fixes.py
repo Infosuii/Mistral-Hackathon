@@ -42,11 +42,11 @@ def test_defiant_leader_keeps_its_choice_when_only_scores_move():
     # put blockade on top (different scores), and Ostrava defied them and docked.
     cached_advice = {"ostrava": [Advice(action=Action(type="blockade", by="ostrava"), score=9.0),
                                  Advice(action=Action(type="dock", by="ostrava"), score=1.0)]}
-    _, now = rerun_crisis(start, [], {"ostrava": Decision(action="dock", tick=8)}, cached_advice, [], 7)
+    _, now = rerun_crisis(start, [], {"ostrava": Decision(action="dock", tick=8)}, cached_advice, 7)
     assert now["ostrava"] == "dock"
     # When the advisers' top itself changes, the leader follows the new advice.
     cached_advice["ostrava"][0] = Advice(action=Action(type="wait", by="ostrava"), score=9.0)
-    _, now = rerun_crisis(start, [], {"ostrava": Decision(action="dock", tick=8)}, cached_advice, [], 7)
+    _, now = rerun_crisis(start, [], {"ostrava": Decision(action="dock", tick=8)}, cached_advice, 7)
     assert now["ostrava"] == "blockade"
 
 
@@ -82,3 +82,51 @@ def test_caught_once_not_twice_and_no_noise_without_clash():
     g = _run([(1, "ostrava"), (6, "ostrava")])
     assert not any("compare notes" in n.text and "both" in n.text for n in g.state.news)
     assert sum("story holds" in n.text for n in g.state.news) == 1  # only the scripted tick-5 line
+
+
+def _mk(promises=(), actions=(), resolve=0.0):
+    from contracts.models import CallOutput
+    return CallOutput(reply_text="ok", emotion="calm", promises=list(promises), actions=list(actions),
+                      belief_updates={"trust_in_player": 0.0, "resolve_of_player": resolve})
+
+
+def _played_calls(calls):
+    async def go():
+        g = Game(seed=7, use_agents=False, needle=False)
+        g.start_crisis("one_berth")
+        while g.state.phase == "crisis":
+            s = await g.turn()
+            if not s.crisis:
+                break
+            for t, to, out, intr in calls:
+                if t == s.crisis.tick:
+                    g.apply_call(to, out.model_copy(deep=True), interrupted=intr)
+        return g
+    return asyncio.run(go())
+
+
+NEON_INTERRUPT_WAIT = [  # Neon's repro on #27 (13:38)
+    (1, "ostrava", _mk([{"to": "ostrava", "what": "berth", "when": "all_day"}]), False),
+    (3, "zarnia", _mk([{"to": "zarnia", "what": "berth", "when": "all_day"}]), False),
+    (7, "ostrava", _mk([{"to": "ostrava", "what": "berth", "when": "morning"}], [{"type": "wait", "by": "ostrava"}], 0.1), True),
+]
+
+
+def test_late_deal_and_late_interruption_flip_ostrava():
+    g = _played_calls(NEON_INTERRUPT_WAIT)
+    assert g.last_crisis["decisions"]["ostrava"].action == "wait"
+    assert g.replay(0) == []
+    for shift in (1, 2, 3, 4):  # the call lands after Ostrava's tick-8 deadline
+        flips = {c["nation"]: (c["was"], c["now"]) for c in g.replay(shift)}
+        assert flips.get("ostrava") == ("wait", "blockade"), (shift, flips)
+
+
+def test_shifted_interruption_lets_the_threat_go_public():
+    from engine.crisis import rerun_crisis
+    g = _played_calls(NEON_INTERRUPT_WAIT)
+    lc = g.last_crisis
+    late = [(t + 1 if t == 7 else t, to, out, intr) for t, to, out, intr in lc["calls"]]
+    final, _ = rerun_crisis(lc["start"], late, lc["own"], lc["advice"], 7)
+    assert any(e.type == "public_commitment" and e.nation == "ostrava" for e in final.events)
+    on_time, _ = rerun_crisis(lc["start"], lc["calls"], lc["own"], lc["advice"], 7)
+    assert not any(e.type == "public_commitment" for e in on_time.events)
