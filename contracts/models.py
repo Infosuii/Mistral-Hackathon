@@ -433,6 +433,15 @@ class WiretapResponse(Model):
     lines: list[WiretapLine]
 
 
+class PlayerActions(Model):
+    """GET /actions and POST /action (DECIDED 13:49, behind GAMBIT_PLAYER_ACTIONS): the
+    one-sided moves the player's own nation may make now, and the one queued for next turn.
+    Trade and alliances stay phone calls."""
+
+    actions: list[Action]
+    queued: Optional[Action] = None
+
+
 class LeaderDetail(Model):
     """GET /leaders/{id}. The only place private_intent is exposed."""
 

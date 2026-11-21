@@ -70,3 +70,44 @@ def test_nordhaven_may_send_tugs_against_advice():
         return await g._one_leader("nordhaven", adv)
     out, chosen = asyncio.run(run())
     assert [a.type for a in chosen] == ["send_tugs"]
+
+
+# --- escalations: no war against the cabinet -----------------------------------------
+
+
+def half_day(to: str, resolve: float = 0.0) -> CallOutput:
+    return CallOutput.model_validate({
+        "reply_text": "ok", "emotion": "calm", "actions": [], "ends_call": False,
+        "promises": [{"to": to, "what": "berth", "when": "morning", "condition": None}],
+        "belief_updates": {"trust_in_player": 0, "resolve_of_player": resolve}})
+
+
+async def play_to_the_end(interrupt: bool) -> Game:
+    """The player is caught double-promising; Ostrava rings at tick 7 to announce a blockade.
+    The leader always wants the blockade. Does interrupting him with a half-day offer matter?"""
+    g = await to_ostravas_deadline(always("blockade"), tugs=False)
+    assert g.pending_announce is not None and g.pending_announce.by == "ostrava"
+    if interrupt:
+        g.interrupt("ostrava")
+        g.apply_call("ostrava", half_day("ostrava"), interrupted=True)
+    while g.state.crisis is not None:
+        await g.turn()
+    return g
+
+
+def test_interrupting_with_an_offer_stops_the_blockade():
+    g = asyncio.run(play_to_the_end(interrupt=True))
+    assert g.last_crisis["decisions"]["ostrava"].action == "dock"
+    assert "overruled by the cabinet" in g.leaders["ostrava"].reason
+
+
+def test_without_the_interruption_he_blockades():
+    g = asyncio.run(play_to_the_end(interrupt=False))
+    assert g.last_crisis["decisions"]["ostrava"].action == "blockade"
+
+
+def test_replay_shows_what_waiting_would_have_cost():
+    g = asyncio.run(play_to_the_end(interrupt=True))
+    assert g.replay(0) == []  # same timing, same outcome
+    late = {c["nation"]: (c["was"], c["now"]) for c in g.replay(5)}  # the interruption arrives after his deadline
+    assert late.get("ostrava") == ("dock", "blockade")
