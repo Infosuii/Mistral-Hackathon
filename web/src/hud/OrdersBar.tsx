@@ -15,7 +15,7 @@ const Diplomacy = Object.values(modules)[0]?.Diplomacy
 function openCall() {
   const phone = document.getElementById('phone-controls')
   phone?.scrollIntoView({ block: 'nearest' })
-  phone?.querySelector<HTMLElement>(':scope > div:not([hidden]) .tb-talk:enabled, .preview-call')
+  phone?.querySelector<HTMLElement>(':scope > div:not([hidden]) .tb-talk:enabled, .tb-typed input:enabled, .preview-call')
     ?.focus({ preventScroll: true })
 }
 
@@ -46,7 +46,7 @@ export function OrdersBar({ state, selected }: { state: GameState; selected?: st
         <div className="orders-actions" role="group" aria-label={`Orders for ${nation.name}`}>
           <button className="order order-call" onClick={openCall} aria-controls="phone-controls">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 2.5l3 3-2 2.2c1 2.2 2.6 3.8 4.8 4.8l2.2-2 3 3-2 2.5C9.5 16 4 10.5 3 4.5z" /></svg>
-            Open phone
+            Talk to {nation.name}
           </button>
           {canIntel && <button className="order" onClick={() => openDossierTab('Intel')}>Intel</button>}
           {canIntel && <button className="order" onClick={() => openDossierTab('Wiretap')}>Wiretap</button>}

@@ -1,22 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, type FormEvent, useRef, useState } from 'react'
 import startRequest from '../../contracts/examples/start.request.json'
 import { api, post } from './api'
 import { App } from './App'
+import { Construction } from './Construction'
+import { History } from './History'
+import { Saves, type SaveSlot } from './Saves'
+import './session-navigation.css'
 import type { PhoneActivity } from './Phone'
-import { defaultCrisis, exampleState, type GameState } from './state'
+import { defaultCrisis, exampleState, type GameState, type MapEvent } from './state'
 import { latestReview, YearReview, type ReviewEvent } from './YearReview'
 
 const pollInterval = 1_000
 // A strategy month every 4 s: the three-year term (36 months) fits a five-minute demo.
 const turnInterval = 4_000
 const crisisInterval = 7_500
+// Speed stops: fine control at the slow end, then big jumps up to 20x.
+const speeds = [0.25, 0.5, 1, 1.5, 2, 3, 5, 8, 12, 16, 20]
 const idlePhone: PhoneActivity = { busy: false, waitingForState: false }
 
 function holdClock(state: GameState, phone: PhoneActivity) {
-  return Boolean(state.crisis && (phone.busy || phone.waitingForState || state.last_call?.pending))
+  return phone.busy || phone.waitingForState || Boolean(state.last_call?.pending)
 }
 
 const gameRequests = {
+  load: { path: '/saves', body: undefined, error: 'Could not load the save.' },
   start: { path: '/start', body: startRequest, error: 'Could not start the game.' },
   turn: { path: '/turn', body: undefined, error: 'Could not advance. Try again.' },
   end: { path: '/end', body: undefined, error: 'Could not end the session.' },
@@ -33,7 +40,15 @@ export function GameSession() {
   const [newCrisis, setNewCrisis] = useState(defaultCrisis.id)
   const [newSeat, setNewSeat] = useState<'president' | 'mediator'>('president')
   const [session, setSession] = useState(0)
+  const [historyFocus, setHistoryFocus] = useState<MapEvent | null>(null)
   const [paused, setPaused] = useState(true)
+  const [speed, setSpeed] = useState(0.5)
+  const [seedDraft, setSeedDraft] = useState(String(startRequest.seed))
+  const newWorld = useRef<HTMLDialogElement>(null)
+  const [changingSeed, setChangingSeed] = useState(false)
+  const [savingSeed, setSavingSeed] = useState(false)
+  const seedSaveInProgress = useRef(false)
+  const [seedError, setSeedError] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [review, setReview] = useState<ReviewEvent | null>(null)
@@ -85,7 +100,7 @@ export function GameSession() {
     }
   }, [acceptState])
 
-  const send = useCallback(async (action: keyof typeof gameRequests, body?: unknown) => {
+  const send = useCallback(async (action: keyof typeof gameRequests, body?: unknown, slot?: string) => {
     if (actionPending.current || (action === 'turn' && holdClock(latestState.current, phone.current))) return
     actionPending.current = true
     stateRequest.current?.abort()
@@ -93,11 +108,14 @@ export function GameSession() {
     setError('')
     const request = gameRequests[action]
     try {
-      const next = await post<GameState>(request.path, body ?? request.body)
+      const next = await post<GameState>(action === 'load' ? `/saves/${slot}/load` : request.path, body ?? request.body)
       acceptState(next)
       setConnection('online')
-      if (action === 'start') setSession((current) => current + 1)
-      if (action === 'end') setPaused(true)
+      if (action === 'start' || action === 'load') {
+        setSession((current) => current + 1)
+        setHistoryFocus(null)
+      }
+      if (action === 'start' || action === 'load' || action === 'end') setPaused(true)
       else if (action !== 'turn') setPaused(false)
     } catch {
       setError(request.error)
@@ -125,11 +143,11 @@ export function GameSession() {
   }, [state, session])
   const closeReview = useCallback(() => setReview(null), [])
   useEffect(() => {
-    if (canAdvance && !paused && !pending && !clockHeld && !review) {
-      const timer = window.setTimeout(() => void send('turn'), crisisTick === undefined ? turnInterval : crisisInterval)
+    if (canAdvance && !paused && !pending && !clockHeld && !changingSeed && !review) {
+      const timer = window.setTimeout(() => void send('turn'), (crisisTick === undefined ? turnInterval : crisisInterval) / speed)
       return () => window.clearTimeout(timer)
     }
-  }, [canAdvance, paused, pending, clockHeld, send, state.turn, crisisTick, review])
+  }, [canAdvance, paused, pending, clockHeld, send, state.turn, crisisTick, speed, changingSeed, review])
 
   const canMediate = online && state.available_roles?.includes('mediator')
   const startBody = canMediate && newSeat === 'mediator'
@@ -137,6 +155,35 @@ export function GameSession() {
     : startRequest
   const crisisOptions = state.available_crises?.length ? state.available_crises : [defaultCrisis]
   const selectedCrisis = crisisOptions.find((scenario) => scenario.id === newCrisis) ?? crisisOptions[0]
+  function openNewWorld() {
+    setSeedDraft(String(crypto.getRandomValues(new Uint32Array(1))[0]))
+    setSeedError('')
+    setChangingSeed(true)
+    newWorld.current?.showModal()
+  }
+
+  async function replaceWorld(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!/^\d+$/.test(seedDraft) || Number(seedDraft) > 4294967295 || pending || clockHeld || seedSaveInProgress.current) return
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null
+    if (submitter?.value === 'save') {
+      seedSaveInProgress.current = true
+      setSavingSeed(true)
+      setSeedError('')
+      try {
+        await post<SaveSlot>('/saves', { name: `Seed ${state.seed} · Month ${state.turn}` })
+      } catch {
+        setSeedError('Save failed. The current world is still open.')
+        return
+      } finally {
+        seedSaveInProgress.current = false
+        setSavingSeed(false)
+      }
+    }
+    newWorld.current?.close()
+    void send('start', { ...startBody, seed: Number(seedDraft) })
+  }
+
   const controls = (
     <div className="session-controls" aria-label="Session controls">
       {canMediate && (
@@ -146,10 +193,41 @@ export function GameSession() {
           <option value="mediator">Independent mediator</option>
         </select>
       )}
-      <button onClick={() => void send('start', startBody)} disabled={pending}>{state.phase !== 'ended' && (state.turn === 0 || !online) ? 'Start game' : 'New game'}</button>
+      <button onClick={openNewWorld} disabled={!online || pending || clockHeld}>New Seed</button>
+      <dialog className="session-dialog" ref={newWorld} aria-labelledby="new-world-title" onClose={() => setChangingSeed(false)}
+        onCancel={(event) => { if (seedSaveInProgress.current) event.preventDefault() }}>
+        <form onSubmit={replaceWorld}>
+          <h2 id="new-world-title">Start a new world?</h2>
+          <p>This replaces the current session for seed {state.seed}.</p>
+          <label>World seed
+            <input required type="number" min={0} max={4294967295} step={1}
+              value={seedDraft} onChange={(event) => setSeedDraft(event.target.value)} />
+          </label>
+          {seedError && <p role="alert">{seedError}</p>}
+          <div className="dialog-actions">
+            <button type="button" disabled={savingSeed} autoFocus onClick={() => newWorld.current?.close()}>Cancel</button>
+            <button type="submit" disabled={savingSeed}>Start new world</button>
+            <button type="submit" value="save" disabled={savingSeed}>{savingSeed ? 'Saving…' : 'Save and start'}</button>
+          </div>
+        </form>
+      </dialog>
+      <Saves state={state} disabled={!online || pending || clockHeld} onOpen={() => setPaused(true)}
+        onLoad={(slot) => void send('load', undefined, slot.id)} />
+      <Construction state={state} online={online} onQueued={(snapshot) => {
+        stateRequest.current?.abort()
+        acceptState(snapshot)
+      }} />
+      <History state={state} online={online} onLocate={(event) => setHistoryFocus({ ...event })} />
       {state.phase !== 'ended' && (
         <>
           <button onClick={() => setPaused((wasPaused) => !wasPaused)} disabled={!canAdvance || pending}>{paused ? 'Resume' : 'Pause'}</button>
+          <label className="speed-control" data-fast={speed >= 5}>
+            <span>Speed <output>{speed}×</output></span>
+            <input type="range" aria-label="Game speed" min={0} max={speeds.length - 1} step={1}
+              aria-valuetext={`${speed} times`} list="speed-stops"
+              value={speeds.indexOf(speed)} onChange={(event) => setSpeed(speeds[Number(event.target.value)])} />
+            <datalist id="speed-stops">{speeds.map((value, i) => <option key={value} value={i} />)}</datalist>
+          </label>
           <button onClick={() => void send('turn')} disabled={!canAdvance || pending || clockHeld}>{state.crisis ? 'Next tick' : 'Next turn'}</button>
           {online && state.phase === 'strategy' && (
             <>
@@ -175,7 +253,7 @@ export function GameSession() {
 
   return (
     <>
-      <App key={session} state={state} controls={controls} online={online} clockHeld={clockHeld} onPhoneActivity={updatePhone} />
+      <App key={session} state={state} historyFocus={historyFocus} controls={controls} online={online} clockHeld={clockHeld} onPhoneActivity={updatePhone} />
       {review && <YearReview review={review} state={state} onClose={closeReview} />}
     </>
   )

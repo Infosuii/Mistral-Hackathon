@@ -75,10 +75,11 @@
 
 /* --- unit counters (military map symbols) --- */
 .unit { pointer-events: none; }
-.unit-body { fill: var(--nation-fill); stroke: color-mix(in srgb, var(--nation-accent), #fff 30%); stroke-width: 1.2; }
-.unit-symbol { fill: #f1eee3; fill-opacity: .1; stroke: #f1eee3; stroke-width: 1.1; }
-.unit-symbol-x { stroke: #f1eee3; stroke-width: 1.1; }
-.unit-pip { fill: var(--nation-accent); opacity: .85; }
+.unit-body { fill: var(--nation-fill); stroke: color-mix(in srgb, var(--nation-accent), #fff 30%); stroke-width: 1.4; stroke-linejoin: round; }
+.unit-inset { fill: none; stroke: var(--nation-accent); stroke-width: .7; opacity: .55; stroke-linejoin: round; }
+.unit-tank path { fill: #f1eee3; }
+.unit-tank .unit-wheel { fill: var(--nation-fill); }
+.unit-rank { fill: none; stroke: color-mix(in srgb, var(--nation-accent), #fff 25%); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .unit-plate { fill: #071012; stroke: var(--nation-accent); stroke-width: 1; }
 .unit-strength { fill: #fff; font: 700 9.5px var(--display-font); text-anchor: middle; letter-spacing: .04em; }
 

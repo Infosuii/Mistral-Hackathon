@@ -11,7 +11,7 @@
 const STYLE_ID = 'gambit-talk-button-style'
 const MIN_RECORD_MS = 350
 const LABELS = {
-  idle: 'Hold to talk',
+  idle: 'Hold to talk · microphone',
   recording: 'Listening… release to send',
   thinking: 'Sending…',
   speaking: 'Hold to interrupt',
@@ -79,6 +79,7 @@ export function mountTalkButton(el, opts = {}) {
   let contactVersion = 0
   let pressInterrupted = false
   let pressHesitation = null
+  let localSpeech = null
 
   const root = document.createElement('div')
   root.className = 'tb'
@@ -107,6 +108,13 @@ export function mountTalkButton(el, opts = {}) {
 
   // ------------------------------------------------------------------ leader audio
   function stopAudio(interrupted) {
+    if (localSpeech) {
+      const speech = localSpeech
+      localSpeech = null
+      speech.finish(interrupted)
+      window.speechSynthesis.cancel()
+      return true
+    }
     if (!audio) return false
     const a = audio
     audio = null
@@ -124,9 +132,46 @@ export function mountTalkButton(el, opts = {}) {
     return url.startsWith('/') && !url.startsWith(apiBase + '/') ? apiBase + url : url
   }
 
-  function playLine(url, speaker = to) {
+  function playLocal(text, speaker) {
+    const synth = window.speechSynthesis
+    if (!text || !synth || !window.SpeechSynthesisUtterance || !synth.getVoices().some((voice) => voice.localService)) {
+      say('Voice audio unavailable. The reply is in the transcript.')
+      return Promise.resolve()
+    }
+    const line = new SpeechSynthesisUtterance(text)
+    line.voice = synth.getVoices().find((voice) => voice.localService && voice.lang.startsWith('en'))
+      || synth.getVoices().find((voice) => voice.localService)
+    const url = ''
+    setState('speaking')
+    say('Using your device voice')
+    return new Promise((resolve) => {
+      const finish = (interrupted) => {
+        window.clearTimeout(timer)
+        line.onstart = line.onend = line.onerror = null
+        localSpeech = null
+        lastAudioEnd = interrupted ? null : performance.now()
+        emit('audio-end', { url, speaker, interrupted })
+        setState('idle')
+        resolve()
+      }
+      const timer = window.setTimeout(() => {
+        finish(false)
+        synth.cancel()
+      }, 9000)
+      localSpeech = { finish }
+      line.onstart = () => emit('audio-start', { url, speaker })
+      line.onend = () => finish(false)
+      line.onerror = () => {
+        say('Voice audio unavailable. The reply is in the transcript.')
+        finish(false)
+      }
+      synth.speak(line)
+    })
+  }
+
+  function playLine(url, speaker = to, fallbackText) {
     stopAudio(true)
-    if (!url) return Promise.resolve()
+    if (!url) return fallbackText ? playLocal(fallbackText, speaker) : Promise.resolve()
     const a = new Audio(resolveUrl(url))
     a.dataset.url = url
     a.dataset.speaker = speaker || ''
@@ -144,13 +189,18 @@ export function mountTalkButton(el, opts = {}) {
         resolve()
       }
       a.onerror = () => {
-        if (audio === a) { audio = null; setState('idle') }
+        if (audio !== a) return resolve()
+        audio = null
+        setState('idle')
+        if (fallbackText) return playLocal(fallbackText, speaker).then(resolve)
         emit('error', { message: `could not play ${url}` })
         resolve()
       }
       a.play().catch((e) => {
-        // Autoplay blocked before the first click: show it, the next press will work.
-        if (audio === a) { audio = null; setState('idle') }
+        if (audio !== a) return resolve()
+        audio = null
+        setState('idle')
+        if (e.name !== 'NotAllowedError' && fallbackText) return playLocal(fallbackText, speaker).then(resolve)
         say('Click once to enable sound')
         emit('error', { message: String(e) })
         resolve()
@@ -175,11 +225,19 @@ export function mountTalkButton(el, opts = {}) {
       })
       const j = await r.json().catch(() => ({}))
       if (request !== controller) return
-      if (!r.ok) throw new Error(j.detail ? JSON.stringify(j.detail) : `HTTP ${r.status}`)
+      if (!r.ok) {
+        if (r.status === 429) {
+          setState('idle')
+          say(typeof j.detail === 'string' ? j.detail : 'Voice service is busy. Type your message below.')
+          form?.querySelector('input')?.focus()
+          return
+        }
+        throw new Error(j.detail ? JSON.stringify(j.detail) : `HTTP ${r.status}`)
+      }
       emit('transcript', { text: j.transcript, to })
       emit('reply', { ...j, to })
       if (state === 'thinking') setState('idle')
-      if (j.reply_audio_url) playLine(j.reply_audio_url, to)
+      playLine(j.reply_audio_url, to, j.reply_text)
     } catch (e) {
       if (request !== controller) return
       setState('idle')

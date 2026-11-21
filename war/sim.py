@@ -27,9 +27,14 @@ from typing import Any, Callable, Optional
 from contracts.models import NewsItem, State, relation_key
 
 ROOT = Path(__file__).resolve().parent.parent
-MAP = json.loads((ROOT / "web" / "src" / "map.json").read_text())
-NEIGHBOURS: dict[str, list[str]] = json.loads((ROOT / "data" / "nations.json").read_text())["neighbours"]
+# The atlas (Om's 5x world) when present, else the original map. Same province ids.
+_ATLAS = ROOT / "web" / "src" / "atlas.json"
+MAP = json.loads((_ATLAS if _ATLAS.exists() else ROOT / "web" / "src" / "map.json").read_text())
+_ADJ = ROOT / "data" / "atlas_adjacency.json"
+NEIGHBOURS: dict[str, list[str]] = (json.loads(_ADJ.read_text()) if _ADJ.exists()
+                                    else json.loads((ROOT / "data" / "nations.json").read_text())["neighbours"])
 CENTERS: dict[str, tuple[float, float]] = {p["id"]: tuple(p["center"]) for p in MAP["provinces"]}
+MAP_SCALE = MAP["width"] / 1000  # distances in the atlas are about 8x the old map
 
 TROOPS_PER_ARMY = 100       # army stat 85 -> 8,500 troops
 HOP_SECONDS = 3.0           # base time to march between neighbouring provinces
@@ -60,7 +65,7 @@ CAPITALS = {n: _capital_province(n) for n in MAP["capitals"]}
 
 
 def hop_seconds(a: str, b: str) -> float:
-    return round(HOP_SECONDS + math.dist(CENTERS[a], CENTERS[b]) * HOP_PER_PX, 2)
+    return round(HOP_SECONDS + math.dist(CENTERS[a], CENTERS[b]) / MAP_SCALE * HOP_PER_PX, 2)
 
 
 @dataclass
@@ -110,6 +115,7 @@ class WarRoom:
         self.next_declare = clock() + AI_DECLARE_SECONDS
         self.seq = 0
         self.army_seen: dict[str, float] = {}
+        self.owner_seen: dict[str, str] = dict(state.provinces)
         self._deploy(state)
 
     # --- setup and sync ------------------------------------------------------
@@ -133,20 +139,34 @@ class WarRoom:
         held = sum(t for p, t in self.garrison.items() if state.provinces.get(p) == nation)
         return held + sum(a.troops for a in self.armies if a.owner == nation)
 
-    def _sync(self, state: State) -> None:
-        """Follow changes the engine made on its own (monthly war rolls, army drift, and wars
-        the engine started or ended in a normal month), so /war and /state always agree."""
-        linked = {relation_key(l.a, l.b): l for l in state.links if l.type == "war"}
-        for key in [k for k in self.wars if k not in linked]:  # the engine made peace
+    def _sync_wars(self, state: State) -> None:
+        """Keep /war and /state in step (Coordinator 16:38): the engine's monthly turn may end
+        a war (an adviser's make_peace, a nation sues for peace) or start one (a leader's
+        declare_war, a loaded save). State's war links are the truth."""
+        linked = {relation_key(l.a, l.b): (l.a, l.b) for l in state.links if l.type == "war"}
+        for key in [k for k in self.wars if k not in linked]:
             war = self.wars.pop(key)
-            self._send_home(state, war)
+            for army in [x for x in self.armies if {x.owner, x.target} == {war.a, war.b}]:
+                if state.provinces.get(army.src) == army.owner:
+                    self.garrison[army.src] = self.garrison.get(army.src, 0) + army.troops
+                self.armies.remove(army)
             self.log.append({"t": round(self.clock(), 2), "turn": state.turn, "kind": "peace",
                              "text": f"{self._name(state, war.a)} and {self._name(state, war.b)} are at peace"})
-        for key, l in linked.items():  # the engine (an AI leader, a crisis outcome) started one
+        for key, (a, b) in linked.items():
             if key not in self.wars:
-                self.wars[key] = War(a=l.a, b=l.b, started_turn=state.turn, started_at=self.clock())
-                for n in (l.a, l.b):
-                    self.next_ai.setdefault(n, self.clock() + 2.0)
+                self.wars[key] = War(a=a, b=b, started_turn=state.turn, started_at=self.clock())
+                self.next_ai.setdefault(a, self.clock() + 2.0)
+                self.next_ai.setdefault(b, self.clock() + 2.0)
+        # Provinces that changed hands outside the war room (monthly war roll, a loaded save)
+        # get a small occupying garrison instead of the old owner's troops.
+        for p, owner in state.provinces.items():
+            if self.owner_seen.get(p, owner) != owner:
+                self.garrison[p] = round(self.garrison.get(p, 0) * 0.25)
+            self.owner_seen[p] = owner
+
+    def _sync(self, state: State) -> None:
+        """Follow changes the engine made on its own (monthly war rolls, army drift)."""
+        self._sync_wars(state)
         for nation, n in state.nations.items():
             seen = self.army_seen.get(nation)
             if seen and abs(n.stats.army - seen) > 0.5:
@@ -343,19 +363,16 @@ class WarRoom:
                              "demand": f"; {name} pays tribute"}[kind])
         return {"accepted": ok, "reply": reply}
 
-    def _send_home(self, state: State, war: War) -> None:
-        """Armies marching against each other go home to their source province."""
-        for army in [x for x in self.armies if {x.owner, x.target} == {war.a, war.b}]:
-            if state.provinces.get(army.src) == army.owner:
-                self.garrison[army.src] = self.garrison.get(army.src, 0) + army.troops
-            self.armies.remove(army)
-
     def _end_war(self, state: State, key: str, text: str, kind: str = "peace") -> None:
         war = self.wars.pop(key, None)
         if not war:
             return
         state.links[:] = [l for l in state.links if not (l.type == "war" and {l.a, l.b} == {war.a, war.b})]
-        self._send_home(state, war)
+        # Armies marching against each other go home to their source province.
+        for army in [x for x in self.armies if {x.owner, x.target} == {war.a, war.b}]:
+            if state.provinces.get(army.src) == army.owner:
+                self.garrison[army.src] = self.garrison.get(army.src, 0) + army.troops
+            self.armies.remove(army)
         state.relations[key] = min(100, state.relations.get(key, 0) + 15)
         for n in (war.a, war.b):
             if not self.enemies(n) and "WAR" in state.nations[n].status:
@@ -448,6 +465,7 @@ class WarRoom:
 
     def _transfer(self, state: State, p: str, to: str, frm: str) -> None:
         state.provinces[p] = to
+        self.owner_seen[p] = to
         for n in (to, frm):
             state.nations[n].stats.territory = sum(1 for o in state.provinces.values() if o == n)
 

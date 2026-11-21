@@ -1,7 +1,10 @@
 // Grand-strategy map layers drawn from the live state: national borders, territory
 // labels, unit counters, and each leader's medallion with mood ring and speech bubble.
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import map from '../map.json'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import map from '../atlas.json'
+import { useMarkerScale, world } from './scale'
+import oneBerth from '../../../data/crises/one_berth.json'
+import { grainShips, kessarPoint, kessarPort, ShipSilhouette, straitPatrol, tugBerth } from './DecisionMotion'
 import { relationBetween, type GameState } from '../state'
 import { nationStyle } from '../theme'
 
@@ -19,20 +22,70 @@ export function NationalBorders({ state }: { state: GameState }) {
   return (
     <g className="national-borders map-decoration">
       {edges.map(({ between, path }) => <path key={between.join('|')} className="nb-under" d={path} />)}
-      {edges.map(({ between, path }) => <path key={`o${between.join('|')}`} className="nb-over" d={path} />)}
+      {edges.map(({ between, path }) => <path key={`o${between.join('|')}`} className="nb-over" data-home={between.some((id) => state.provinces[id] === state.seat.nation)} d={path} />)}
     </g>
   )
 }
 
 /** Large spaced nation names across each nation's territory; they follow conquests. */
-export function TerritoryLabels({ state, selected }: { state: GameState; selected?: string }) {
+/** Screen-space boxes of everything a country name must not sit on: other labels, site
+ *  tags, army counters, leader medallions, capital stars and the minimap. */
+function blockers(own: Element): DOMRect[] {
+  const svg = own.closest('svg')
+  const inMap = svg ? [...svg.querySelectorAll('text, .site-label rect, .unit, .leader, .capital-star, .city-marker')] : []
+  const overlays = [...document.querySelectorAll('.minimap, .orders-bar, .map-hud-top, .map-footer')]
+  return [...inMap, ...overlays].filter((el) => !own.contains(el)).map((el) => el.getBoundingClientRect())
+    .filter((r) => r.width > 0 && r.height > 0)
+}
+
+const overlapArea = (a: DOMRect, b: DOMRect) =>
+  Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+
+export function TerritoryLabels({ state, selected, zoom }: { state: GameState; selected?: string; zoom: number }) {
+  const m = useMarkerScale()
+  const ref = useRef<SVGGElement>(null)
+  const layout = Object.entries(state.provinces).sort().join()
+  // Country names move to the nearest clear spot instead of printing over towns, ports,
+  // the strait or the minimap. Measured on screen after render, again on zoom or conquest.
+  useLayoutEffect(() => {
+    const group = ref.current
+    if (!group) return
+    const run = () => {
+      const boxes = blockers(group)
+      for (const text of group.querySelectorAll<SVGTextElement>('text')) {
+        const x0 = Number(text.dataset.x), y0 = Number(text.dataset.y), size = Number(text.dataset.size)
+        let best: [number, number, number] = [x0, y0, 1]
+        let least = Infinity
+        // Full size first; a crowded small country (Kessaria) may shrink a little to fit.
+        search: for (const shrink of [1, .82, .68]) {
+          text.style.fontSize = `${size * shrink}px`
+          for (const [dx, dy] of [[0, 0], [0, -1.2], [0, 1.2], [0, -2.4], [0, 2.4], [-3, 0], [3, 0], [-3, -1.2], [3, 1.2], [0, -3.6], [0, 3.6]]) {
+            const [x, y] = [x0 + dx * size, y0 + dy * size]
+            text.setAttribute('x', String(x))
+            text.setAttribute('y', String(y))
+            const r = text.getBoundingClientRect()
+            const overlap = boxes.reduce((sum, b) => sum + overlapArea(r, b), 0)
+            const cost = overlap + Math.hypot(dx, dy) * 40 + (1 - shrink) * 4000
+            if (cost < least) { least = cost; best = [x, y, shrink] }
+            if (overlap === 0) break search
+          }
+        }
+        text.setAttribute('x', String(best[0]))
+        text.setAttribute('y', String(best[1]))
+        text.style.fontSize = `${size * best[2]}px`
+      }
+    }
+    run()
+    const late = window.setTimeout(run, 400) // after city markers and counters settle
+    return () => window.clearTimeout(late)
+  }, [layout, zoom, m])
   const owned = new Map<string, number[][]>()
   for (const [pid, owner] of Object.entries(state.provinces)) {
     const c = centers.get(pid)
     if (c) owned.set(owner, [...(owned.get(owner) ?? []), c])
   }
   return (
-    <g className="territory-labels map-decoration">
+    <g ref={ref} className="territory-labels map-decoration">
       {[...owned].map(([id, pts]) => {
         const nation = state.nations[id]
         if (!nation) return null
@@ -40,10 +93,11 @@ export function TerritoryLabels({ state, selected }: { state: GameState; selecte
         let y = pts.reduce((s, p) => s + p[1], 0) / pts.length
         const cap = capitals[id]
         // The capital carries the leader, units and star: put the name clear of them.
-        if (cap && Math.abs(cap[1] - y) < 55 && Math.abs(cap[0] - x) < 150) y = cap[1] + (y >= cap[1] ? 62 : -62)
-        const size = Math.max(22, Math.min(44, 12 + Math.sqrt(pts.length) * 9))
+        if (cap && Math.abs(cap[1] - y) < 55 * m && Math.abs(cap[0] - x) < 150 * m) y = cap[1] + (y >= cap[1] ? 62 : -62) * m
+        const size = Math.max(22, Math.min(44, 12 + Math.sqrt(pts.length) * 9)) * m
         return (
-          <text key={id} x={x} y={y + 6} style={{ ...nationStyle(id), fontSize: size } as CSSProperties}
+          <text key={id} x={x} y={y + 6} data-x={x} data-y={y + 6} data-size={size}
+            style={{ ...nationStyle(id), fontSize: size } as CSSProperties}
             data-selected={id === selected}>{nation.name}</text>
         )
       })}
@@ -51,21 +105,32 @@ export function TerritoryLabels({ state, selected }: { state: GameState; selecte
   )
 }
 
-function Counter({ x, y, army, id }: { x: number; y: number; army: number; id: string }) {
-  const stack = Math.max(1, Math.min(4, Math.ceil(army / 25)))
+/** An army badge: a shield in the nation's colours with a tank, one chevron per 25 army
+ *  (up to four) and the army strength underneath. Front-line badges are smaller. */
+function Counter({ x, y, army, id, name, front = false }: {
+  x: number; y: number; army: number; id: string; name: string; front?: boolean
+}) {
+  const rank = Math.max(1, Math.min(4, Math.ceil(army / 25)))
+  const m = useMarkerScale() * (front ? .8 : 1)
+  const strength = Math.round(army)
   return (
-    <g className="unit" transform={`translate(${x} ${y})`} style={nationStyle(id)} filter="url(#unit-shadow)">
-      {Array.from({ length: stack }, (_, i) => stack - 1 - i).map((i) => (
-        <g key={i} transform={`translate(${i * 3} ${-i * 3})`}>
-          <rect x="-15" y="-10" width="30" height="20" rx="2" className="unit-body" />
-          <rect x="-11" y="-7" width="14" height="10" className="unit-symbol" />
-          <path d="M-11,-7 L3,3 M3,-7 L-11,3" className="unit-symbol-x" />
-          <rect x="5" y="-7" width="7" height="10" className="unit-pip" />
-        </g>
+    <g className="unit" data-front={front} transform={`translate(${x} ${y}) scale(${m})`} style={nationStyle(id)} filter="url(#unit-shadow)">
+      <title>{front ? `${name} troops on the front line · ${strength}` : `${name} army · strength ${strength}`}</title>
+      {Array.from({ length: rank }, (_, i) => (
+        <path key={i} className="unit-rank" d={`M-6 ${-20 - i * 3.6}L0 ${-23.5 - i * 3.6}L6 ${-20 - i * 3.6}`} />
       ))}
-      <g transform="translate(0 16)">
-        <rect x="-13" y="-6" width="26" height="12" rx="6" className="unit-plate" />
-        <text y="3.5" className="unit-strength">{Math.round(army)}</text>
+      <path className="unit-body" d="M0-17L14-12V-1C14 9 7 15 0 18C-7 15-14 9-14-1V-12Z" />
+      <path className="unit-inset" d="M0-13.5L10.5-9.6V-1C10.5 6.6 5.3 11.2 0 13.6C-5.3 11.2-10.5 6.6-10.5-1V-9.6Z" />
+      <g className="unit-tank" transform="translate(0 1)">
+        <path d="M-4-4.5h7l1.2 4.5h-9.4Z" />
+        <path d="M3.4-3.3h7.6v1.5H3.4Z" />
+        <path d="M-8.5-.2h15.5l2 3.4h-19.5Z" />
+        <path d="M-9.4 3.4h18.6a2.3 2.3 0 0 1 0 4.6H-9.4a2.3 2.3 0 0 1 0-4.6Z" />
+        {[-6.6, -3.3, 0, 3.3, 6.6].map((cx) => <circle key={cx} className="unit-wheel" cx={cx} cy="5.7" r="1.2" />)}
+      </g>
+      <g transform="translate(0 25)">
+        <rect x="-14" y="-6.5" width="28" height="13" rx="6.5" className="unit-plate" />
+        <text y="3.6" className="unit-strength">{strength}</text>
       </g>
     </g>
   )
@@ -73,6 +138,7 @@ function Counter({ x, y, army, id }: { x: number; y: number; army: number; id: s
 
 /** Unit counters: a stack at each capital sized by army, plus counters on war fronts. */
 export function UnitCounters({ state }: { state: GameState }) {
+  const m = useMarkerScale()
   const wars = state.links.filter((l) => l.type === 'war')
   const front: { id: string; at: number[] }[] = []
   for (const { a, b } of wars) {
@@ -90,7 +156,7 @@ export function UnitCounters({ state }: { state: GameState }) {
     <g className="unit-layer">
       {Object.entries(state.nations).map(([id, n]) => {
         const c = capitals[id]
-        return c ? <Counter key={id} id={id} x={c[0] + 34} y={c[1] + 18} army={n.stats.army} /> : null
+        return c ? <Counter key={id} id={id} name={n.name} x={c[0] + 34 * m} y={c[1] + 18 * m} army={n.stats.army} /> : null
       })}
       {front.filter(({ id, at }) => {
         const k = `${id}${at}`
@@ -98,7 +164,8 @@ export function UnitCounters({ state }: { state: GameState }) {
         seen.add(k)
         return true
       }).slice(0, 8).map(({ id, at }) => (
-        <Counter key={`f${id}${at}`} id={id} x={at[0]} y={at[1]} army={state.nations[id]?.stats.army / 3} />
+        <Counter key={`f${id}${at}`} id={id} name={state.nations[id]?.name ?? id} x={at[0]} y={at[1]}
+          army={state.nations[id]?.stats.army / 3} front />
       ))}
     </g>
   )
@@ -148,20 +215,21 @@ export function LeaderMedallions({ state, selected, onSelect }: {
   }, [state.seat.nation])
 
   const caller = state.incoming_call?.from
+  const m = useMarkerScale()
   return (
     <g className="leader-layer">
       {Object.entries(state.nations).map(([id, n]) => {
         const c = capitals[id]
         if (!c || id === state.seat.nation) return null
         const { tone, label } = mood(state, id)
-        const x = c[0] - 40
-        const y = c[1] - 30
+        const x = c[0] - 40 * m
+        const y = c[1] - 30 * m
         const portrait = portraitOf(id)
         const decision = state.crisis?.decisions[id]?.action
         const bubble = speaker === id ? n.public_statement : ''
         return (
           <g key={id} className="leader" data-mood={tone} data-calling={caller === id} data-selected={id === selected}
-            transform={`translate(${x} ${y})`} style={nationStyle(id)} onClick={() => onSelect(id)}>
+            transform={`translate(${x} ${y}) scale(${m})`} style={nationStyle(id)} onClick={() => onSelect(id)}>
             <title>{n.leader} · {label}</title>
             <circle r="21" className="leader-pulse" />
             <circle r="18" className="leader-ring" />
@@ -184,49 +252,67 @@ export function LeaderMedallions({ state, selected, onSelect }: {
 }
 
 export function CapitalMarkers({ state }: { state: GameState }) {
+  const m = useMarkerScale()
   return (
     <g className="map-decoration">
       {Object.entries(capitals).map(([id, [x, y]]) => state.nations[id] && (
-        <g key={id} className="capital-star" transform={`translate(${x} ${y})`} style={nationStyle(id)}>
-          <circle r="7.5" />
-          <path d="M0,-5 L1.5,-1.6 L5,-1.5 L2.3,0.8 L3.1,4.4 L0,2.5 L-3.1,4.4 L-2.3,0.8 L-5,-1.5 L-1.5,-1.6 Z" />
+        <g key={id} className="capital-settlement" data-home={id === state.seat.nation} transform={`translate(${x} ${y}) scale(${m})`} style={nationStyle(id)}>
+          <title>{state.nations[id].name} capital</title>
+          {id === state.seat.nation && <text className="home-map-label" y="-28">YOUR NATION</text>}
         </g>
       ))}
     </g>
   )
 }
 
-function Ship({ x, y, id, label }: { x: number; y: number; id: string; label: string }) {
+function Ship({ at: [x, y], from, id, label, kind }: { at: number[]; from?: number[]; id: string; label: string; kind?: 'grain' | 'tug' | 'patrol' }) {
+  const m = useMarkerScale()
+  const dx = from ? from[0] - x : 0
+  const dy = from ? from[1] - y : 0
   return (
-    <g className="ship" transform={`translate(${x} ${y}) scale(1.45)`} style={nationStyle(id)}>
+    <g className="ship" style={nationStyle(id)}>
       <title>{label}</title>
-      <g className="ship-bob">
-        <path className="ship-wake" d="M14,2 q10,3 22,0" />
-        <path className="ship-hull" d="M-13,0 L13,0 L9,6 L-10,6 Z" />
-        <rect className="ship-deck" x="-7" y="-6" width="10" height="6" />
-        <path className="ship-mast" d="M5,-10 L5,0" />
+      <g className="crisis-ship" style={{ transform: `translate(${x}px, ${y}px)` }}>
+        <g className="crisis-ship" data-arriving={Boolean(from)} style={{
+          '--cue-x': `${dx}px`, '--cue-y': `${dy}px`,
+          '--cue-mid-x': `${dx / 2}px`, '--cue-mid-y': `${dy / 2}px`,
+        } as CSSProperties}>
+          <g transform={`scale(${1.45 * Math.max(1, m)})`}><g className="ship-bob"><ShipSilhouette kind={kind} /></g></g>
+        </g>
       </g>
     </g>
   )
 }
 
-/** The crisis on the map: a pulsing focus at Port Kessar, and the ships waiting to dock. */
+/** One Berth has a physical map location. Other crises use their own decision indicators. */
 export function CrisisFocus({ state }: { state: GameState }) {
   const c = state.crisis
-  if (!c) return null
-  const port = [612, 548]
-  const docked = (id: string) => c.decisions[id]?.action === 'dock'
+  if (c?.id !== 'one_berth') return null
+  const tugRule = oneBerth.rules.second_berth_requires
+  const tugs = c.decisions[tugRule.nation]
+  const secondBerth = tugs?.action === tugRule.action && tugs.tick <= tugRule.by_tick
+  const blockade = c.decisions.ostrava?.action === 'blockade'
+  const closed = c.decisions.kessaria?.action === 'close_port'
+  const [x, y] = kessarPort
+  const m = useMarkerScale()
   return (
     <g className="crisis-focus map-decoration">
-      <circle cx={port[0]} cy={port[1]} r="14" className="focus-pulse" />
-      <circle cx={port[0]} cy={port[1]} r="7" className="focus-core" />
-      <g transform={`translate(${port[0]} ${port[1] - 20})`}>
-        <rect x="-62" y="-10" width="124" height="16" rx="3" className="focus-tag" />
-        <text y="2" className="focus-tag-text">Port Kessar · 1 berth</text>
+      <circle cx={x} cy={y} r={14 * m} className="focus-pulse" />
+      <circle cx={x} cy={y} r={7 * m} className="focus-core" />
+      <g transform={`translate(${x} ${y - 20 * m}) scale(${m})`}>
+        <rect x="-74" y="-10" width="148" height="16" rx="3" className="focus-tag" />
+        <text y="2" className="focus-tag-text">Port Kessar · {closed ? 'Closed' : secondBerth ? '2 berths' : '1 berth'}</text>
       </g>
-      {state.nations.ostrava && <Ship id="ostrava" x={docked('ostrava') ? 618 : 668} y={docked('ostrava') ? 572 : 600} label="Ostravan grain ship" />}
-      {state.nations.zarnia && <Ship id="zarnia" x={docked('zarnia') ? 600 : 560} y={docked('zarnia') ? 575 : 640} label="Zarnian grain ship" />}
-      <path className="storm" d="M700,520 q14,-12 28,0 q14,12 28,0 M712,536 q12,-10 24,0 q12,10 24,0" />
+      {Object.entries(grainShips).map(([id, ship]) => {
+        if (!state.nations[id]) return null
+        const name = state.nations[id].name
+        const approaching = !closed && c.decisions[id]?.action === 'dock' && !(blockade && id === 'zarnia')
+        return <Ship key={id} id={id} at={approaching ? ship.approach : ship.waiting}
+          label={`${name} grain ship · ${approaching ? 'approaching port' : 'offshore'}`} />
+      })}
+      {secondBerth && <Ship id="nordhaven" kind="tug" at={tugBerth} from={kessarPoint(780, 649)} label="Nordhaven tugs · second berth available" />}
+      {blockade && <Ship id="ostrava" kind="patrol" at={straitPatrol} from={kessarPoint(782, 633)} label="Ostrava blockade patrol" />}
+      <path className="storm" transform={`translate(${kessarPort.join(' ')}) scale(${world(1)}) translate(-612 -548)`} d="M700,520 q14,-12 28,0 q14,12 28,0 M712,536 q12,-10 24,0 q12,10 24,0" />
     </g>
   )
 }

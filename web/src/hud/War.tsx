@@ -4,7 +4,8 @@
 // (GET/POST /war...); the page only shows it and forwards clicks.
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { api, post } from '../api'
-import map from '../map.json'
+import map from '../atlas.json'
+import { useMarkerScale } from './scale'
 import { relationBetween, type GameState } from '../state'
 import { nationStyle } from '../theme'
 import './war.css'
@@ -38,7 +39,20 @@ const key = (a: string, b: string) => [a, b].sort().join('|')
 export function useWar(state: GameState) {
   const [war, setWar] = useState<WarView | null>(null)
   const [fetchedAt, setFetchedAt] = useState(0)
-  const [attackMode, setAttackMode] = useState(false)
+  const [attackMode, setAttackModeRaw] = useState(false)
+  // Entering attack mode zooms the map out if none of the striped targets are on screen
+  // (the atlas opens zoomed into your capital, so the enemy is usually off view).
+  const setAttackMode = useCallback((on: boolean) => {
+    setAttackModeRaw(on)
+    if (!on) return
+    window.setTimeout(() => {
+      const visible = [...document.querySelectorAll('path[data-war-target="true"]')].some((p) => {
+        const r = p.getBoundingClientRect()
+        return r.right > 0 && r.bottom > 0 && r.left < window.innerWidth && r.top < window.innerHeight
+      })
+      if (!visible) [...document.querySelectorAll('button')].find((b) => /fit map/i.test(b.textContent ?? ''))?.click()
+    }, 120)
+  }, [])
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const off = useRef(false)
@@ -131,6 +145,7 @@ function useFrame(active: boolean) {
 /** Inside the map camera: troop badges, marching armies, battle bursts, attack targets. */
 export function WarMapLayer({ state, controls, showAll = false }: { state: GameState; controls: WarControls; showAll?: boolean }) {
   const { war, fetchedAt, attackMode } = controls
+  const m = useMarkerScale()
   useFrame(Boolean(war?.armies.length))
   if (!war) return null
   const targets = attackMode ? attackable(state, war) : new Set<string>()
@@ -141,9 +156,14 @@ export function WarMapLayer({ state, controls, showAll = false }: { state: GameS
   const lastT = war.log.length ? war.log[war.log.length - 1].t : 0
   return (
     <g className="war-layer">
+      <defs>
+        <pattern id="war-room-hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform={`rotate(45) scale(${m * 1.6})`}>
+          <rect width="4" height="10" fill="var(--war)" opacity=".4" />
+        </pattern>
+      </defs>
       <g className="war-targets">
         {map.provinces.filter((p) => targets.has(p.id)).map((p) => (
-          <path key={p.id} d={p.path} className="war-target" clipPath="url(#land)" />
+          <path key={p.id} d={p.path} className="war-target" style={{ strokeWidth: 2.5 * m }} />
         ))}
       </g>
       <g className="garrisons map-decoration">
@@ -152,7 +172,7 @@ export function WarMapLayer({ state, controls, showAll = false }: { state: GameS
           if (!c || g.troops < 1 || !(showAll || fighting.has(g.owner))) return null
           const capital = war.capitals[g.owner] === p
           return (
-            <g key={p} transform={`translate(${c[0]} ${c[1] - 14})`} style={nationStyle(g.owner) as CSSProperties}
+            <g key={p} transform={`translate(${c[0]} ${c[1] - 30 * m}) scale(${m * 1.6})`} style={nationStyle(g.owner) as CSSProperties}
               className="garrison" data-capital={capital}>
               <rect x="-15" y="-7" width="30" height="13" rx="2" />
               <text y="3.5">{fmtTroops(g.troops)}</text>
@@ -173,8 +193,8 @@ export function WarMapLayer({ state, controls, showAll = false }: { state: GameS
           const angle = Math.atan2(to[1] - from[1], to[0] - from[0]) * 180 / Math.PI
           return (
             <g key={a.id} style={nationStyle(a.owner) as CSSProperties}>
-              <path className="march-path" d={`M${from[0]},${from[1]} L${to[0]},${to[1]}`} />
-              <g className="army-token" transform={`translate(${x} ${y})`}>
+              <path className="march-path" d={`M${from[0]},${from[1]} L${to[0]},${to[1]}`} style={{ strokeWidth: 2.4 * m, strokeDasharray: `${6 * m} ${5 * m}` }} />
+              <g className="army-token" transform={`translate(${x} ${y}) scale(${m * 1.8})`}>
                 <g transform={`rotate(${angle})`}><path className="army-arrow" d="M12,0 L-6,-8 L-2,0 L-6,8 Z" /></g>
                 <rect x="-14" y="10" width="28" height="12" rx="6" className="army-plate" />
                 <text y="19.5" className="army-count">{fmtTroops(a.troops)}</text>
@@ -188,7 +208,7 @@ export function WarMapLayer({ state, controls, showAll = false }: { state: GameS
           const c = centers.get(e.province!)
           if (!c || lastT - e.t > 4) return null
           return (
-            <g key={`${e.t}-${e.province}`} transform={`translate(${c[0]} ${c[1]})`} style={nationStyle(e.winner ?? '') as CSSProperties}>
+            <g key={`${e.t}-${e.province}`} transform={`translate(${c[0]} ${c[1]}) scale(${m * 2})`} style={nationStyle(e.winner ?? '') as CSSProperties}>
               <circle r="10" className="battle-burst" />
               <path className="battle-x" d="M-7,-7 L7,7 M7,-7 L-7,7" />
             </g>

@@ -1,0 +1,82 @@
+/* The map stage: an animated CSS sea, the static world SVG, a motion SVG and a marker SVG,
+   stacked with one camera. Each layer composites on its own, so moving traffic and rolling
+   water never repaint the city layer. */
+.map-stage { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.map-stage > .political-map { position: relative; z-index: 1; background: transparent; }
+.map-stage > .map-sea, .map-stage > .map-layer, .map-stage > .map-vignette {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+}
+.map-stage > .map-sea { z-index: 0; }
+.map-stage > .map-life { z-index: 2; pointer-events: none; will-change: transform; }
+.map-stage > .map-markers { z-index: 3; pointer-events: none; will-change: transform; }
+.map-stage > .map-vignette {
+  z-index: 4; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, transparent 58%, rgb(0 0 0 / .5) 100%);
+}
+.map-markers .leader, .map-markers .city-marker, .map-markers .map-event,
+.map-markers .site-label, .map-markers .unit { pointer-events: auto; }
+.map-markers .unit { cursor: help; }
+@media (max-width: 68rem) { .map-stage { height: auto; } }
+
+/* --- sea: depth gradient, rolling swell and drifting glints --- */
+.map-sea {
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 42% 38%, #3f7588 0%, #2f6074 38%, #22495d 70%, #173547 100%);
+}
+.map-sea::before, .map-sea::after {
+  content: ''; position: absolute; inset: -12%;
+  background-size: var(--sea-tile, 200px) var(--sea-tile, 200px);
+  background-position: var(--sea-x, 0) var(--sea-y, 0);
+  will-change: transform, opacity;
+}
+.map-sea::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cg fill='none' stroke='%23b8e1e6' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M14 26q9-7 18 0t18 0'/%3E%3Cpath d='M112 18q8-6 16 0t16 0'/%3E%3Cpath d='M64 74q10-7 20 0t20 0'/%3E%3Cpath d='M150 96q8-6 16 0t16 0'/%3E%3Cpath d='M22 130q9-7 18 0t18 0'/%3E%3Cpath d='M98 156q10-7 20 0t20 0'/%3E%3Cpath d='M160 182q7-5 14 0t14 0'/%3E%3C/g%3E%3C/svg%3E");
+  opacity: .22;
+  animation: sea-swell 14s ease-in-out infinite alternate;
+}
+.map-sea::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cg fill='%23e8fbff'%3E%3Ccircle cx='38' cy='52' r='1.6'/%3E%3Ccircle cx='140' cy='38' r='1.2'/%3E%3Ccircle cx='86' cy='120' r='1.8'/%3E%3Ccircle cx='170' cy='150' r='1.3'/%3E%3Ccircle cx='24' cy='176' r='1.1'/%3E%3Cpath d='M120 88h10M60 180h8' stroke='%23e8fbff' stroke-width='1.4' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+  opacity: .12;
+  animation: sea-glint 7s ease-in-out infinite alternate;
+}
+@keyframes sea-swell { from { transform: translate(0, 0); } to { transform: translate(2.2%, 1.4%); } }
+@keyframes sea-glint { from { transform: translate(0, 0); opacity: .06; } to { transform: translate(-1.6%, .8%); opacity: .26; } }
+@media (prefers-reduced-motion: reduce) { .map-sea::before, .map-sea::after { animation: none; } }
+
+/* --- lakes --- */
+.lakes .lake-shore { fill: #c8b783; stroke: #8f9a5f; stroke-width: 14; stroke-linejoin: round; }
+.lakes .lake-water { fill: #4b98ab; stroke: #7cc0c8; stroke-width: 5; stroke-linejoin: round; }
+.lakes .lake-shallows { fill: none; stroke: #6fb6c0; stroke-width: 22; opacity: .5; stroke-linejoin: round; }
+
+/* --- site labels --- */
+.site-label rect { fill: #0f1d21; fill-opacity: .82; stroke: var(--nation-accent); stroke-width: .8; stroke-opacity: .7; }
+.site-label text { fill: #ece4cc; font: 600 9px var(--display-font); letter-spacing: .04em; }
+.site-label .site-icon { fill: none; stroke: var(--nation-accent); stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
+.site-label[data-site-label='port'] rect { fill: #0f2a33; }
+.site-label[data-site-label='airport'] rect { fill: #14262d; }
+.map-markers[data-detail='overview'] .site-label:not([data-site-label='port']):not([data-site-label='airport']) { display: none; }
+
+/* --- layer toggles beside the zoom controls --- */
+.map-layers { display: flex; align-items: center; }
+.map-layers button {
+  min-height: var(--control-min); padding: var(--space-1) var(--space-2); font-size: var(--type-sm);
+  background: var(--panel-glass); backdrop-filter: blur(4px); color: var(--muted);
+  border: var(--edge) solid var(--border); cursor: pointer;
+}
+.map-layers button + button { border-left: 0; }
+.map-layers button[aria-pressed='true'] { color: var(--accent); }
+.map-layers button[aria-pressed='false'] { text-decoration: line-through; opacity: .7; }
+.map-footer { gap: var(--space-2); }
+.map-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; justify-content: end; }
+
+/* --- minimap --- */
+.minimap {
+  width: 168px; height: auto; display: block; cursor: crosshair; flex-basis: 100%; max-width: 168px; margin-left: auto;
+  border: var(--edge) solid var(--border); background: #183344; box-shadow: 0 6px 18px rgb(0 0 0 / .35);
+}
+.minimap-sea { fill: #21475a; }
+.minimap-province { fill: color-mix(in srgb, var(--nation-fill), #7f8a50 25%); stroke: #10201f; stroke-width: 6; }
+.minimap-war { stroke: var(--war, #d9604c); stroke-width: 40; stroke-dasharray: 60 40; opacity: .9; }
+.minimap-frame { fill: rgb(255 240 200 / .12); stroke: #ffe3a3; stroke-width: 36; }
+@media (max-width: 48rem) { .minimap { display: none; } }

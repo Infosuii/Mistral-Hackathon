@@ -1,5 +1,5 @@
-"""War endpoints (mounted by engine/app.py like voice and replay). All return 404 unless
-GAMBIT_WAR=1, so the page hides the War Room when the feature is off.
+"""War endpoints (mounted by engine/app.py like voice and replay). On by default (DECIDED
+16:36: war ships on); GAMBIT_WAR=0 turns them off, and then the page hides the War Room.
 
 GET  /war                      garrisons, marching armies, wars and scores, battle log
 POST /war/declare  {target}
@@ -26,14 +26,14 @@ _epoch: Optional[int] = None
 
 
 def enabled() -> bool:
-    return os.environ.get("GAMBIT_WAR", "").strip().lower() in ("1", "true", "on", "yes")
+    return os.environ.get("GAMBIT_WAR", "1").strip().lower() not in ("0", "false", "off", "no")
 
 
 def room() -> WarRoom:
     """The war room for the current game; a new game (new epoch) gets a fresh one."""
     global _room, _epoch
     if not enabled():
-        raise HTTPException(404, "war is off (GAMBIT_WAR)")
+        raise HTTPException(404, "war is off (GAMBIT_WAR=0)")
     if _room is None or _epoch != GAME.epoch:
         _room, _epoch = WarRoom(GAME.state, seed=GAME.state.seed), GAME.epoch
     return _room

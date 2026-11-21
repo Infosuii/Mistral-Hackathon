@@ -1,0 +1,54 @@
+/* Lines and labels that sit on the world but should hold their on-screen weight at every
+   zoom. --m is the marker scale PoliticalMap sets from the camera (see hud/scale.ts). */
+.political-map {
+  --war-front-line: calc(3.5px * var(--m, 1));
+  --map-coast-line: calc(2px * var(--m, 1));
+}
+.political-map .nb-under { stroke-width: calc(5px * var(--m, 1)); }
+.political-map .nb-over { stroke-width: calc(1.1px * var(--m, 1)); }
+.political-map .coastline { stroke-width: calc(1.6px * var(--m, 1)); }
+.political-map .coast-halo { stroke-width: calc(9px * var(--m, 1)); }
+.political-map .coast-shelf { stroke-width: 150px; }
+:is(.political-map, .map-layer) .territory-labels text { stroke-width: calc(5px * var(--m, 1)); }
+:is(.political-map, .map-layer) .water-label { font-size: calc(17px * var(--m, 1)); }
+:is(.political-map, .map-layer) .fleet-lane, :is(.political-map, .map-layer) .motion-trail { stroke-width: calc(2px * var(--m, 1)); stroke-dasharray: calc(5px * var(--m, 1)); }
+.political-map .graticule path { stroke-width: calc(.6px * var(--m, 1)); }
+
+/* Political view: the ground reads as land (farmland, forest, floodplain) first, and the
+   owning nation as a tint over it. Borders, labels and the legend carry the politics. */
+.political-map[data-map-mode='political'] .province { --land: #7f8a50; fill: color-mix(in srgb, var(--land) 78%, var(--nation-fill)); }
+.political-map[data-map-mode='political'] .province[data-biome='farmland'] { --land: #8f9a4c; }
+.political-map[data-map-mode='political'] .province[data-biome='woodland'] { --land: #4f7d44; }
+.political-map[data-map-mode='political'] .province[data-biome='taiga'] { --land: #3f6a55; }
+.political-map[data-map-mode='political'] .province[data-biome='marsh'] { --land: #66905a; }
+.political-map[data-map-mode='political'] .province[data-biome='highlands'] { --land: #8d7c5e; }
+.political-map[data-map-mode='political'] .province[data-biome='dryland'] { --land: #b89a5c; }
+.political-map[data-map-mode='political'] .province[data-selected='true'] { fill: color-mix(in srgb, var(--land) 58%, var(--nation-fill)); }
+.political-map[data-map-mode='political'] .province[data-hover='true'] { fill: color-mix(in srgb, var(--land) 60%, var(--nation-accent)); }
+.political-map .terrain-biomes { opacity: .35; }
+/* Zoomed out, the nations need to read as blocks of colour again. */
+.political-map[data-detail='overview'][data-map-mode='political'] .province { fill: color-mix(in srgb, var(--land) 48%, var(--nation-fill)); }
+.political-map[data-detail='overview'][data-map-mode='political'] .province[data-selected='true'] { fill: color-mix(in srgb, var(--land) 34%, var(--nation-fill)); }
+
+/* Biomes view: saturated biome colours, nation borders only. */
+.political-map[data-map-mode='biomes'] .province[data-biome='farmland'] { fill: #a2a650; }
+.political-map[data-map-mode='biomes'] .province[data-biome='woodland'] { fill: #4f8a46; }
+.political-map[data-map-mode='biomes'] .province[data-biome='taiga'] { fill: #36705a; }
+.political-map[data-map-mode='biomes'] .province[data-biome='marsh'] { fill: #3f8a78; }
+.political-map[data-map-mode='biomes'] .province[data-biome='highlands'] { fill: #9a8560; }
+.political-map[data-map-mode='biomes'] .province[data-biome='dryland'] { fill: #c9a45f; }
+.political-map .ground-cover { opacity: .32; }
+.political-map .coast-land { fill: #7d8a50; }
+
+/* Nordhaven is polar: snowfields under a light national tint, frozen lakes and rivers. */
+.political-map[data-map-mode='political'] .province[data-climate='polar'] { --land: #d9e3e0; fill: color-mix(in srgb, var(--land) 80%, var(--nation-fill)); }
+.political-map[data-map-mode='political'] .province[data-climate='polar'][data-biome='highlands'] { --land: #c3cdcb; }
+.political-map[data-detail='overview'][data-map-mode='political'] .province[data-climate='polar'] { fill: color-mix(in srgb, var(--land) 62%, var(--nation-fill)); }
+.political-map[data-map-mode='biomes'] .province[data-climate='polar'] { fill: #c9d8d6; }
+/* Highland stone: warm grey so the ranges read as rock, not haze. */
+.political-map[data-map-mode='political'] .province[data-biome='highlands'] { --land: #94866a; }
+.lakes [data-frozen='true'] .lake-water { fill: #d6e7eb; stroke: #f4f9f9; }
+.lakes [data-frozen='true'] .lake-shallows { stroke: #eef6f7; opacity: .7; }
+.lakes [data-frozen='true'] .lake-shore { fill: #e6ece9; stroke: #b9c8c4; }
+.rivers [data-frozen='true'] .river-water { stroke: #d3e5ea; }
+.rivers [data-frozen='true'] .river-bank { stroke: #a9bfc2; }

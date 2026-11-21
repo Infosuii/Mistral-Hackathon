@@ -1,0 +1,22 @@
+.city-marker { cursor: pointer; }
+.city-marker .city-pin { fill: var(--nation-accent); stroke: #18282c; stroke-width: 1.4; }
+.city-marker text { text-anchor: middle; font: 600 13px var(--display-font); fill: #eee6d1; paint-order: stroke; stroke: #16282b; stroke-width: 2.5px; }
+.city-marker:focus-visible text, .city-marker:hover text { fill: #ffe0a0; }
+.city-summary { display: grid; gap: .2rem; font-size: .78rem; background: #14252bed; color: #d8e0d9; padding: .45rem .7rem; border: 1px solid #a79d77; max-width: 26rem; }
+.city-summary strong { display: flex; justify-content: space-between; align-items: center; color: #f1d59c; }
+.city-summary button { color: inherit; background: transparent; border: 0; cursor: pointer; font-size: 1.1rem; }
+
+/* Continuous urban fabric, drawn in world units under the transport network. */
+.farm-fields path { stroke: #3f5a30; stroke-width: 1.6; stroke-linejoin: round; opacity: .9; }
+.urban-ground { display: none; }
+.urban-park { fill: #5d8a55; stroke: #476d43; stroke-width: 1; }
+.park-trees { fill: #3c6640; }
+.street-casing, .arterial-casing, .street-surface, .arterial-surface { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.street-casing { stroke: #46504d; stroke-width: 4.3; }
+.arterial-casing { stroke: #3a4342; stroke-width: 6.8; }
+.street-surface { stroke: #9aa19c; stroke-width: 2.9; }
+.arterial-surface { stroke: #b0b5ae; stroke-width: 4.8; }
+.roof-ridge { fill: none; stroke: #f2ebd9; stroke-width: .55; opacity: .55; }
+.political-map[data-detail='overview'] .roof-ridge,
+.political-map[data-detail='overview'] .park-trees { display: none; }
+.farm-fields path[data-snow] { stroke: #a9b8b3; }

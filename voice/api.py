@@ -24,7 +24,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from contracts.models import CallOutput, CallRequest, CallView
 
 from . import mock_agents
-from .audio import BadAudio, EMOTIONS, FALLBACK_LINE, JOBS, find_audio, speak, transcribe
+from .audio import BadAudio, EMOTIONS, FALLBACK_LINE, JOBS, VoiceRateLimited, find_audio, speak, transcribe
 
 MAX_AUDIO = 5 * 1024 * 1024
 
@@ -316,6 +316,9 @@ async def wiretap(a: str, b: str):
 async def _transcript(body: bytes, mime: str | None = None) -> str:
     try:
         text = await transcribe(body, mime) if mime else await transcribe(body)
+    except VoiceRateLimited as e:
+        raise HTTPException(429, "Microphone transcription is busy. Type a message below.",
+                            headers={"Retry-After": str(e.retry_after)}) from e
     except BadAudio as e:
         raise HTTPException(e.status, str(e)) from e
     except Exception as e:

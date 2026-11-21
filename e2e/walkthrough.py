@@ -197,8 +197,11 @@ def run_walkthrough(
         page.wait_for_timeout(1200)
 
         # Beat 1: Start game as President of Valdoria
-        start_btn = page.locator(".session-controls button").filter(has_text="game").first
-        start_btn.click()
+        # Builds with a "New game" button start here; the campaign map build opens a live
+        # session on load and keeps "New Seed" behind a confirmation instead.
+        start_btn = page.locator(".session-controls button").filter(has_text="game")
+        if start_btn.count():
+            start_btn.first.click()
         page.wait_for_timeout(1200)
         _pause_if_running(page)
         page.wait_for_timeout(400)
@@ -273,7 +276,12 @@ def run_walkthrough(
 
         # Also capture a 1280x720 laptop check on the live screen by clicking New game
         page.set_viewport_size({"width": 1280, "height": 720})
-        page.locator(".session-controls button", has_text="New game").click()
+        new_game = page.locator(".session-controls button", has_text="New game")
+        if new_game.count():
+            new_game.click()
+        else:  # the campaign map build: New Seed, then confirm in its dialog
+            page.locator(".session-controls button", has_text="New Seed").click()
+            page.locator("dialog[open] button", has_text="Start new world").click()
         page.wait_for_timeout(1200)
         _pause_if_running(page)
         snap(page, "11_laptop_1280x720.jpg")
