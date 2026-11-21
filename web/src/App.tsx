@@ -5,6 +5,8 @@ import { PoliticalMap } from './PoliticalMap'
 import { relationBetween, statLabels, systemLabels, type GameState, type Nation, type Stats } from './state'
 import { nationStyle, theme } from './theme'
 
+const nationArtwork = import.meta.glob<string>('./nations/*.svg', { eager: true, query: '?url', import: 'default' })
+
 const resourceKeys = ['gdp', 'oil', 'food', 'chips', 'army', 'stability', 'approval'] as const
 const detailKeys: (keyof Stats)[] = [...resourceKeys, 'territory']
 function TurnClock({ state }: { state: GameState }) {
@@ -61,7 +63,9 @@ function NationRail({ state, selected, onSelect }: {
         {Object.entries(state.nations).map(([id, nation]) => (
           <li key={id} style={nationStyle(id)}>
             <button className="nation-button" data-protests={nation.status.includes('PROTESTS')} onClick={() => onSelect(id)} aria-pressed={id === selected}>
-              <span className="nation-mark" aria-hidden="true" />
+              {nationArtwork[`./nations/${id}-flag.svg`] ? (
+                <img className="nation-flag nation-mark" src={nationArtwork[`./nations/${id}-flag.svg`]} alt="" />
+              ) : <span className="nation-mark" aria-hidden="true" />}
               <span className="nation-contact">
                 <strong>{nation.name}</strong>
                 <span>{nation.leader}</span>
@@ -76,12 +80,16 @@ function NationRail({ state, selected, onSelect }: {
 }
 
 function NationDetail({ nation, id, relation }: { nation: Nation; id: string; relation?: number }) {
+  const portrait = nationArtwork[`./nations/${id}-portrait.svg`]
   return (
     <section className="panel dossier" style={nationStyle(id)} aria-labelledby="nation-heading">
-      <header>
-        <span className="subtle">{systemLabels[nation.system] ?? nation.system}</span>
-        <h2 id="nation-heading">{nation.name}</h2>
-        <p>{nation.leader}</p>
+      <header className="nation-profile">
+        <div>
+          <span className="subtle">{systemLabels[nation.system] ?? nation.system}</span>
+          <h2 id="nation-heading">{nation.name}</h2>
+          <p>{nation.leader}</p>
+        </div>
+        {portrait && <img className="nation-portrait" src={portrait} alt="" />}
       </header>
       <dl className="nation-stats">
         {detailKeys.map((key) => (
