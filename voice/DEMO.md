@@ -9,8 +9,9 @@ Built from `ideas.md` §17 and what is on main now. Rehearse twice before 17:00 
 2. Check the demo audio is complete: `python -m voice.prerender --check` (exit 0).
 3. Start the backend with the demo settings:
    ```bash
-   GAMBIT_DECIDE_MODEL=mistral-large-2512 VOICE_WIRETAP=demo uvicorn engine.app:app --port 8000
+   GAMBIT_DECIDE_MODEL=mistral-medium-latest VOICE_WIRETAP=demo uvicorn engine.app:app --port 8000
    ```
+   `mistral-medium-latest` runs the monthly decisions, which leaves mistral-large-2512 for speech (DECIDED 13:07).
    `VOICE_WIRETAP=demo` makes Wiretap instant and offline (the pre-rendered script). Drop it to
    show live, model-written Wiretap lines (about 3–6 s).
 4. Start the web app (`cd web && npm run dev`). Open it in **Chrome**, not the Claude browser
@@ -49,11 +50,13 @@ Lines a judge can say that show voice matters:
 | Wiretap slow | Restart with `VOICE_WIRETAP=demo` |
 | Anything else | Play the backup video (D1, recorded at the 14:15 playtest) |
 
-## Known issues to fix before the run
+## Checked on main
 
-- Promises from `interpret()` are free text (`what: "berth in the morning"`, `when: "now"`), so
-  One Berth's resolver ignores them (it expects `what: "berth"`, `when` in morning, afternoon,
-  evening or all_day). Raised on the board at 12:55 for Abi, Om and the Coordinator.
+- Promises are recorded as `berth` plus a slot (#65, #69). Live through `/call`: an honest split
+  (Ostrava morning, Zarnia evening) holds at compare-notes; the same whole-day berth promised to
+  both is caught, and trust drops ×0.4. Interpret lands 8–28 s after the reply.
+- If the fast reply fails, the leader says the pre-rendered "line is breaking up" line and the
+  player's promise is still recorded (#71).
 
 ## Measured (voice)
 

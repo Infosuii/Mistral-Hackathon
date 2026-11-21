@@ -3,7 +3,7 @@
     python -m voice.prerender           # render anything missing into voice/prerendered/
     python -m voice.prerender --check   # exit 1 if a line is missing (no network calls)
 
-Covers every scripted incoming_call in data/crises/*.json, the Wiretap scripts in
+Covers every scripted incoming_call in data/crises/*.json and the drafts in voice/crises/*.json, the Wiretap scripts in
 voice/demo_lines.json, and the "line is breaking up" fallback for every leader.
 The files are committed, so every laptop has them without an API key.
 """
@@ -24,7 +24,8 @@ FALLBACK_LINE = ("The line is breaking up. Say that again.", "tense")  # matches
 def demo_lines() -> list[tuple[str, str, str, str]]:
     """(label, nation, text, emotion) for every fixed line in the demo."""
     out = []
-    for f in sorted((ROOT / "data" / "crises").glob("*.json")):
+    drafts = sorted((Path(__file__).parent / "crises").glob("*.json"))  # V4 files before they move to data/crises
+    for f in sorted((ROOT / "data" / "crises").glob("*.json")) + drafts:
         crisis = json.loads(f.read_text(encoding="utf-8"))
         for e in crisis.get("scripted", []):
             if e.get("type") == "incoming_call" and e.get("opening_line"):
