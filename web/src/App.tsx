@@ -174,7 +174,7 @@ export function App({ state, controls, online }: { state: GameState; controls: R
           <WarForecast forecast={state.last_futures} />
           {nation && (
             <NationDetail nation={nation} id={selected} relation={relation}
-              intel={selected !== seat && <Intelligence key={selected} state={state} id={selected} online={online} />} />
+              intel={selected !== seat && state.seat.role !== 'mediator' && <Intelligence key={selected} state={state} id={selected} online={online} />} />
           )}
           <Phone state={state} selected={selected} online={online} />
         </div>
