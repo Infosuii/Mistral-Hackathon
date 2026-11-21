@@ -58,6 +58,23 @@ def advisers_choice(state: State, nation: str, advice: list[Advice], why: str) -
     )
 
 
+def _voice_line(state: State) -> State:
+    """Give a new incoming call its audio (Ashish's REQUEST on #27). Lives here, not in the
+    pure crisis_step, because rendering is a side effect the rollouts must never trigger."""
+    call = state.incoming_call
+    if call is None or call.audio_url:
+        return state
+    try:
+        from voice import audio_url_for  # type: ignore
+        url = audio_url_for(call.from_, call.opening_line, call.emotion)
+    except Exception as e:  # no /voice, or it failed: the page still shows the line
+        log.info("no audio for incoming call from %s: %s", call.from_, e)
+        return state
+    if not url:
+        return state
+    return state.model_copy(update={"incoming_call": call.model_copy(update={"audio_url": url})})
+
+
 def _persona(nation: str) -> str:
     path = ROOT / "agents" / "personas" / f"{nation}.md"
     return path.read_text() if path.exists() else ""
@@ -177,6 +194,7 @@ class Game:
                 announces = (e.model_extra or {}).get("announces")
                 if e.type == "incoming_call" and e.tick == new.crisis.tick and announces:
                     self.pending_announce = Action(type="announce", by=e.from_, params={"action": announces})
+        new = _voice_line(new)
         self.crisis_log.append(new)
         if new.crisis is None:  # resolved: keep what a replay needs
             last = s.crisis
