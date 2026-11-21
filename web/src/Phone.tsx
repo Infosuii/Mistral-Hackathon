@@ -5,6 +5,8 @@ import { mountTalkButton, type TalkButton, type TalkButtonEvents, type TalkState
 import type { GameState } from './state'
 
 type Line = { role: 'player' | 'leader'; text: string }
+export type PhoneActivity = { busy: boolean; waitingForState: boolean }
+type ReplyDetail = TalkButtonEvents['reply']['detail'] & { pending?: boolean }
 
 function useRinger(ringing: string | undefined) {
   const audio = useRef<AudioContext | null>(null)
@@ -44,7 +46,12 @@ function useRinger(ringing: string | undefined) {
   }, [ringing])
 }
 
-export function Phone({ state, selected, online }: { state: GameState; selected?: string; online: boolean }) {
+export function Phone({ state, selected, online, onActivity }: {
+  state: GameState
+  selected?: string
+  online: boolean
+  onActivity: (change: Partial<PhoneActivity>) => void
+}) {
   const [dismissed, setDismissed] = useState<string>()
   const [showPreview, setShowPreview] = useState(false)
   const [logs, setLogs] = useState<Record<string, Line[]>>({})
@@ -76,10 +83,15 @@ export function Phone({ state, selected, online }: { state: GameState; selected?
       append(to, { role: 'player', text })
     }
     const onReply = (event: Event) => {
-      const { to, reply_text } = (event as TalkButtonEvents['reply']).detail
+      const { to, reply_text, pending } = (event as CustomEvent<ReplyDetail>).detail
+      if (pending) onActivity({ waitingForState: true })
       append(to, { role: 'leader', text: reply_text })
     }
-    const onState = (event: Event) => setTalkState((event as TalkButtonEvents['talk-state']).detail.state)
+    const onState = (event: Event) => {
+      const { state } = (event as TalkButtonEvents['talk-state']).detail
+      setTalkState(state)
+      onActivity({ busy: state !== 'idle' && state !== 'disabled' })
+    }
     // Keep the hold shortcut on the phone so Space still operates the game's other buttons.
     const onKey = (event: KeyboardEvent) => {
       if (event.repeat || !['Space', 'Enter'].includes(event.code) ||
@@ -101,8 +113,9 @@ export function Phone({ state, selected, online }: { state: GameState; selected?
       el.removeEventListener('keyup', onKey)
       talk.current?.destroy()
       talk.current = null
+      onActivity({ busy: false })
     }
-  }, [])
+  }, [onActivity])
 
   useEffect(() => setShowPreview(false), [target])
   useEffect(() => {

@@ -504,6 +504,7 @@ ol.transcript {
 .crisis-heading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
 .crisis-heading h2 { color: var(--signal); font: 700 var(--type-xl) / var(--line-tight) var(--display-font); }
 .crisis-heading span { color: var(--muted); font-size: var(--type-sm); }
+.crisis-heading [data-clock-held="true"] { color: var(--signal); }
 .deadline-track {
   height: var(--meter-height);
   background: linear-gradient(to right, var(--signal) var(--elapsed), var(--border) var(--elapsed));
