@@ -209,7 +209,16 @@
       "from": "ostrava",
       "emotion": "tense",
       "opening_line": "You promised Zarnia the same berth. I am announcing a blockade of the strait.",
-      "announces": "blockade"
+      "announces": "blockade",
+      "only_if": "contradiction"
+    },
+    {
+      "tick": 7,
+      "type": "incoming_call",
+      "from": "ostrava",
+      "emotion": "tense",
+      "only_if": "no_contradiction",
+      "opening_line": "Nightfall is coming and my ships still have no berth. Confirm it is ours before dark, or I close the strait."
     }
   ]
 }

@@ -23,7 +23,7 @@ from contracts.models import (
     LeaderView, ReceivedMessage, Seat, State,
 )
 from engine.core import advise, is_legal, new_game, relation_key, step, weights
-from engine.crisis import crisis_file, rerun_crisis, start_crisis
+from engine.crisis import crisis_file, rerun_crisis, scripted_now, start_crisis
 from engine.snapshots import snapshot
 from engine.calls import apply_call_effects
 from engine.futures import futures
@@ -326,9 +326,9 @@ class Game:
                 advice=advice[n], chosen=chosen, reason=out.reason, persona=_persona(n))
         self.queued, self.pending_announce = [], None
         if new.crisis:
-            for e in crisis_file(new.crisis.id).scripted:
+            for e in scripted_now(new):
                 announces = (e.model_extra or {}).get("announces")
-                if e.type == "incoming_call" and e.tick == new.crisis.tick and announces:
+                if e.type == "incoming_call" and announces:
                     self.pending_announce = Action(type="announce", by=e.from_, params={"action": announces})
         new = _voice_line(new)
         self._record(s, new)
