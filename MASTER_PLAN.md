@@ -27,7 +27,7 @@ Tamim has the most AI usage and the strongest models, so Tamim leads and takes t
 - **Reassigns:** when someone is blocked, stuck or out of quota, Tamim either takes the task or names who does.
 - **Runs each checkpoint:** two minutes, all four, what works and what is cut.
 
-How to carry both jobs: run coordination in a **second agent session** (board, PR review, merges) so the interface session is never interrupted. Coordination costs attention more than usage. If the interface slips, Tamim hands off R1 (replay) and W7 (end screen) first, and never the coordination.
+How Tamim carries both jobs: three seats. **Tamim's build agent** does the interface and replay tasks. A separate **Coordinator agent** watches the board, pull requests and checkpoints, keeps everyone moving and brings Tamim only what needs a human (its prompt is the Coordinator block in `MASTER_PROMPT.md`; it runs `scripts/coord_check.sh`). **Tamim** verifies results and makes the calls. Address the coordinator on the board as `→ Coordinator`.
 
 ## 2. Checkpoints
 
