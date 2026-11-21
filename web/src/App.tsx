@@ -20,7 +20,7 @@ function TurnClock({ state }: { state: GameState }) {
   const crisis = state.phase === 'crisis' ? state.crisis : null
   return (
     <div className="turn-clock">
-      <span className="subtle">{crisis ? 'Crisis clock' : state.phase === 'ended' ? 'Session ended' : 'Strategy phase'}</span>
+      <span className="subtle">{crisis ? 'Crisis clock' : state.phase === 'ended' ? 'Session ended' : `Year ${Math.min(3, Math.floor(state.turn / 12) + 1)} of 3`}</span>
       <strong>{crisis ? crisisTime(crisis.tick, crisis.ticks_total) : `Month ${String(state.turn).padStart(2, '0')}`}</strong>
     </div>
   )

@@ -1,3 +1,4 @@
+import { ElectionFinale } from './Election'
 import type { GameState } from './state'
 
 const scoreLabels = {
@@ -12,7 +13,7 @@ const endReasons: Record<string, string> = {
   ended: 'You ended the session.',
   voted_out: 'Your leader was voted out.',
   coup: 'A coup removed your leader from office.',
-  time: 'Your year in office is over.',
+  time: 'Your three-year term is over.',
 }
 
 const signed = new Intl.NumberFormat('en', { signDisplay: 'exceptZero', maximumFractionDigits: 1 })
@@ -42,6 +43,7 @@ export function EndScreen({ state, online }: { state: GameState; online: boolean
           <h2 id="ending-heading">Session complete</h2>
           {ending?.reason && <p className="ending-reason">{endReasons[ending.reason] ?? ending.reason.replaceAll('_', ' ')}</p>}
         </header>
+        <ElectionFinale state={state} />
         {metrics.length > 0 && (
           <dl className="ending-score" data-mediator={state.seat.role === 'mediator'}>
             {metrics.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
