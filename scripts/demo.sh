@@ -127,8 +127,9 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Stage feature flags (DECIDED 14:57, 15:41): Orders player actions, crisis picker and the
-# mediator seat on by default. 120 rollouts keeps the war-odds needle near 1.3 s (DECIDED 15:10).
+# Stage feature flags & needle budget (DECIDED 14:57, 15:25, 15:41):
+# Orders player actions, crisis picker, mediator seat, and 120 rollouts on by default
+# (override with e.g. GAMBIT_ROLLOUTS=80 on a slower laptop).
 export GAMBIT_PLAYER_ACTIONS="${GAMBIT_PLAYER_ACTIONS:-1}"
 export GAMBIT_EXTRA_CRISES="${GAMBIT_EXTRA_CRISES:-1}"
 export GAMBIT_MEDIATOR="${GAMBIT_MEDIATOR:-1}"
@@ -142,7 +143,7 @@ if [ "$OFFLINE" -eq 1 ]; then
   APP_TARGET="e2e.offline_app:app"
   MODE_LABEL="OFFLINE (cached replies, stub turns, pre-rendered audio, actions=${GAMBIT_PLAYER_ACTIONS}, extra_crises=${GAMBIT_EXTRA_CRISES}, mediator=${GAMBIT_MEDIATOR}, rollouts=${GAMBIT_ROLLOUTS})"
 else
-  # Demo settings (DECIDED 13:07, 13:48, 14:57): Medium for turns so 2512's 30 RPM stays for voice;
+  # Demo settings (DECIDED 13:07, 13:48, 14:57, 15:25, 15:41): Medium for turns so 2512's 30 RPM stays for voice;
   # Large 4 for private strategy, call interpretation, wiretap, replay why, and historian.
   export GAMBIT_DECIDE_MODEL="${GAMBIT_DECIDE_MODEL:-mistral-medium-latest}"
   export GAMBIT_PRIVATE_STRATEGY="${GAMBIT_PRIVATE_STRATEGY:-1}"
