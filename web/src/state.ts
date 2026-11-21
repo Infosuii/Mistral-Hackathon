@@ -1,4 +1,5 @@
 import fixture from '../../contracts/examples/state.json'
+import oneBerth from '../../contracts/examples/crisis_file.one_berth.json'
 
 export interface Stats {
   gdp: number
@@ -20,6 +21,13 @@ export interface Nation {
   beliefs: { trust_in_player: number; resolve_of_player: number } | null
   public_statement: string
   status: string[]
+}
+
+export const defaultCrisis = { id: oneBerth.id, title: oneBerth.title }
+
+interface CrisisOption {
+  id: string
+  title: string
 }
 
 export interface CrisisState {
@@ -62,6 +70,7 @@ export interface GameState {
   seed: number
   seat: { role: string; nation: string | null }
   available_roles?: string[] | null
+  available_crises?: CrisisOption[] | null
   nations: Record<string, Nation>
   relations: Record<string, number>
   links: { type: string; a: string; b: string }[]

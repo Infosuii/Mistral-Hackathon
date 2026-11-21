@@ -1,6 +1,5 @@
 import type { CSSProperties } from 'react'
-import oneBerth from '../../contracts/examples/crisis_file.one_berth.json'
-import type { CrisisState, GameState } from './state'
+import { defaultCrisis, type CrisisState, type GameState } from './state'
 import { nationStyle } from './theme'
 
 const words = (value: string) => value.replaceAll('_', ' ')
@@ -11,11 +10,14 @@ export function crisisTime(tick: number, total: number) {
   return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`
 }
 
-export function CrisisBar({ crisis, nations, clockHeld }: {
+export function CrisisBar({ crisis, nations, catalog, clockHeld }: {
   crisis: CrisisState
   nations: GameState['nations']
+  catalog: GameState['available_crises']
   clockHeld: boolean
 }) {
+  const title = catalog?.find(({ id }) => id === crisis.id)?.title
+    ?? (crisis.id === defaultCrisis.id ? defaultCrisis.title : words(crisis.id))
   const deadlines = Object.entries(crisis.deadlines).sort(([, a], [, b]) => a - b)
   const progress = `${100 * crisis.tick / crisis.ticks_total}%`
   const name = (id: string) => id === 'player' ? 'You' : nations[id]?.name ?? id
@@ -24,7 +26,7 @@ export function CrisisBar({ crisis, nations, clockHeld }: {
     <section className="crisis-bar" aria-labelledby="crisis-heading">
       <div className="crisis-timeline">
         <div className="crisis-heading">
-          <h2 id="crisis-heading">{crisis.id === oneBerth.id ? oneBerth.title : words(crisis.id)}</h2>
+          <h2 id="crisis-heading">{title}</h2>
           <span aria-live="polite" data-clock-held={clockHeld}>
             {clockHeld ? 'Clock held: on a call' : `Tick ${crisis.tick} of ${crisis.ticks_total}`}
           </span>
