@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import callRequest from '../../contracts/examples/call.request.text.json'
 import callResponse from '../../contracts/examples/call.response.json'
 import { PoliticalMap } from './PoliticalMap'
@@ -22,7 +22,7 @@ function TurnClock({ state }: { state: GameState }) {
   )
 }
 
-function ResourceBar({ state }: { state: GameState }) {
+function ResourceBar({ state, controls }: { state: GameState; controls: ReactNode }) {
   const seat = state.seat.nation ? state.nations[state.seat.nation] : undefined
   return (
     <header className="topbar">
@@ -46,6 +46,7 @@ function ResourceBar({ state }: { state: GameState }) {
           ))}
         </dl>
       )}
+      {controls}
       <TurnClock state={state} />
     </header>
   )
@@ -172,7 +173,7 @@ function Dispatches({ news }: { news: GameState['news'] }) {
   )
 }
 
-export function App({ state }: { state: GameState }) {
+export function App({ state, controls }: { state: GameState; controls: ReactNode }) {
   const nationIds = Object.keys(state.nations)
   const seat = state.seat.nation
   const firstContact = state.nations.ostrava && seat !== 'ostrava' ? 'ostrava' : nationIds.find((id) => id !== seat)
@@ -185,7 +186,7 @@ export function App({ state }: { state: GameState }) {
 
   return (
     <div className="game-screen" style={theme as CSSProperties}>
-      <ResourceBar state={state} />
+      <ResourceBar state={state} controls={controls} />
       <main className="theatre">
         <PoliticalMap state={state} selected={selected} onSelect={setSelection} />
         <div className="left-rail">

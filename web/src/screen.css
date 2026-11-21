@@ -401,3 +401,41 @@ button:focus-visible { outline: var(--edge) solid var(--accent); outline-offset:
   width: var(--portrait-width);
   border: var(--edge) solid var(--nation-accent);
 }
+
+.session-controls {
+  display: flex;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+}
+.session-controls button {
+  padding: var(--space-1) var(--space-2);
+  min-height: var(--control-min);
+  background: var(--surface);
+  border: var(--edge) solid var(--border);
+  color: var(--text);
+  font-size: var(--type-sm);
+  cursor: pointer;
+}
+.session-controls button:enabled:hover { border-color: var(--accent); color: var(--accent); }
+.session-controls button:disabled { opacity: .6; cursor: default; }
+.session-status { color: var(--muted); font-size: var(--type-xs); }
+.session-error {
+  position: absolute;
+  inset: 100% var(--space-3) auto;
+  min-width: var(--contact-min);
+  background: var(--panel);
+  border: var(--edge) solid var(--phone-edge);
+  color: var(--signal);
+  padding: var(--space-2);
+  font-size: var(--type-sm);
+}
+
+@media (max-width: 76rem) {
+  .topbar { display: grid; grid-template-columns: auto 1fr auto; }
+  .resources { grid-row: 2; grid-column: 1 / -1; }
+  .session-controls { grid-row: 3; grid-column: 1 / -1; border-top: var(--edge) solid var(--border); }
+}
