@@ -151,10 +151,29 @@ def _compare_notes(s: State, between: list[str]) -> None:
          "compare_notes", a, target=b, contradiction=True)
 
 
-def _scripted(s: State, cf: CrisisFile) -> None:
-    for e in cf.scripted:
+def contradiction_found(s: State) -> bool:
+    """Did compare-notes catch the player promising the same thing to both sides?"""
+    return any(p.by == "player" and p.kept is False for p in s.crisis.promises)
+
+
+def scripted_now(s: State) -> list:
+    """This tick's scripted events. An event with "only_if": "contradiction" (or
+    "no_contradiction") happens only when compare-notes did (or did not) catch the player."""
+    out = []
+    for e in crisis_file(s.crisis.id).scripted:
         if e.tick != s.crisis.tick:
             continue
+        cond = (e.model_extra or {}).get("only_if")
+        if cond == "contradiction" and not contradiction_found(s):
+            continue
+        if cond == "no_contradiction" and contradiction_found(s):
+            continue
+        out.append(e)
+    return out
+
+
+def _scripted(s: State, cf: CrisisFile) -> None:
+    for e in scripted_now(s):
         if e.type == "incoming_call":
             s.incoming_call = IncomingCall(**{"from": e.from_, "emotion": e.emotion,
                                               "opening_line": e.opening_line})
@@ -381,8 +400,10 @@ def rerun_crisis(start: State, calls: list, cached: dict[str, Decision],
             if n not in cached_advice or d.tick != nxt or n in s.crisis.decisions or n in queued_by:
                 continue
             now = crisis_advise(s, n)
-            if now and _scores(now) != _scores(cached_advice[n]):
-                actions.append(now[0].action)  # inputs changed: follow the advisers
+            # Switch only if the advisers' top recommendation changed. A leader who defied its
+            # advisers keeps its own choice when only the scores moved (Reviewer, #27).
+            if now and cached_advice[n] and now[0].action.type != cached_advice[n][0].action.type:
+                actions.append(now[0].action)
             else:
                 actions.append(Action(type=d.action, by=n))
         s = crisis_step(s, actions, seed)
