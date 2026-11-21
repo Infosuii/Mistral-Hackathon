@@ -1,0 +1,24 @@
+.local-road { stroke: #c6ac82; stroke-width: 1.9; fill: none; opacity: .48; }
+.rail-bed { stroke: #2a3e38; stroke-width: 2.8; fill: none; opacity: .68; }
+.rail-track { stroke: #d8c496; stroke-width: 1.35; stroke-dasharray: 2 3; fill: none; }
+.rivers path { stroke: #68a6aa; stroke-width: 3.2; stroke-linecap: round; fill: none; opacity: .82; }
+.rivers .tributary { stroke-width: 1.8; opacity: .72; }
+.static-sprite { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .mobile-sprite { display: none; }
+  .static-sprite { display: inline; }
+}
+.road-edge,.road-bed,.road-divider,.bridge-edge,.bridge-deck { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.road-edge { stroke: #203031; stroke-width: 2.9; }
+.road-bed { stroke: #79888a; stroke-width: 1.45; }
+.road-edge.motorway { stroke-width: 5.2; }
+.road-bed.motorway { stroke: #89989b; stroke-width: 3.7; }
+.road-divider { stroke: #dacdb0; stroke-width: .5; stroke-dasharray: 1.9 3.3; }
+.bridge-edge { stroke: #222d30; stroke-width: 7; }
+.bridge-deck { stroke: #a5aaa0; stroke-width: 4.7; }
+.rivers path { stroke: #659eb0; stroke-width: 4; stroke-linejoin: round; }
+.rivers .tributary { stroke-width: 2.4; }
+.political-map .province[data-biome='marsh'] { fill: color-mix(in srgb, var(--nation-fill), #53695a 56%); }
+.political-map .province[data-biome='highlands'] { fill: color-mix(in srgb, var(--nation-fill), #5f6056 50%); }
+.political-map .province[data-biome='farmland'] { fill: color-mix(in srgb, var(--nation-fill), #727852 46%); }
+.political-map .province[data-biome-view='true'] { fill: var(--biome-color); }

@@ -26,10 +26,12 @@ LinkType = Literal["trade", "alliance", "war"]
 
 # Section 4.4. Crisis action types come from the crisis file, so Action.type is a str.
 StrategyActionType = Literal[
-    "set_tariff", "propose_trade", "propose_alliance", "declare_war", "make_peace"
+    "set_tariff", "propose_trade", "propose_alliance", "leave_alliance", "declare_war", "make_peace",
+    "deploy_fleet", "recall_fleet"
 ]
 STRATEGY_ACTION_TYPES: tuple[str, ...] = (
-    "set_tariff", "propose_trade", "propose_alliance", "declare_war", "make_peace"
+    "set_tariff", "propose_trade", "propose_alliance", "leave_alliance", "declare_war", "make_peace",
+    "deploy_fleet", "recall_fleet"
 )
 
 # Section 4.6. Real Voxtral tags; anything else is silently ignored by the voice model.
@@ -241,6 +243,24 @@ class CrisisOption(Model):
 # --- 4.2 State (continued) ---------------------------------------------------
 
 
+BuildingKind = Literal["army_base", "arms_factory", "airfield", "factory", "farm", "chip_works", "freight_yard"]
+
+
+class BuildRequest(Model):
+    province: str
+    kind: BuildingKind
+
+
+class Building(BuildRequest):
+    built_turn: int = Field(ge=0)
+
+
+class Fleet(Model):
+    target: NationId
+    arrival_turn: int = Field(ge=0)
+    returning: bool = False
+
+
 class State(Model):
     turn: int = Field(ge=0)
     phase: Phase
@@ -250,6 +270,11 @@ class State(Model):
     relations: dict[str, int]
     links: list[Link] = Field(default_factory=list)
     provinces: dict[str, NationId] = Field(default_factory=dict)
+    fleets: dict[NationId, Fleet] = Field(default_factory=dict)
+    buildings: list[Building] = Field(default_factory=list)
+    construction: Optional[BuildRequest] = None
+    rail_services: list[str] = Field(default_factory=list)
+    rail_income: dict[NationId, dict[str, float]] = Field(default_factory=dict)
     news: list[NewsItem] = Field(default_factory=list)
     events: list[Event] = Field(default_factory=list)
     incoming_call: Optional[IncomingCall] = None
