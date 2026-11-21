@@ -165,3 +165,14 @@ def test_demo_lines_play_with_network_off(monkeypatch):
 
 def test_unknown_nation_is_404(client):
     assert client.post("/api/call", json={**CALL, "to": "atlantis"}).status_code in (404, 422)
+
+
+def test_mediator_gets_no_wiretap(client, monkeypatch):
+    from contracts.models import Seat
+    from engine.game import GAME
+
+    async def no_audio(*a, **k):
+        raise AssertionError("audio generated for a mediator")
+    monkeypatch.setattr(api, "speak", no_audio)
+    monkeypatch.setattr(GAME.state, "seat", Seat(role="mediator", nation=None))
+    assert client.get("/api/wiretap", params={"a": "zarnia", "b": "ostrava"}).status_code == 403
