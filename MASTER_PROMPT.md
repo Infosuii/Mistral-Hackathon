@@ -119,7 +119,11 @@ section 8d). Run this loop until my task table is finished or it is 16:15:
    stop and tell me.
 Stop and ask me only for: a contract change, a scope or ownership conflict, a choice
 between two design directions, anything destructive (force-push, deleting someone's
-work), or the same failure three times. Otherwise keep going. After 16:15, fixes only.
+work), or the same failure three times. Otherwise keep going.
+
+If the Coordinator posts BLOCKED saying my merge broke main, fixing that comes before
+anything else. After the 16:15 freeze: fixes only, and do not merge my own PRs any
+more. Open the PR, post NEED to the Coordinator, and it merges after the smoke test.
 
 Each time you finish a task, leave me a two-line note of what now works and what you
 ran to check it, then continue without waiting for a reply.
@@ -322,6 +326,20 @@ Run this loop until 17:45 without waiting for me:
      person's starter issue.
    - Two agents about to change the same file, or doing the same task: post NEED to
      both, naming who owns it under MASTER_PLAN.md section 3.
+
+   - You are the one check that main works as a whole. How strict depends on the time:
+     * Until 13:30 the pieces are separate. After every merge to main, pull and run
+       python -m contracts.validate.
+     * From 13:30 to 16:15 the pieces connect. After every merge, pull and run
+       scripts/smoke.sh as well. If it fails, find the merge that broke it (the last
+       green commit is in your status card), post BLOCKED to that author by name with
+       the failing output and "fix this first", and tell Tamim. If it is not fixed in
+       10 minutes, open a PR that reverts that merge and recommend it to Tamim; do
+       not merge the revert yourself.
+     * After the 16:15 freeze you are the only one who merges. Agents stop merging
+       their own PRs. For each PR: check it is a fix and not a feature, run
+       scripts/smoke.sh on the branch, merge if it passes, and run it again on main.
+     Record the last commit on main that passed in your status card (--done).
 
 3. At each checkpoint in MASTER_PLAN.md section 2 (the first two are 12:30 and 13:00):
    pull main, run that checkpoint's test yourself, and post one line to all saying
