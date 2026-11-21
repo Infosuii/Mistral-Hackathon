@@ -96,6 +96,9 @@ export interface GameState {
   air_services?: string[]
   air_income?: Record<string, Record<string, number>>
   construction?: { province: string; kind: string } | null
+  construction_queue?: { province: string; kind: string }[]
+  unrest?: Record<string, number>
+  disrupted?: string[]
   fleets?: Record<string, { target: string; arrival_turn: number; returning: boolean }>
   news: { turn: number; text: string }[]
   events: MapEvent[]
