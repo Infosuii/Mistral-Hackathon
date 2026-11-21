@@ -7,7 +7,7 @@ A voice-played grand-strategy and crisis-negotiation game built for the Mistral 
 Five fictional nations share one continent, each run by an AI leader with its own political system, public statement, and private agenda. You govern by picking up the **Red Phone** and speaking directly to the other leaders. When a crisis erupts, a 24-hour clock starts — and **what you promise, when you call, whether you interrupt mid-sentence, and how long you hesitate** change what every nation does.
 
 After the crisis resolves, GAMBIT shows the timeline you did **not** take:
-- **War-Odds Needle** — 200 matched-seed Monte Carlo rollouts six months ahead comparing war probability before and after your deal (*"War odds 41% → 6%. You did that."*).
+- **War-Odds Needle** — 200 matched-seed Monte Carlo rollouts six months ahead comparing war probability before and after your deal (the displayed odds can rise or fall).
 - **"What if I'd waited?" Replay** — slide your calls earlier or later in pure deterministic code to see which leader flips and why.
 - **Two-Faced Leaders & Wiretap** — inspect public statements vs. private strategy, adviser rankings vs. actual choices, and listen to two AI leaders talking about you.
 
@@ -111,6 +111,8 @@ python -m e2e.demo_path --url http://127.0.0.1:8000
 ```
 
 ---
+
+The optional browser walkthrough uses Python Playwright. With the project environment active, run `python -m pip install playwright` (or `uv pip install playwright`), then `python -m playwright install chromium` and `python -m e2e.walkthrough --offline`.
 
 ## Architecture
 

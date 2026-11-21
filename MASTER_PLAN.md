@@ -49,7 +49,7 @@ The first checkpoint moved from 12:00 in `ideas.md` to 12:15 when approval ran l
 
 - **Backend:** Python 3.12, FastAPI, one process. `uvicorn engine.app:app --reload --port 8000`.
 - **Frontend:** Vite + React + TypeScript, polling `GET /state` once a second. Dev server proxies `/api` to port 8000.
-- **Models:** `mistral-large-4` (leaders), `voxtral-mini-transcribe-3` (speech to text), `voxtral-mini-tts-3-0` (text to speech).
+- **Models:** `mistral-medium-latest` (monthly decisions), `mistral-large-2512` (spoken replies), `mistral-large-4` (private strategy and call interpretation), `voxtral-mini-transcribe-3` (speech to text), `voxtral-mini-tts-3-0` (text to speech).
 - **Env:** `MISTRAL_API_KEY` in `.env`. The batch script uses a different account's key in `MISTRAL_API_KEY_BATCH`.
 
 ```

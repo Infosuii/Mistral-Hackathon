@@ -125,7 +125,9 @@ cleanup() {
   [ -n "$WEB_PID" ] && kill "$WEB_PID" 2>/dev/null || true
   [ -n "$BACKEND_PID" ] && kill "$BACKEND_PID" 2>/dev/null || true
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Stage feature flags (DECIDED 14:57): Orders player actions and crisis picker on by default;
 # mediator seat stays opt-in (GAMBIT_MEDIATOR=1).
@@ -181,7 +183,7 @@ if [ "$BACKEND_ONLY" -eq 0 ]; then
   export BACKEND_PORT
   export GAMBIT_BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}"
   echo "[demo] Starting web app on http://localhost:${WEB_PORT} (proxy /api -> ${GAMBIT_BACKEND_URL}) ..."
-  (cd "$ROOT/web" && npm run dev -- --host 127.0.0.1 --port "$WEB_PORT" --strictPort) >/tmp/gambit_web_${WEB_PORT}.log 2>&1 &
+  (cd "$ROOT/web" && exec node node_modules/vite/bin/vite.js --host 127.0.0.1 --port "$WEB_PORT" --strictPort) >/tmp/gambit_web_${WEB_PORT}.log 2>&1 &
   WEB_PID=$!
   for _ in $(seq 1 60); do
     if ! kill -0 "$WEB_PID" 2>/dev/null; then

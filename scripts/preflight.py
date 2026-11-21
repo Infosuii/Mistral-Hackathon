@@ -11,6 +11,7 @@ check fails. Run it before the playtest, the recording and judging.
 from __future__ import annotations
 
 import base64
+import json
 import os
 import sys
 import time
@@ -49,7 +50,7 @@ def main() -> int:
         print("FAIL  no MISTRAL_API_KEY. Put it in .env at the repo root. Without it every leader "
               "answers with the setup-problem line and nothing works.")
         return 1
-    print(f"key   found, ends in ...{key[-4:]}")
+    print("key   configured")
     ok = True
     with httpx.Client(headers={"Authorization": f"Bearer {key}"}, timeout=40) as c:
         for what, model in CHAT_MODELS:
@@ -62,16 +63,22 @@ def main() -> int:
             except Exception as e:
                 ok &= line(False, f"{model} ({what})", time.perf_counter() - t, f"{type(e).__name__}: {e}")
         audio = b""
-        t = time.perf_counter()
-        try:
-            r = c.post(f"{API}/audio/speech", json={"model": "voxtral-mini-tts-3-0", "voice_id": "gb_jane_neutral",
-                       "input": "The berth is yours for the morning.", "response_format": "mp3"})
-            if r.status_code == 200:
-                audio = base64.b64decode(r.json()["audio_data"])
-            ok &= line(r.status_code == 200 and len(audio) > 1000, "Voxtral speech (leaders' voices)",
-                       time.perf_counter() - t, "" if r.status_code == 200 else explain(r))
-        except Exception as e:
-            ok &= line(False, "Voxtral speech (leaders' voices)", time.perf_counter() - t, f"{type(e).__name__}: {e}")
+        cast = json.loads((ROOT / "voice" / "casting.json").read_text())
+        for nation, voice in cast.items():
+            if nation.startswith("_"):
+                continue
+            t = time.perf_counter()
+            try:
+                r = c.post(f"{API}/audio/speech", json={"model": "voxtral-mini-tts-3-0", "voice_id": voice["voice_id"],
+                           "input": "The berth is yours for the morning.", "response_format": "mp3"})
+                sample = b""
+                if r.status_code == 200:
+                    sample = base64.b64decode(r.json()["audio_data"])
+                audio = sample or audio
+                ok &= line(r.status_code == 200 and len(sample) > 1000, f"Voxtral speech ({nation})",
+                           time.perf_counter() - t, "" if r.status_code == 200 else explain(r))
+            except Exception as e:
+                ok &= line(False, f"Voxtral speech ({nation})", time.perf_counter() - t, f"{type(e).__name__}: {e}")
         if audio:
             t = time.perf_counter()
             try:

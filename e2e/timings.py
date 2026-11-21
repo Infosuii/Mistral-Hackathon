@@ -16,6 +16,7 @@ import statistics
 import subprocess
 import sys
 import time
+import tempfile
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -116,12 +117,6 @@ def run_timings(base: str, num_calls: int = 10, seed: int = 7) -> dict[str, Any]
             nation, line, interrupted, hes = BENCH_CALLS[idx % len(BENCH_CALLS)]
             wav = _ensure_wav_clip(f"bench_{idx + 1}", line)
             clips.append((nation, line, interrupted, hes, wav))
-
-        # Clear local TTS cache so first-audio reflects real Voxtral streaming latency.
-        cache_dir = ROOT / "voice" / "cache"
-        if cache_dir.exists():
-            for p in cache_dir.glob("*.mp3"):
-                p.unlink(missing_ok=True)
 
         # Start One Berth tick 1 so calls happen in realistic crisis context.
         client.start(seed=seed, role="president", nation="valdoria")
@@ -283,13 +278,14 @@ def main(argv: list[str] | None = None) -> int:
         print("FAIL  MISTRAL_API_KEY is not set", file=sys.stderr)
         return 1
 
+    cache = tempfile.TemporaryDirectory()
     proc: subprocess.Popen | None = None
     try:
         if args.url:
             base = args.url.rstrip("/")
         else:
             port = _free_port()
-            proc, _ = _start_backend(port, {"GAMBIT_DECIDE_MODEL": "mistral-medium-latest"})
+            proc, _ = _start_backend(port, {"GAMBIT_DECIDE_MODEL": "mistral-medium-latest", "GAMBIT_VOICE_CACHE": cache.name})
             base = f"http://127.0.0.1:{port}"
         Client(base).wait_ready(20.0)
         summary = run_timings(base, num_calls=args.calls, seed=args.seed)
@@ -300,6 +296,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     finally:
         _stop_backend(proc)
+        cache.cleanup()
 
 
 if __name__ == "__main__":
