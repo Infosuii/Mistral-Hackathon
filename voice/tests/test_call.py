@@ -191,3 +191,18 @@ def test_a_keyless_live_server_says_so_instead_of_faking_a_bad_line(client, monk
     r = client.post("/call", json=CALL).json()
     assert "MISTRAL_API_KEY" in r["reply_text"] and "breaking up" not in r["reply_text"]
     assert r["reply_audio_url"] is None and r["promises"] == []
+
+
+def test_a_keyless_server_whose_replies_work_is_left_alone(client, monkeypatch):
+    """Offline mode: no key by design, replies come from a cache. No setup message."""
+    async def speak_fast(view):
+        return {"reply_text": "The berth is ours, then.", "emotion": "assertive"}
+
+    async def interpret(view, reply_text):
+        return {"promises": [], "actions": [], "ends_call": False,
+                "belief_updates": {"trust_in_player": 0, "resolve_of_player": 0}}
+
+    fake_agents(speak_fast=speak_fast, interpret=interpret)
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    r = client.post("/call", json=CALL).json()
+    assert r["reply_text"] == "The berth is ours, then." and r["reply_audio_url"]
