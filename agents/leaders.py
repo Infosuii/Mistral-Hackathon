@@ -54,6 +54,12 @@ def _who(state: dict, nation: str) -> str:
     return f"{n.get('leader', 'the leader')} of {n.get('name', nation.title())} (nation id: {nation})"
 
 
+SEAT_ADDRESS = {  # how leaders address the player on the phone, by seat
+    "president": '"President"',
+    "diplomat": '"Minister" (they are an envoy, not a head of state)',
+    "mediator": 'plainly, without a title of state (they represent no nation)',
+}
+
 SEAT_STYLE = {  # how leaders see the player in each seat (ideas.md section 4)
     "president": "Treat them as a head of state: their promises commit {nation}.",
     "diplomat": "They are {nation}'s envoy; their president can overrule them, so their promises are worth less and you may "
@@ -208,6 +214,8 @@ async def decide(view: LeaderView | dict) -> LeaderOutput:
 
 CALL_VOICE = """You are {who}, on a live phone call with the player, {player}. Stay in character.
 Answer in at most TWO short spoken sentences. Plain speech: no stage directions, no lists, no emoji.
+Talk to them, not at them: answer what they actually said. Address them {address}.
+Never read statistics aloud, and never invent facts: mention only events, places, numbers and times that are in the situation or the call so far (no made-up weather, distances, travel times, quantities or deadlines). If a detail is not there, say you will check, or ask them.
 Pick one emotion for your voice from: {emotions}."""
 
 SPEAK_JSON = """Reply with ONLY this JSON object: {"reply_text": str, "emotion": str}"""
@@ -281,6 +289,7 @@ def _call_context(v: CallView) -> tuple[str, dict, list[dict]]:
     }
     system = card(v.nation) + "\n\n" + CALL_VOICE.format(
         who=_who(state, v.nation), player=_player(state),
+        address=SEAT_ADDRESS.get((state.get("seat") or {}).get("role", "president"), SEAT_ADDRESS["president"]),
         emotions=", ".join(EMOTIONS))
     return system, user, options
 
