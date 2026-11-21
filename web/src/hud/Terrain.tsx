@@ -2,36 +2,20 @@
 // sea graticule. Everything is generated from fixed seeds, so the map never changes
 // between renders. Purely decorative: no pointer events.
 import map from '../atlas.json'
+import infrastructure from '../../../data/infrastructure.json'
 
-export type TerrainKind = 'mountains' | 'forest' | 'hills' | 'plains' | 'coast'
-
-function rng(seed: number) {
-  let s = seed >>> 0
-  return () => {
-    s = (Math.imul(s, 1664525) + 1013904223) >>> 0
-    return s / 2 ** 32
-  }
-}
-
-// One terrain kind per province, fixed by its id. Provinces near the coast lean to
-// plains and coast; inland ones to hills, forests and mountains.
-const coastPoints = map.coast.match(/-?\d+(\.\d+)?,-?\d+(\.\d+)?/g)!.map((p) => p.split(',').map(Number))
+type Biome = keyof typeof infrastructure.biomes
+const region: Record<string, string> = infrastructure.regions
+export const terrainOf = Object.fromEntries(Object.entries(region).map(([province, id]) =>
+  [province, { id, ...infrastructure.biomes[id as Biome] }]))
 export const coastPath = map.coast
 
-function distanceToCoast([x, y]: number[]) {
-  return Math.min(...coastPoints.map(([cx, cy]) => Math.hypot(cx - x, cy - y)))
-}
-
-export const terrainOf: Record<string, TerrainKind> = Object.fromEntries(map.provinces.map(({ id, center }) => {
-  const r = rng(Number(id.slice(1)) * 7919)()
-  const inland = distanceToCoast(center)
-  if (inland < 45) return [id, r < 0.6 ? 'coast' : 'plains']
-  if (inland > 110) return [id, r < 0.55 ? 'mountains' : 'forest']
-  return [id, r < 0.3 ? 'hills' : r < 0.65 ? 'forest' : 'plains']
-}))
-
-export const terrainLabel: Record<TerrainKind, string> = {
-  mountains: 'Mountains', forest: 'Forest', hills: 'Hills', plains: 'Plains', coast: 'Coastal lowland',
+function rng(seed: number) {
+  let state = seed >>> 0
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0
+    return state / 2 ** 32
+  }
 }
 
 export function TerrainDefs() {
@@ -153,37 +137,31 @@ function Wetland({ x, y, s }: { x: number; y: number; s: number }) {
 export function TerrainFeatures() {
   return (
     <g className="terrain-features map-decoration">
-      {map.provinces.map(({ id, center: [cx, cy] }) => {
-        const kind = terrainOf[id]
-        const r = rng(Number(id.slice(1)) * 104729)
-        const count = kind === 'forest' ? 12 : kind === 'mountains' ? 8 : 5
-        const glyphs = []
-        for (let i = 0; i < count; i += 1) {
-          const a = r() * Math.PI * 2
-          const d = 10 + r() * 26
-          const x = cx + Math.cos(a) * d
-          const y = cy + Math.sin(a) * d * 0.75 + 10
-          const s = 0.75 + r() * 0.6
-          const Glyph = kind === 'forest' ? Tree : kind === 'mountains' ? Mountain
-            : kind === 'plains' ? Field : kind === 'coast' ? Wetland : Hill
-          glyphs.push(<Glyph key={i} x={x} y={y} s={s} />)
-        }
-        return <g key={id} data-terrain={kind}>{glyphs}</g>
+      {map.provinces.map(({ id, center: [cx, cy], path }) => {
+        const biome = terrainOf[id]?.id
+        const random = rng(Number(id.slice(1)) * 104729)
+        const Glyph = biome === 'taiga' || biome === 'woodland' ? Tree : biome === 'highlands' ? Mountain
+          : biome === 'marsh' ? Wetland : biome === 'farmland' ? Field : Hill
+        return <g key={id}>
+          <clipPath id={`biome-${id}`}><path d={path} clipRule="evenodd" /></clipPath>
+          <g clipPath={`url(#biome-${id})`} data-terrain={biome} opacity={biome === 'highlands' ? .53 : .68}>
+            {Array.from({length: 20}, (_, i) => {
+              const angle = random() * Math.PI * 2
+              const distance = 31 + random() * 96
+              return <Glyph key={i} x={cx + Math.cos(angle) * distance} y={cy + Math.sin(angle) * distance}
+                s={.29 + random() * .43} />
+            })}
+          </g>
+        </g>
       })}
     </g>
   )
 }
 
 export function Rivers() {
-  return (
-    <g className="rivers map-decoration">
-      <path d="M750 306C684 380 681 477 611 520S546 604 469 654C381 687 372 743 293 756S176 751 111 727" />
-      <path className="tributary" d="M480 568Q508 599 469 654M316 587Q372 613 404 684M779 436Q722 438 648 479" />
-      <path d="M381 159Q366 229 418 257T485 326M381 159Q278 158 244 196T92 211" />
-      <path className="tributary" d="M288 123Q283 146 309 164M430 176Q407 192 399 221" />
-      <path d="M1423 211C1395 314 1338 357 1270 460C1190 475 1169 552 1170 715S1235 826 1259 916" />
-      <path className="tributary" d="M1530 400Q1432 428 1270 460M1104 323Q1151 373 1228 397M987 664Q1074 686 1170 715" />
-      <path d="M876 540Q839 609 890 660T871 758L922 808" />
-    </g>
-  )
+  return <g className="rivers map-decoration">
+    {infrastructure.rivers.map((river, index) => <path key={index}
+      d={`M${river.map((point) => point.join(',')).join(' L')}`}
+      className={river.length < 5 ? 'tributary' : undefined} />)}
+  </g>
 }

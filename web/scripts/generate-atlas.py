@@ -15,6 +15,8 @@ from shapely import affinity, voronoi_polygons
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
 from shapely.ops import unary_union
 
+from atlas_infrastructure import urban_network
+
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "web" / "src" / "map.json"
 DATA = ROOT / "data"
@@ -241,6 +243,7 @@ def generate():
             if not any(link["id"] == key for link in links):
                 links.append({"id": key, "from": a, "to": b, "via": paths[b], "points": track_points(paths[b])})
     write_data(DATA / "rail.json", {"cities": cities}, (("routes", links),))
+    urban_network(DATA, centers, cells, adjacency, owners, cities, shores, track_points)
 
 
 if __name__ == "__main__":
