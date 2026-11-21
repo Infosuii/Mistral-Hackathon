@@ -73,5 +73,8 @@ except urllib.error.HTTPError as e:
     if e.code != 404 or os.path.exists("voice/api.py"):
         sys.exit(f"FAIL /call: HTTP {e.code} {e.read()[:300]!r}")
     print("skip /call (voice/api.py does not exist yet)")
+s = State.model_validate(call("POST", "/end"))
+assert s.phase == "ended" and s.ending is not None, s.phase
+print("ok   /end")
 print("SMOKE OK")
 EOF

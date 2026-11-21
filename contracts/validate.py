@@ -21,6 +21,7 @@ EXAMPLES = Path(__file__).parent / "examples"
 SCHEMAS: dict[str, tuple[type[BaseModel], str]] = {
     "state.json": (m.State, "GET /state, POST /start, POST /turn"),
     "state.crisis.json": (m.State, "GET /state during a crisis, POST /crisis/start"),
+    "state.ended.json": (m.State, "GET /state after POST /end (end screen)"),
     "start.request.json": (m.StartRequest, "POST /start body"),
     "crisis_start.request.json": (m.CrisisStartRequest, "POST /crisis/start body"),
     "action.json": (m.Action, "engine step(), agents.decide actions"),
