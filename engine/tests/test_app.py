@@ -86,3 +86,30 @@ def test_split_call_pending_then_filled():
     assert s.last_call.call_id == cid and not s.last_call.pending
     assert s.last_call.promises[0].what == "berth"
     State.model_validate(s.model_dump(mode="json", by_alias=True))
+
+
+def _reply(what="berth", to="ostrava"):
+    return CallOutput(reply_text="ok", emotion="calm", belief_updates={"trust_in_player": 0, "resolve_of_player": 0},
+                      promises=[{"to": to, "what": what, "when": "morning"}])
+
+
+def test_late_reply_does_not_hide_a_newer_call():
+    g = Game(seed=7, use_agents=False)
+    g.start_crisis("one_berth")
+    first = g.begin_call("ostrava")
+    second = g.begin_call("zarnia")
+    g.apply_call("ostrava", _reply(), call_id=first)  # the older call finishes last-but-one
+    assert g.state.last_call.call_id == second and g.state.last_call.pending
+    assert any(p.to == "ostrava" for p in g.state.crisis.promises)  # its promise still counts
+    g.apply_call("zarnia", _reply(to="zarnia"), call_id=second)
+    assert g.state.last_call.call_id == second and not g.state.last_call.pending
+
+
+def test_reply_from_before_a_reset_is_dropped():
+    g = Game(seed=7, use_agents=False)
+    g.start_crisis("one_berth")
+    old = g.begin_call("ostrava")
+    g.reset(7)
+    g.start_crisis("one_berth")
+    g.apply_call("ostrava", _reply(), call_id=old)  # finishes after the reset
+    assert g.state.crisis.promises == [] and g.state.last_call is None and not g.queued

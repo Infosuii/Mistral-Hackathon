@@ -74,7 +74,11 @@ class Game:
         self.leaders: dict[str, LeaderDetail] = {}
         self.inbox: dict[str, list[ReceivedMessage]] = {n: [] for n in NATION_IDS}
         self.queued: list[Action] = []  # agreed on the phone; applied next turn
+        # Each reset starts a new epoch; call ids carry it, so a reply that finishes after
+        # a reset is dropped instead of leaking into the new game.
+        self.epoch = getattr(self, "epoch", 0) + 1
         self.call_count = 0
+        self.latest_call_id: Optional[str] = None
         self.promises: list[CrisisPromise] = []  # strategy-phase promises (crisis ones live in state)
         self.pending_announce: Optional[Action] = None  # becomes public next tick unless interrupted
         self.crisis_log: list[State] = []  # every crisis tick, for replay and the needle
@@ -211,17 +215,27 @@ class Game:
     def begin_call(self, to: str) -> str:
         """For split replies: call when the spoken reply goes out. state.last_call shows
         this call as pending until apply_call(..., call_id=...) fills it in."""
-        self.call_count += 1
-        call_id = f"c{self.call_count}"
+        call_id = self._new_call_id()
         s = self.state.model_copy(deep=True)
         s.last_call = CallResult(call_id=call_id, to=to, pending=True)
         self.state = s
         return call_id
 
+    def _new_call_id(self) -> str:
+        self.call_count += 1
+        self.latest_call_id = f"g{self.epoch}c{self.call_count}"
+        return self.latest_call_id
+
     def apply_call(self, to: str, out: CallOutput, interrupted: bool = False,
                    hesitation_ms: Optional[int] = None, call_id: Optional[str] = None) -> State:
         """For /call: apply a leader's reply to the world. Changes take effect at once,
-        except actions, which are applied on the next turn."""
+        except actions, which are applied on the next turn.
+
+        With a call_id from begin_call(): a reply from before the last /start is ignored,
+        and state.last_call only shows it if no newer call has started since."""
+        if call_id is not None and not call_id.startswith(f"g{self.epoch}c"):
+            log.warning("dropping reply for %s: call %s started before the game was reset", to, call_id)
+            return self.state
         if interrupted and self.pending_announce and self.pending_announce.by == to:
             self.pending_announce = None  # cut off before the threat went public
         s, strategy_promises = apply_call_effects(self.state, to, out, interrupted, len(self.promises))
@@ -230,10 +244,10 @@ class Game:
             self.crisis_calls.append((s.crisis.tick, to, out.model_copy(deep=True), interrupted))
         self.queued += out.actions
         if call_id is None:
-            self.call_count += 1
-            call_id = f"c{self.call_count}"
-        s.last_call = CallResult(call_id=call_id, to=to, pending=False, promises=out.promises,
-                                 actions=out.actions, ends_call=out.ends_call)
+            call_id = self._new_call_id()
+        if call_id == self.latest_call_id:  # an older call finishing late does not hide a newer one
+            s.last_call = CallResult(call_id=call_id, to=to, pending=False, promises=out.promises,
+                                     actions=out.actions, ends_call=out.ends_call)
         self.state = s
         return s
 
