@@ -1,6 +1,6 @@
 # GAMBIT demo — script, setup and recovery (D2, draft)
 
-Owner: Ashish. **Draft for the 14:40 playtest; the team fixes who says what at the rehearsal. The final video is recorded at 16:30, after the freeze.**
+Owner: Ashish. **The team fixes who says what at the rehearsal. The backup video is recorded at 16:30, after the 16:15 freeze, and doubles as the submission video (D3: Ashish submits).**
 Built from `ideas.md` §17 and what is on main now. Rehearse twice before 17:00 (D2).
 
 ## Setup (10 minutes before)
@@ -36,9 +36,10 @@ Built from `ideas.md` §17 and what is on main now. Rehearse twice before 17:00 
 | 1:35 | Map, click Nordhaven, **Call** in the orders bar (tick 2) | Judge | *"I need your tugs at Port Kessar today to open a second berth. Valdoria pays the full cost."* This is recorded as a `send_tugs` promise every time (#111). |
 | 2:10 | Intel, Wiretap | Driver | Public statement against private intent and private strategy, advisers against choice. Wiretap: Ostrava and Zarnia comparing notes about the judge. |
 | 2:40 | Map, needle | Presenter | Play on. Nordhaven sends the tugs at tick 6, a second berth opens, and both grain ships dock on the map: peace. The needle shows war odds before and after: "You did that." |
-| 3:20 | Replay panel | Driver | "What if you'd called later?" Slide the call +5 ticks: it lands after Nordhaven's deadline, so **Nordhaven send_tugs → stay_out and Zarnia dock → mobilise**. Shift 0 changes nobody, as it should. (Played live at 14:01 with real leaders by the Reviewer.) |
+| 3:20 | Replay panel | Driver | "What if you'd called later?" Slide the call +5 ticks: it lands after Nordhaven's deadline. Name who flipped **only if the screen shows it** (the Reviewer's live run at 14:01: Nordhaven send_tugs → stay_out, Zarnia dock → mobilise; a 14:22 run had Nordhaven stay out and no flips). If nobody flips, say: "Same outcome: the call came early enough either way." Shift 0 changes nobody, as it should. |
 | 4:00 | End screen | Presenter | The historian's verdict. |
-| 4:30 | — | Presenter | "Mistral Large 4 writes every leader's private strategy and works out what each call committed you to; Mistral Large 3 gives the instant spoken reply; Mistral Medium makes the monthly moves. Voxtral is every voice: transcription, five cast voices with emotion tags, and Wiretap." Do not claim Managed Agents (no-go in A0) or that Large 4 makes every decision (it is too slow for the 8 s turn). |
+| 4:15 | Mistral Vibe (terminal) | Presenter | Optional, 20 s: `/gambit-brief` in Vibe, connected through `gambit_mcp`. "This is Mistral Vibe, connected to our game through an MCP server. I ask it to brief me: it reads the world, each leader's private intent and the next deadline, and gives me the line to say." Only claim it places calls or writes crises if that was rehearsed today; the brief was verified live at 14:27. Set-up: `gambit_mcp/README.md`. |
+| 4:35 | — | Presenter | "Mistral Large 4 writes every leader's private strategy and works out what each call committed you to; Mistral Large 3 gives the instant spoken reply; Mistral Medium makes the monthly moves. Voxtral is every voice: transcription, five cast voices with emotion tags, and Wiretap." Do not claim Managed Agents (no-go in A0) or that Large 4 makes every decision (it is too slow for the 8 s turn). |
 
 What the map shows without anyone explaining it (point at it once): leaders' speech bubbles over
 their capitals, mood rings (red hostile to green friendly), a breaking-news card each month, "+6" or
@@ -63,7 +64,7 @@ Lines a judge can say that show voice matters:
 | Reply slow (over 5 s) | Keep talking over it. The spoken reply falls back to Mistral Medium within 6 s (#99). Large 4 interpretation runs in the background; promises appear in `last_call` a few seconds later |
 | Model or API outage | The leader says "The line is breaking up" (pre-rendered) instead of going silent. Switch to the backup video |
 | Wiretap slow | Restart with `VOICE_WIRETAP=demo` |
-| Anything else | Play the backup video (D1, recorded at the 14:40 playtest; the final recording is at 16:30) |
+| Anything else | Play the backup video (recorded at 16:30) |
 
 ## Checked on main
 
@@ -74,6 +75,12 @@ Lines a judge can say that show voice matters:
   player's promise is still recorded (#71).
 
 ## Measured (voice)
+
+Human playtest at 14:45 (Ashish, Chrome mic, `./scripts/demo.sh`, live): 13 spoken calls, 13/13
+transcriptions and 13/13 speech requests succeeded, no fallback line. Ostrava and Zarnia were both
+promised the whole-day berth; compare-notes caught it, both docked and Nordhaven sent tugs. Nothing
+felt wrong. Neon's N3 timings (#113, 10 WAV calls): spoken reply 1.39 s median, first TTS chunk
+0.39 s, typed to first audio about 1.8 s; recorded WAV uploads add STT time (3.3 s median for a 220 KB WAV).
 
 Talk to first audio is about 1.8 s with typed or recorded input (STT 0.4 s + reply 1.0 s +
 TTS first chunk 0.3 s). On main with the real leaders, a reply took 1.7–3.0 s. The blind emotion
