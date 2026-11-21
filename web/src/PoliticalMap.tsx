@@ -88,28 +88,38 @@ function provinceStyle(state: GameState, owner: string, mode: MapMode): CSSPrope
   return { ...style, '--nation-fill': fill, '--nation-accent': 'var(--text)' } as CSSProperties
 }
 
-// The card is about 18rem wide and up to 15rem tall. Near the right or bottom edge of the map,
-// or where a HUD panel would cover it, it opens on the other side of the pointer.
+// Where the hover card goes. It is measured after it renders, then the four corners around the
+// pointer are tried, each kept inside the map; the one least covered by HUD panels wins.
 type MapBox = { w: number; h: number; left: number; top: number; el: HTMLElement }
 function covered(box: MapBox, x: number, y: number): boolean {
   const hit = document.elementFromPoint(box.left + x, box.top + y)
   return !!hit && hit !== box.el && !(hit instanceof SVGElement)
 }
-function cardPlace(x: number, y: number, box?: MapBox): CSSProperties {
-  const rem = typeof window === 'undefined' ? 16 : parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-  const w = 18 * rem, h = 15 * rem
-  const place: CSSProperties = {}
-  const right = x + 18 + w, bottom = y + 18 + h
-  if (box && (right > box.w || covered(box, right - 6, y + 24) || covered(box, right - 6, Math.min(bottom, box.h) - 6))) place.right = Math.max(4, box.w - x + 18)
-  else place.left = x + 18
-  if (box && bottom > box.h) place.bottom = Math.max(4, box.h - y + 18)
-  else place.top = y + 18
-  return place
+function cardPlace(x: number, y: number, w: number, h: number, box?: MapBox): { left: number; top: number } {
+  if (!box) return { left: x + 18, top: y + 18 }
+  const clamp = (v: number, size: number, max: number) => Math.max(4, Math.min(v, max - size - 4))
+  let best = { left: x + 18, top: y + 18 }, bestScore = Infinity
+  for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
+    const left = clamp(dx > 0 ? x + 18 : x - 18 - w, w, box.w)
+    const top = clamp(dy > 0 ? y + 18 : y - 18 - h, h, box.h)
+    let score = 0
+    for (const fx of [0.04, 0.5, 0.96]) for (const fy of [0.04, 0.5, 0.96]) if (covered(box, left + fx * w, top + fy * h)) score += 1
+    if (x >= left && x <= left + w && y >= top && y <= top + h) score += 3  // sits on the pointer
+    if (score < bestScore) { best = { left, top }; bestScore = score }
+  }
+  return best
 }
 
 function ProvinceCard({ state, id, x, y, box }: { state: GameState; id: string; x: number; y: number; box?: MapBox }) {
   const owner = state.provinces[id]
   const nation = state.nations[owner]
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [place, setPlace] = useState<{ left: number; top: number } | null>(null)
+  useLayoutEffect(() => {
+    const card = cardRef.current
+    if (card) setPlace(cardPlace(x, y, card.offsetWidth, card.offsetHeight, box))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, x, y, box?.w, box?.h])
   if (!nation) return null
   const rel = relationBetween(state, state.seat.nation, owner)
   const flag = flagOf(owner)
@@ -120,7 +130,7 @@ function ProvinceCard({ state, id, x, y, box }: { state: GameState; id: string; 
   const facilities = (state.buildings ?? []).filter((site) => site.province === id)
   const atWar = state.links.some((l) => l.type === 'war' && (l.a === owner || l.b === owner))
   return (
-    <div className="province-card" style={{ ...nationStyle(owner), ...cardPlace(x, y, box) } as CSSProperties} role="tooltip">
+    <div className="province-card" ref={cardRef} style={{ ...nationStyle(owner), left: place?.left ?? x + 18, top: place?.top ?? y + 18, visibility: place ? 'visible' : 'hidden' } as CSSProperties} role="tooltip">
       <header>
         {flag && <img src={flag} alt="" />}
         <div>
