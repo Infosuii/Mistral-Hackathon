@@ -96,6 +96,7 @@ export function useWar(state: GameState) {
     declare: (target: string) => explain('/war/declare', { target }),
     attack: (province: string) => explain('/war/attack', { province, share: 0.7, advance: true }),
     recruit: (troops: number) => explain('/war/recruit', { troops }),
+    reinforce: (target: string) => explain('/war/reinforce', { target }),
     peace: (target: string, kind: string, amount = 0) => explain('/war/peace', { target, kind, amount }),
     act,
   }
@@ -128,11 +129,13 @@ function useFrame(active: boolean) {
 }
 
 /** Inside the map camera: troop badges, marching armies, battle bursts, attack targets. */
-export function WarMapLayer({ state, controls }: { state: GameState; controls: WarControls }) {
+export function WarMapLayer({ state, controls, showAll = false }: { state: GameState; controls: WarControls; showAll?: boolean }) {
   const { war, fetchedAt, attackMode } = controls
   useFrame(Boolean(war?.armies.length))
   if (!war) return null
   const targets = attackMode ? attackable(state, war) : new Set<string>()
+  // Troop badges for nations at war (and everyone in Military map mode), not all 40 provinces.
+  const fighting = new Set(war.wars.flatMap((w) => [w.a, w.b]))
   const now = performance.now()
   const recent = war.log.filter((e) => e.kind === 'battle' && e.province).slice(-4)
   const lastT = war.log.length ? war.log[war.log.length - 1].t : 0
@@ -146,7 +149,7 @@ export function WarMapLayer({ state, controls }: { state: GameState; controls: W
       <g className="garrisons map-decoration">
         {Object.entries(war.garrisons).map(([p, g]) => {
           const c = centers.get(p)
-          if (!c || g.troops < 1) return null
+          if (!c || g.troops < 1 || !(showAll || fighting.has(g.owner))) return null
           const capital = war.capitals[g.owner] === p
           return (
             <g key={p} transform={`translate(${c[0]} ${c[1] - 14})`} style={nationStyle(g.owner) as CSSProperties}
@@ -250,6 +253,7 @@ export function WarRoomPanel({ state, selected, controls }: { state: GameState; 
                   <button className="war-btn war-attack" data-on={attackMode} onClick={() => { setAttackMode(!attackMode); setNotice(attackMode ? '' : targets.size ? 'Click a red-striped province to attack it.' : 'No enemy province borders yours.') }}>
                     {attackMode ? 'Cancel attack' : 'Attack a province'}
                   </button>
+                  <button className="war-btn" disabled={busy} onClick={() => void controls.reinforce(target)} title="March spare troops from your interior to this front">Reinforce front</button>
                   <button className="war-btn" disabled={busy} onClick={() => void controls.peace(target, 'white')}>Offer peace</button>
                   <button className="war-btn" disabled={busy} onClick={() => void controls.peace(target, 'pay', 15)}>Pay tribute <small>15</small></button>
                   <button className="war-btn" disabled={busy} onClick={() => void controls.peace(target, 'demand', 15)}>Demand tribute</button>

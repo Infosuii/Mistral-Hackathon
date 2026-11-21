@@ -5,6 +5,7 @@ GET  /war                      garrisons, marching armies, wars and scores, batt
 POST /war/declare  {target}
 POST /war/attack   {province, share?, advance?}
 POST /war/recruit  {troops}
+POST /war/reinforce {target}   march spare troops to the front facing target
 POST /war/peace    {target, kind: white|pay|demand|pact, amount?}
 """
 from __future__ import annotations
@@ -61,6 +62,10 @@ class Recruit(BaseModel):
     troops: float = 1000
 
 
+class Reinforce(BaseModel):
+    target: str
+
+
 class Peace(BaseModel):
     target: str
     kind: str = "white"
@@ -100,6 +105,12 @@ async def attack(req: Attack) -> dict[str, Any]:
 async def recruit(req: Recruit) -> dict[str, Any]:
     me = player()
     return await _do(lambda r: {"cost": r.recruit(GAME.state, me, req.troops)})
+
+
+@router.post("/war/reinforce")
+async def reinforce(req: Reinforce) -> dict[str, Any]:
+    me = player()
+    return await _do(lambda r: {"message": f"{r.reinforce(GAME.state, me, req.target):,.0f} troops march to the front"})
 
 
 @router.post("/war/peace")

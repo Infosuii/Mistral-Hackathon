@@ -42,9 +42,11 @@ MIN_ADVANCE = 300           # an army smaller than this stops advancing
 RECRUIT_COST_GDP = 1.0      # economy points per 100 troops
 RECRUIT_SECONDS = 5.0
 AI_THINK_SECONDS = 6.0
+AI_RECRUIT_SECONDS = 18.0
 AI_DECLARE_RELATION = -50   # an AI leader this hostile, and strong enough, declares war on you
 AI_DECLARE_SECONDS = 20.0
 PACT_SECONDS = 180.0
+NEWS_KINDS = {"declare", "peace", "pact", "overrun"}
 
 
 def _capital_province(nation: str) -> Optional[str]:
@@ -72,6 +74,7 @@ class Army:
     arrive: float
     advance: bool = True   # keep going after a win
     target: Optional[str] = None  # the enemy this army is fighting
+    path: list[str] = field(default_factory=list)  # further hops after dst (reinforcements)
 
 
 @dataclass
@@ -103,6 +106,7 @@ class WarRoom:
         self.pacts: dict[str, float] = {}           # relation key -> expires at
         self.recruits: list[tuple[float, str, float]] = []  # (ready_at, nation, troops)
         self.next_ai: dict[str, float] = {}
+        self.next_recruit: dict[str, float] = {}
         self.next_declare = clock() + AI_DECLARE_SECONDS
         self.seq = 0
         self.army_seen: dict[str, float] = {}
@@ -156,8 +160,9 @@ class WarRoom:
     def _note(self, state: State, kind: str, text: str, **extra: Any) -> None:
         entry = {"t": round(self.clock(), 2), "turn": state.turn, "kind": kind, "text": text, **extra}
         self.log.append(entry)
-        state.news.append(NewsItem(turn=state.turn, text=text))
-        state.news[:] = state.news[-40:]
+        if kind in NEWS_KINDS:  # marches and battles stay in the war log, not the breaking news
+            state.news.append(NewsItem(turn=state.turn, text=text))
+            state.news[:] = state.news[-40:]
 
     def _name(self, state: State, n: str) -> str:
         return state.nations[n].name if n in state.nations else n.title()
@@ -216,6 +221,52 @@ class WarRoom:
                    f"{src.upper()} toward {province.upper()} ({self._name(state, owner)})",
                    attacker=by, defender=owner, province=province)
         return army
+
+    def reinforce(self, state: State, nation: str, enemy: str, share: float = 0.6) -> int:
+        """March troops from provinces away from the front to the provinces facing `enemy`,
+        hop by hop through your own territory. Returns how many troops set off."""
+        own = {p for p, o in state.provinces.items() if o == nation}
+        front = {p for p in own if any(state.provinces.get(q) == enemy for q in NEIGHBOURS.get(p, []))}
+        if not front:
+            raise ValueError(f"you have no border with {self._name(state, enemy)}")
+        sent = 0
+        now = self.clock()
+        for p in sorted(own - front):
+            keep = 0.4 if p == CAPITALS.get(nation) else 1 - share
+            troops = round(self.garrison.get(p, 0) * (1 - keep))
+            if troops < 100:
+                continue
+            path = self._route(p, front, own)
+            if not path:
+                continue
+            self.garrison[p] -= troops
+            self.seq += 1
+            self.armies.append(Army(id=self.seq, owner=nation, src=p, dst=path[0], troops=troops, depart=now,
+                                    arrive=now + hop_seconds(p, path[0]), advance=False, path=path[1:]))
+            sent += troops
+        if not sent:
+            raise ValueError("no spare troops away from the front: recruit first")
+        self._note(state, "march", f"{self._name(state, nation)} moves {sent:,.0f} troops to the "
+                   f"{self._name(state, enemy)} front", attacker=nation, defender=enemy)
+        return sent
+
+    @staticmethod
+    def _route(start: str, goals: set[str], allowed: set[str]) -> list[str]:
+        """Shortest path from start to any goal through allowed provinces (start excluded)."""
+        prev: dict[str, Optional[str]] = {start: None}
+        queue = [start]
+        while queue:
+            p = queue.pop(0)
+            if p in goals and p != start:
+                path = [p]
+                while prev[path[-1]] != start:
+                    path.append(prev[path[-1]])  # type: ignore[arg-type]
+                return path[::-1]
+            for q in NEIGHBOURS.get(p, []):
+                if q in allowed and q not in prev:
+                    prev[q] = p
+                    queue.append(q)
+        return []
 
     def recruit(self, state: State, nation: str, troops: float) -> float:
         troops = max(100.0, min(3000.0, float(troops)))
@@ -278,7 +329,7 @@ class WarRoom:
                              "demand": f"; {name} pays tribute"}[kind])
         return {"accepted": ok, "reply": reply}
 
-    def _end_war(self, state: State, key: str, text: str) -> None:
+    def _end_war(self, state: State, key: str, text: str, kind: str = "peace") -> None:
         war = self.wars.pop(key, None)
         if not war:
             return
@@ -292,7 +343,7 @@ class WarRoom:
         for n in (war.a, war.b):
             if not self.enemies(n) and "WAR" in state.nations[n].status:
                 state.nations[n].status.remove("WAR")
-        self._note(state, "peace", text)
+        self._note(state, kind, text)
 
     # --- the clock -----------------------------------------------------------------
 
@@ -319,8 +370,15 @@ class WarRoom:
         self.armies.remove(army)
         p = army.dst
         owner = state.provinces.get(p)
-        if owner == army.owner:  # reinforcement
-            self.garrison[p] = self.garrison.get(p, 0) + army.troops
+        if owner == army.owner:  # reinforcement: continue along the path, or stay
+            if army.path and state.provinces.get(army.path[0]) == army.owner:
+                nxt, rest = army.path[0], army.path[1:]
+                now = self.clock()
+                self.seq += 1
+                self.armies.append(Army(id=self.seq, owner=army.owner, src=p, dst=nxt, troops=army.troops,
+                                        depart=now, arrive=now + hop_seconds(p, nxt), advance=False, path=rest))
+            else:
+                self.garrison[p] = self.garrison.get(p, 0) + army.troops
             return
         key = relation_key(army.owner, owner) if owner else None
         if not owner or key not in self.wars:  # peace was made on the way: go home
@@ -355,7 +413,7 @@ class WarRoom:
             else:
                 self.garrison[p] = survivors
             if not any(o == owner for o in state.provinces.values()):
-                self._end_war(state, key, f"{d_name} is overrun; {a_name} wins the war")
+                self._end_war(state, key, f"{d_name} is overrun; {a_name} wins the war", kind="overrun")
         else:
             lost_d = min(defenders * 0.95, attack / mult * 0.5)
             self.garrison[p] = round(defenders - lost_d)
@@ -414,7 +472,9 @@ class WarRoom:
                     self.attack(state, n, best[1], src=best[2])
                 except ValueError:
                     pass
-            elif best and state.nations[n].stats.gdp > 30:
+            elif (best and state.nations[n].stats.gdp > 30 and now >= self.next_recruit.get(n, 0)
+                  and self.troops(n, state) < 1.2 * max(self.troops(e, state) for e in self.enemies(n))):
+                self.next_recruit[n] = now + AI_RECRUIT_SECONDS  # only when outnumbered, not every think
                 try:
                     self.recruit(state, n, 800)
                 except ValueError:
