@@ -1,0 +1,2 @@
+# MCP server for Mistral Vibe. FastMCP lives in the 1.x SDK (2.x renamed it MCPServer).
+mcp>=1.10,<2
