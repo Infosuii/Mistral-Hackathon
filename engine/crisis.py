@@ -152,6 +152,10 @@ def _compare_notes(s: State, between: list[str], quiet: bool = False) -> None:
         bl = s.nations[n].beliefs
         if bl:
             bl.trust_in_player = round(bl.trust_in_player * r.get("contradiction_trust_factor", 0.4), 3)
+        # Reopen any early pre-deadline deal struck on the voided promise so the betrayed
+        # leader still rings with its threat and decides again at its deadline (#67).
+        if n in s.crisis.decisions and s.crisis.tick < s.crisis.deadlines.get(n, s.crisis.ticks_total):
+            del s.crisis.decisions[n]
     for p, q in clash:
         p.kept = q.kept = False
     _say(s, f"{s.nations[a].name} and {s.nations[b].name} compare notes: you promised the {clash[0][0].what} to both",
