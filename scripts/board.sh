@@ -15,8 +15,8 @@ set -euo pipefail
 REPO="${GAMBIT_REPO:-Infosuii/Mistral-Hackathon}"
 BOARD="${GAMBIT_BOARD:-25}"
 
-role_of() { case "$1" in Tamim) echo "lead";; Om) echo "engine";; Abi) echo "leaders";; Ashish) echo "voice";; Coordinator) echo "coordinator";; *) echo "team";; esac; }
-issue_of() { case "$1" in Tamim) echo 26;; Om) echo 27;; Abi) echo 28;; Ashish) echo 29;; *) echo "$BOARD";; esac; }
+role_of() { case "$1" in Tamim) echo "lead";; Om) echo "engine";; Abi) echo "leaders";; Ashish) echo "voice";; Coordinator) echo "coordinator";; Neon) echo "testing";; *) echo "team";; esac; }
+issue_of() { case "$1" in Tamim) echo 26;; Om) echo 27;; Abi) echo 28;; Ashish) echo 29;; Neon) echo 67;; *) echo "$BOARD";; esac; }
 
 cmd="${1:-help}"; [ $# -gt 0 ] && shift
 case "$cmd" in
