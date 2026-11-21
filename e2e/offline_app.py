@@ -16,7 +16,7 @@ os.environ["VOICE_WIRETAP"] = "demo"
 os.environ["VOICE_MOCK"] = "fixed"
 os.environ.pop("MISTRAL_API_KEY", None)
 
-from contracts.models import CallOutput  # noqa: E402
+from contracts.models import CallOutput, CallView  # noqa: E402
 import engine.app as eng_app  # noqa: E402
 import voice.api as v_api  # noqa: E402
 from voice.audio import PRERENDERED, cache_key, find_audio  # noqa: E402
@@ -49,6 +49,8 @@ async def _offline_speak(text: str, voice_id: str, emotion: str | None = None, f
 
 
 def _offline_reply(view) -> tuple[str, str, CallOutput]:
+    if not isinstance(view, CallView):
+        view = CallView.model_validate(view)
     nation = view.nation
     t = (view.transcript or "").lower()
     phase = view.state.phase
@@ -122,7 +124,7 @@ async def _offline_interpret(view, reply_text: str) -> CallOutput:
     return out
 
 
-v_api._phone = lambda: (_offline_fast, _offline_interpret, True)
+v_api._phone = lambda: (_offline_fast, _offline_interpret, False)
 v_api.speak = _offline_speak
 v_api.transcribe = _offline_transcribe
 
