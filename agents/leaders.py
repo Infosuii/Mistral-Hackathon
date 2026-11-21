@@ -28,7 +28,8 @@ EMOTIONS: tuple[str, ...] = Emotion.__args__  # type: ignore[attr-defined]
 DECIDE_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_DECIDE_S", "7.5"))
 CALL_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_CALL_S", "6"))
 # Large 4 first; the hedge model joins if Large 4 has not answered by then.
-HEDGE_AFTER_S = float(os.environ.get("GAMBIT_HEDGE_AFTER_S", "3.5"))
+# Shorter head start for a reasoning model (Large 4 almost never answers in time).
+HEDGE_AFTER_S = float(os.environ.get("GAMBIT_HEDGE_AFTER_S", "2.5" if llm.reasons(llm.DECIDE_MODEL) else "3.5"))
 INTERPRET_BUDGET_S = float(os.environ.get("GAMBIT_AGENTS_INTERPRET_S", "45"))
 MAX_OPTIONS = 10
 HESITATION_MS = 2500  # ideas.md 6b
