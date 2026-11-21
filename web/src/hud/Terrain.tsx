@@ -18,21 +18,6 @@ function rng(seed: number) {
 const coastPoints = map.coast.match(/-?\d+(\.\d+)?,-?\d+(\.\d+)?/g)!.map((p) => p.split(',').map(Number))
 export const coastPath = map.coast
 
-const islands = [
-  'M765,330 q-9,-15 6,-23 q12,-4 21,6 q8,8 -5,16 q-7,8 -22,1Z',
-  'M740,351 q-9,-7 -4,-13 q8,-6 14,1 q7,5 0,12 q-6,3 -10,0Z',
-  'M956,802 q-15,-8 -7,-25 q13,-14 30,-10 q12,3 11,15 q-3,8 -12,11 q-11,12 -22,9Z',
-  'M1005,818 q-8,-5 -2,-12 q7,-5 15,0 q4,5 -1,9 q-6,5 -12,3Z',
-]
-
-export function OffshoreIslands() {
-  return (
-    <g className="offshore-islands map-decoration">
-      {islands.map((path) => <path key={path} d={path} />)}
-    </g>
-  )
-}
-
 function distanceToCoast([x, y]: number[]) {
   return Math.min(...coastPoints.map(([cx, cy]) => Math.hypot(cx - x, cy - y)))
 }
@@ -52,10 +37,10 @@ export const terrainLabel: Record<TerrainKind, string> = {
 export function TerrainDefs() {
   return (
     <>
-      <filter id="relief" x="0" y="0" width="100%" height="100%" filterUnits="userSpaceOnUse">
-        <feTurbulence type="fractalNoise" baseFrequency=".009" numOctaves="3" seed="7" result="noise" />
-        <feDiffuseLighting in="noise" surfaceScale="3.5" diffuseConstant="1.05" lightingColor="#fff" result="light">
-          <feDistantLight azimuth="315" elevation="38" />
+      <filter id="relief" x="0" y="0" width={map.width} height={map.height} filterUnits="userSpaceOnUse">
+        <feTurbulence type="fractalNoise" baseFrequency=".016 .026" numOctaves="4" seed="7" result="noise" />
+        <feDiffuseLighting in="noise" surfaceScale="6" diffuseConstant="1.05" lightingColor="#fff" result="light">
+          <feDistantLight azimuth="312" elevation="29" />
         </feDiffuseLighting>
         <feColorMatrix in="light" type="saturate" values="0" />
       </filter>
@@ -72,9 +57,9 @@ export function TerrainDefs() {
         <rect width="4" height="10" fill="var(--war)" opacity=".35" />
       </pattern>
       <radialGradient id="sea-depth" cx="50%" cy="48%" r="70%">
-        <stop offset="0%" stopColor="#24576c" />
-        <stop offset="57%" stopColor="#153a54" />
-        <stop offset="100%" stopColor="#091f35" />
+        <stop offset="0%" stopColor="#415b68" />
+        <stop offset="57%" stopColor="#334a5c" />
+        <stop offset="100%" stopColor="#1b3042" />
       </radialGradient>
       <radialGradient id="vignette" cx="50%" cy="50%" r="75%">
         <stop offset="60%" stopColor="#000" stopOpacity="0" />
@@ -106,19 +91,12 @@ export function Sea({ x, y, width, height }: { x: number; y: number; width: numb
 export function Biomes() {
   return (
     <g className="terrain-biomes map-decoration">
-      <g transform="translate(55 20)">
-        <path fill="#d5ebdb" d="M0 20h500v175q-79 54-174 5t-163 16Q74 199 0 235Z" />
-        <path fill="#50775a" d="M41 205q93-88 172-23t119 9q67-28 110 26v160H51Z" />
-      </g>
-      <g transform="translate(120 230)">
-        <path fill="#326642" d="M33 275q111-72 212-31t151 56q33 56-50 80q-173 58-313-14Z" />
-        <path fill="#e2bb73" d="M229 566q89-72 199-75t172-85v223H228Z" />
-        <path fill="#b8a475" d="M89 456q131-47 234-28t114 56v86H91Z" />
-      </g>
-      <g transform="translate(690 245)">
-        <path fill="#d0bb99" d="M507 50h441v273q-96 28-160-17t-155-8q-64 13-126-37Z" />
-        <path fill="#2c5c38" d="M503 312q91-43 174 29t168 15q81-46 114 1v220H503Z" />
-      </g>
+      <path fill="#cedbd1" opacity=".55" d="M0 0H1740V280C1480 248 1291 186 1100 224S780 184 603 257 234 283 0 233Z" />
+      <path fill="#638155" d="M0 506C352 414 522 519 638 430S862 303 961 205L1073 187C950 315 948 535 765 618S205 713 0 663Z" />
+      <path fill="#997d58" d="M116 710C335 585 437 774 605 715S906 742 1030 665 1350 686 1740 616V1060H0Z" />
+      <path fill="#3f6445" d="M1015 432C1175 415 1340 281 1740 323V530C1559 598 1492 550 1365 635S1125 648 1015 621Z" />
+      <path fill="#c2b395" opacity=".65" d="M518 382C660 360 717 271 836 240S960 195 1094 134L1160 202C1011 279 889 296 788 358S629 438 578 490Z" />
+      <path fill="#567269" d="M187 587C298 515 404 536 430 585S485 749 590 779L546 827C362 798 404 662 300 661L193 694Z" />
     </g>
   )
 }
@@ -199,18 +177,13 @@ export function TerrainFeatures() {
 export function Rivers() {
   return (
     <g className="rivers map-decoration">
-      <g transform="translate(120 230)">
-        <path d="M250 296q41 30 39 56t40 35q-13 20 22 37t39 70q-17 26-18 63" />
-        <path className="tributary" d="M187 358q28 18 58 10t59 8" />
-      </g>
-      <g transform="translate(55 20)">
-        <path d="M332 163q-42 32-82 20t-63 24q-26 14-45 8t-81 6" />
-        <path className="tributary" d="M222 147q7 34 37 38" />
-      </g>
-      <g transform="translate(690 245)">
-        <path d="M755 143q18 44 1 76t11 75q-24 47-4 84t3 63q16 36-6 62t-11 68" />
-        <path className="tributary" d="M591 351q47-27 89-2t74 8M865 276q-39 18-95 18" />
-      </g>
+      <path d="M750 306C684 380 681 477 611 520S546 604 469 654C381 687 372 743 293 756S176 751 111 727" />
+      <path className="tributary" d="M480 568Q508 599 469 654M316 587Q372 613 404 684M779 436Q722 438 648 479" />
+      <path d="M381 159Q366 229 418 257T485 326M381 159Q278 158 244 196T92 211" />
+      <path className="tributary" d="M288 123Q283 146 309 164M430 176Q407 192 399 221" />
+      <path d="M1423 211C1395 314 1338 357 1270 460C1190 475 1169 552 1170 715S1235 826 1259 916" />
+      <path className="tributary" d="M1530 400Q1432 428 1270 460M1104 323Q1151 373 1228 397M987 664Q1074 686 1170 715" />
+      <path d="M876 540Q839 609 890 660T871 758L922 808" />
     </g>
   )
 }

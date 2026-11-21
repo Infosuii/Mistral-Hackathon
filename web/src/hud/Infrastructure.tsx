@@ -1,4 +1,5 @@
 import atlas from '../atlas.json'
+import rail from '../../../data/rail.json'
 import buildings from '../../../data/buildings.json'
 import type { GameState } from '../state'
 import { nationStyle } from '../theme'
@@ -48,12 +49,13 @@ function Railcar() {
 }
 
 export function Transport({ state }: { state: GameState }) {
-  const freight = new Set((state.buildings ?? [])
-    .filter(({ kind }) => ['arms_factory', 'factory', 'freight_yard'].includes(kind))
-    .map(({ province }) => province))
   const roads = roadNetwork(state)
-  const railTracks = roads.filter(({ a, b }) => freight.has(a) || freight.has(b))
-  const roadTraffic = roads.filter(({ a, b }, i) => i % 5 === 0 && !freight.has(a) && !freight.has(b))
+  const active = new Set(state.rail_services ?? [])
+  const railTracks = rail.routes.filter(({ id }) => active.has(id)).map(({ id, points }) => {
+    const line = points.map((point) => point.join(','))
+    return { id, path: `M${line.join(' L')}`, end: points.at(-1)! }
+  })
+  const roadTraffic = roads.filter((_, i) => i % 6 === 0)
   return (
     <g className="transport map-decoration" aria-hidden="true">
       {roads.map(({ a, b, path }) => <path key={`${a}:${b}`} className="local-road" d={path} />)}
@@ -65,12 +67,13 @@ export function Transport({ state }: { state: GameState }) {
           <path fill="#9bbbba" d="M2-2h3v3H2Z" />
         </g>
       ))}
-      {railTracks.map(({ a, b, path, end }, index) => (
-        <g key={`${a}:${b}`}>
+      {railTracks.map(({ id, path, end }, index) => (
+        <g key={id} data-freight-route={id}>
           <path className="rail-bed" d={path} />
           <path className="rail-track" d={path} />
           <g className="mobile-sprite">
-            <animateMotion path={path} rotate="auto" dur={`${8 + index % 4}s`} begin={`-${index % 8}s`} repeatCount="indefinite" />
+            <animateMotion path={path} rotate="auto" dur={`${16 + index % 6}s`} begin={`-${index % 8}s`}
+              calcMode="linear" keyPoints="0;1;1;0;0" keyTimes="0;.44;.5;.94;1" repeatCount="indefinite" />
             <Railcar />
           </g>
           <g className="static-sprite" transform={location(end[0], end[1])}><Railcar /></g>
@@ -93,10 +96,15 @@ export function TankSprite() {
 
 function PlaneSprite() {
   return (
-    <g>
-      <path fill="#173440" stroke="#0b2025" strokeWidth="1.3" d="M-13-1h9l3-7h3l-1 7h10l2 2-2 2H1l1 6h-3l-3-6h-7l-2 2Z" />
-      <path fill="#e7ede3" d="M-12 0h9l3-7h1l-1 7h12l1 1-1 1H0l1 6H0l-3-6h-8l-1 1Z" />
-      <path fill="#6392a0" d="M7 0h3v2H7Z" />
+    <g className="fighter-sprite">
+      <path fill="#20383e" opacity=".5" transform="translate(3 3)" d="M-19-2h9l5-8h3l-1 8 11 1 8 2-8 2-11 1 1 8h-3l-5-8h-9l2-3Z" />
+      <path fill="#1d373e" d="M-19-2h9l5-8h3l-1 8 11 1 8 2-8 2-11 1 1 8h-3l-5-8h-9l2-3Z" />
+      <path fill="#afbcb1" d="M-17-1h8l5-8h1l-1 8 11 1 5 1-5 1-11 1 1 8h-1l-5-8h-8l1-2Z" />
+      <path fill="#778b89" d="M-8-1-4-7-5 0h8v2h-9v5l-2-4h-4V0Z" />
+      <path fill="#365968" d="M4 0h4l2 1-2 1H4Z" />
+      <path fill="#e1a666" d="M-16 0h2v2h-2Z" />
+      <path fill="#b45143" d="M-5-8h1v1h-1Z" />
+      <path fill="#85a786" d="M-5 8h1v1h-1Z" />
     </g>
   )
 }

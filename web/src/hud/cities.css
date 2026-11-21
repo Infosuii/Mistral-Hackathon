@@ -1,0 +1,10 @@
+.city-marker { cursor: zoom-in; }
+.city-marker .city-pin { fill: var(--nation-accent); stroke: #18282c; stroke-width: 1.4; }
+.city-marker text { text-anchor: middle; font: 600 13px var(--display-font); fill: #eee6d1; paint-order: stroke; stroke: #16282b; stroke-width: 2.5px; }
+.city-marker:focus-visible text, .city-marker:hover text { fill: #ffe0a0; }
+.city-street { fill: none; stroke: #b8af9a; stroke-width: 4.5; }
+.city-lane { fill: none; stroke: #ebe4cc; stroke-width: .35; stroke-dasharray: 2 2; }
+.district-name { font: 700 6px var(--display-font); fill: #efe2bd; letter-spacing: .22px; }
+.district-right { text-anchor: end; fill: #d0d4bd; }
+.city-summary { display: grid; gap: .2rem; font-size: .78rem; background: #14252bed; color: #d8e0d9; padding: .45rem .7rem; border: 1px solid #a79d77; }
+.city-summary strong { color: #f1d59c; }

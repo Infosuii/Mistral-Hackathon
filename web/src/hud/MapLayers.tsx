@@ -245,7 +245,7 @@ export function CrisisFocus({ state }: { state: GameState }) {
       })}
       {secondBerth && <Ship id="nordhaven" kind="tug" at={tugBerth} from={kessarPoint(780, 649)} label="Nordhaven tugs · second berth available" />}
       {blockade && <Ship id="ostrava" kind="patrol" at={straitPatrol} from={kessarPoint(782, 633)} label="Ostrava blockade patrol" />}
-      <path className="storm" transform={`translate(${map.capitalOffsets.kessaria.join(" ")})`} d="M700,520 q14,-12 28,0 q14,12 28,0 M712,536 q12,-10 24,0 q12,10 24,0" />
+      <path className="storm" transform={`translate(${[kessarPort[0] - 612, kessarPort[1] - 548].join(" ")})`} d="M700,520 q14,-12 28,0 q14,12 28,0 M712,536 q12,-10 24,0 q12,10 24,0" />
     </g>
   )
 }

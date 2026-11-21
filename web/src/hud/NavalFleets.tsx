@@ -26,7 +26,12 @@ function FleetMarker({ route, progress, nation, label, blockading }: {
     const from = position.current ?? (blockading ? progress : 0)
     const move = (fraction: number) => {
       const { x, y } = track.getPointAtLength(fraction * length)
+      const behind = track.getPointAtLength(Math.max(0, fraction * length - 3))
+      const ahead = track.getPointAtLength(Math.min(length, fraction * length + 3))
+      const angle = Math.atan2(ahead.y - behind.y, ahead.x - behind.x) * 180 / Math.PI
       marker.setAttribute('transform', `translate(${x} ${y})`)
+      marker.querySelector('[data-vessel]')?.setAttribute('transform',
+        `rotate(${angle + (progress < from ? 0 : 180)}) scale(1.1)`)
       position.current = fraction
     }
     if (from === progress || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -52,7 +57,7 @@ function FleetMarker({ route, progress, nation, label, blockading }: {
       <path ref={path} className="fleet-lane" d={d} />
       <g ref={ship} className="fleet-marker">
         {blockading && <circle className="fleet-blockade" r="27" />}
-        <g transform="scale(1.45)"><ShipSilhouette kind="patrol" /></g>
+        <g data-vessel><ShipSilhouette kind="patrol" /></g>
         <text y="-25">{label}</text>
       </g>
     </g>

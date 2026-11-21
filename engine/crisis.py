@@ -341,6 +341,8 @@ def _resolve(s: State) -> None:
         holders, notes = _one_berth_outcomes(s, dec)
     else:
         holders, notes = _rule_outcomes(s, dec)
+    from engine.core import update_rail_services
+    update_rail_services(s)
     war = any(frozenset((l.a, l.b)) not in wars_before for l in s.links if l.type == "war")
 
     for p in c.promises:

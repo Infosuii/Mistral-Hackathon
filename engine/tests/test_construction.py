@@ -38,3 +38,27 @@ def test_orders_create_starter_infrastructure_and_complete_project(monkeypatch, 
         assert result["construction"] is None
         assert {**order, "built_turn": 1} in result["buildings"]
         assert any(e["type"] == "construction_completed" for e in client.get("/history").json())
+
+def test_city_freight_uses_shared_routes_and_credits_resources():
+    from contracts.models import Link
+    from engine.core import _active_rail, _rail_freight, relation_key
+
+    state = new_game(7, Seat(role="president", nation="valdoria"))
+    definitions = _load("rail.json")
+    adjacency = _load("atlas_adjacency.json")
+    route = next(route for route in definitions["routes"]
+                 if state.provinces[route["from"]] != state.provinces[route["to"]])
+    assert route["from"] in definitions["cities"] and route["to"] in definitions["cities"]
+    assert all(b in adjacency[a] for a, b in zip(route["via"], route["via"][1:]))
+    owners = [state.provinces[province] for province in route["via"]]
+    pairs = {relation_key(a, b) for a, b in zip(owners, owners[1:]) if a != b}
+    state.links = [Link(type="trade", a=a, b=b) for a, b in (key.split("|") for key in sorted(pairs))]
+    assert route in _active_rail(state)
+    before = state.nations["valdoria"].stats.model_dump()
+    _rail_freight(state)
+    assert route["id"] in state.rail_services
+    for stat, amount in state.rail_income["valdoria"].items():
+        assert getattr(state.nations["valdoria"].stats, stat) == before[stat] + amount
+    a, b = min(pairs).split("|")
+    state.links.append(Link(type="war", a=a, b=b))
+    assert route not in _active_rail(state)
