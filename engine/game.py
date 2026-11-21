@@ -172,6 +172,7 @@ class Game:
         if available_crises():
             self.state = State.model_validate({**self.state.model_dump(), "available_crises": available_crises()})
         self.leaders: dict[str, LeaderDetail] = {}
+        self.intent_history: dict[str, list[str]] = {n: [] for n in NATION_IDS}
         self.inbox: dict[str, list[ReceivedMessage]] = {n: [] for n in NATION_IDS}
         self.queued: list[Action] = []  # agreed on the phone; applied next turn
         self.player_action: Optional[Action] = None  # POST /action; applied next month
@@ -258,6 +259,7 @@ class Game:
         if self._decide_fn is not None:
             view = LeaderView(nation=nation, state=s, advice=advice,
                               messages_received=self.inbox[nation],
+                              earlier_private_intents=self.intent_history[nation],
                               private_strategy=self.strategy_for(nation))
             try:
                 raw = await asyncio.wait_for(self._decide_fn(view), timeout=DECIDE_TIMEOUT_S)
@@ -331,6 +333,8 @@ class Game:
 
             inbox: dict[str, list[ReceivedMessage]] = {n: [] for n in NATION_IDS}
             for n, (out, chosen) in zip(ai, results):
+                if out.private_intent:
+                    self.intent_history[n] = (self.intent_history[n] + [f"month {s.turn}: {out.private_intent}"])[-3:]
                 new.nations[n].public_statement = out.public_statement
                 for m in out.messages:
                     inbox[m.to].append(ReceivedMessage(**{"from": n, "text": m.text}))

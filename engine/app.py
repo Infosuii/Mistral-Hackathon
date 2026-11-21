@@ -117,6 +117,10 @@ async def post_futures(req: FuturesRequest) -> FuturesResponse:
     result = await asyncio.to_thread(futures, before, GAME.state, list(GAME.queued))
     if epoch != GAME.epoch:
         raise HTTPException(409, "The game restarted during the forecast.")
+    result = result.model_copy(update={"caption": (
+        f"Six-month war odds from the saved snapshot to now: "
+        f"{result.before.war_p:.0%} → {result.after.war_p:.0%}."
+    )})
     if seq == GAME.needle_seq:
         GAME.state = GAME.state.model_copy(update={"last_futures": result})
     return result
