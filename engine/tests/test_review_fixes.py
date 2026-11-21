@@ -48,3 +48,37 @@ def test_defiant_leader_keeps_its_choice_when_only_scores_move():
     cached_advice["ostrava"][0] = Advice(action=Action(type="wait", by="ostrava"), score=9.0)
     _, now = rerun_crisis(start, [], {"ostrava": Decision(action="dock", tick=8)}, cached_advice, [], 7)
     assert now["ostrava"] == "blockade"
+
+
+def _call(to, what="berth", when="all_day"):
+    from contracts.models import CallOutput
+    return CallOutput(reply_text="...", emotion="calm", belief_updates={"trust_in_player": 0, "resolve_of_player": 0},
+                      promises=[{"to": to, "what": what, "when": when}])
+
+
+def _run(calls):
+    async def go():
+        g = Game(seed=7, use_agents=False, needle=False)
+        g.start_crisis("one_berth")
+        while g.state.phase == "crisis":
+            s = await g.turn()
+            for t, to in calls:
+                if s.crisis and s.crisis.tick == t:
+                    g.apply_call(to, _call(to))
+        return g
+    return asyncio.run(go())
+
+
+def test_clash_after_compare_notes_is_caught_when_made():
+    g = _run([(1, "ostrava"), (6, "zarnia")])  # the second promise comes after tick 5
+    caught = [n.text for n in g.state.news if "promised the berth to both" in n.text]
+    assert len(caught) == 1
+    assert g.state.nations["ostrava"].beliefs.trust_in_player < 0.5
+
+
+def test_caught_once_not_twice_and_no_noise_without_clash():
+    g = _run([(1, "ostrava"), (3, "zarnia"), (6, "zarnia")])  # caught at tick 5; Ostrava's promise is already void
+    assert len([n for n in g.state.news if "promised the berth to both" in n.text]) == 1
+    g = _run([(1, "ostrava"), (6, "ostrava")])
+    assert not any("compare notes" in n.text and "both" in n.text for n in g.state.news)
+    assert sum("story holds" in n.text for n in g.state.news) == 1  # only the scripted tick-5 line

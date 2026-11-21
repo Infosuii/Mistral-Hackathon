@@ -131,13 +131,15 @@ def _compatible(r: dict, a: str, b: str) -> bool:
     return any({a, b} == set(pair) for pair in r.get("compatible_when", []))
 
 
-def _compare_notes(s: State, between: list[str]) -> None:
+def _compare_notes(s: State, between: list[str], quiet: bool = False) -> None:
     r = _rules(s)
     a, b = between
     clash = [(p, q) for p in _player_promises(s, a) for q in _player_promises(s, b)
              if p.what == q.what and p.condition is None and q.condition is None
              and not _compatible(r, p.when, q.when)]
     if not clash:
+        if quiet:
+            return
         _say(s, f"{s.nations[a].name} and {s.nations[b].name} compare notes; your story holds",
              "compare_notes", a, target=b, contradiction=False)
         return
@@ -149,6 +151,14 @@ def _compare_notes(s: State, between: list[str]) -> None:
         p.kept = q.kept = False
     _say(s, f"{s.nations[a].name} and {s.nations[b].name} compare notes: you promised the {clash[0][0].what} to both",
          "compare_notes", a, target=b, contradiction=True)
+
+
+def check_new_promise(s: State, to: str) -> None:
+    """After diplomats have compared notes, a clashing promise is caught as soon as it is
+    made, not only at the compare-notes tick (Reviewer, #27). Mutates s (a copy)."""
+    for e in crisis_file(s.crisis.id).scripted:
+        if e.type == "compare_notes" and e.tick <= s.crisis.tick and to in (e.between or []):
+            _compare_notes(s, e.between, quiet=True)
 
 
 def contradiction_found(s: State) -> bool:
