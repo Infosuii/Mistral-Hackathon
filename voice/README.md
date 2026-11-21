@@ -90,5 +90,6 @@ after changing a crisis file or the casting.
 - `voice.audio_url_for(nation, text, emotion) -> str | None` gives the URL for a leader line:
   instant when pre-rendered, otherwise it starts rendering in the running loop. Use it to fill
   `state.incoming_call.audio_url`.
-- `/wiretap` uses `agents.wiretap(a, b)` when it exists, then the demo script for that pair,
-  then a stand-in.
+- `/wiretap` uses live `agents.wiretap(a, b)` when it exists, else the demo script for that
+  pair, else a stand-in. Set `VOICE_WIRETAP=demo` to always play the pre-rendered script
+  (instant and offline) when recording the demo.

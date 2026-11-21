@@ -138,6 +138,7 @@ def test_demo_lines_play_with_network_off(monkeypatch):
         yield  # pragma: no cover
 
     monkeypatch.setattr(audio, "stream_speech", no_network)
+    monkeypatch.setenv("VOICE_WIRETAP", "demo")
     assert asyncio.run(render(check_only=True)) == 0  # every demo line is committed
 
     with TestClient(app) as c:
