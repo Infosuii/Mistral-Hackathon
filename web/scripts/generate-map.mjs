@@ -48,13 +48,27 @@ const shoreline = coast.flatMap(([x, y], index) => {
 })
 
 const voronoi = Delaunay.from(seeds).voronoi(bounds)
-const provinces = seeds.map((_, index) => ({
-  id: `p${String(index + 1).padStart(2, '0')}`,
-  path: voronoi.renderCell(index).replace(/-?\d+\.\d+/g, (number) => Number(number).toFixed(1)),
-}))
+
+const borderEdges = new Map()
+const provinces = seeds.map((center, index) => {
+  const id = `p${String(index + 1).padStart(2, '0')}`
+  const vertices = voronoi.cellPolygon(index).map((point) => point.map((value) => Number(value.toFixed(1))).join(','))
+  for (let n = 1; n < vertices.length; n += 1) {
+    const edge = [vertices[n - 1], vertices[n]].sort().join('L')
+    const owners = borderEdges.get(edge) ?? []
+    owners.push(id)
+    borderEdges.set(edge, owners)
+  }
+  return { id, center, path: `M${vertices.slice(0, -1).join('L')}Z` }
+})
+const borders = []
+for (const [edge, ids] of borderEdges) {
+  if (ids.length === 2) borders.push({ between: ids, path: `M${edge}` })
+}
 const capitals = Object.fromEntries(Object.entries(regions).map(([nation, points]) => [nation, points[0]]))
 const map = { width: bounds[2], height: bounds[3], coast: `M${shoreline.join('L')}Z`, capitals }
-// A province per line keeps handoffs and diffs easy to scan.
-const lines = JSON.stringify(map, null, 2).slice(0, -2)
-const provinceLines = provinces.map((province) => `    ${JSON.stringify(province)}`).join(',\n')
-writeFileSync(new URL('../src/map.json', import.meta.url), `${lines},\n  "provinces": [\n${provinceLines}\n  ]\n}\n`)
+// One province or border per line keeps geometry diffs easy to scan.
+function entries(items) {
+  return items.map((item) => `    ${JSON.stringify(item)}`).join(',\n')
+}
+writeFileSync(new URL('../src/map.json', import.meta.url), `${JSON.stringify(map, null, 2).slice(0, -2)},\n  "provinces": [\n${entries(provinces)}\n  ],\n  "borders": [\n${entries(borders)}\n  ]\n}\n`)
