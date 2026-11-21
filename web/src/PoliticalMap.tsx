@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } fr
 import map from './atlas.json'
 import counties from '../../data/counties.json'
 import { MapOverlays } from './MapOverlays'
-import rail from '../../data/rail.json'
-import { CityDistrict, CityMarkers, FreightSummary, RuralSettlements, cities, cityPoints } from './hud/Cities'
+import infrastructure from '../../data/infrastructure.json'
+import { CityMarkers, FreightSummary, UrbanFabric } from './hud/Cities'
 import { Facilities, Transport } from './hud/Infrastructure'
 import { NavalFleets } from './hud/NavalFleets'
 import { DecisionMotion, kessarPort } from './hud/DecisionMotion'
@@ -13,7 +13,7 @@ import { nationStyle } from './theme'
 import { CapitalMarkers, CrisisFocus, flagOf, LeaderMedallions, NationalBorders, TerritoryLabels, UnitCounters } from './hud/MapLayers'
 import { OrdersBar } from './hud/OrdersBar'
 import { BreakingNews, RelationPops } from './hud/Reactions'
-import { Biomes, coastPath, Relief, Rivers, Sea, TerrainDefs, TerrainFeatures, terrainLabel, terrainOf } from './hud/Terrain'
+import { Biomes, coastPath, Relief, Rivers, Sea, TerrainDefs, TerrainFeatures, terrainOf } from './hud/Terrain'
 
 interface Props {
   state: GameState
@@ -39,7 +39,7 @@ function limitView(view: typeof homeView) {
   }
 }
 
-const modeLabels = { political: 'Political', relations: 'Relations', military: 'Military', unrest: 'Unrest', regions: 'Regions' }
+const modeLabels = { political: 'Political', relations: 'Relations', military: 'Military', unrest: 'Unrest', regions: 'Regions', biomes: 'Biomes' }
 type MapMode = keyof typeof modeLabels
 const countyOf = new Map(counties.flatMap((county) => county.provinces.map((id) => [id, county] as const)))
 const countyEdges = map.borders.filter(({ between: [a, b] }) => countyOf.get(a) !== countyOf.get(b))
@@ -81,7 +81,7 @@ function ProvinceCard({ state, id, x, y }: { state: GameState; id: string; x: nu
         {flag && <img src={flag} alt="" />}
         <div>
           <strong>{nation.name}</strong>
-          <span>{county?.name ?? id.toUpperCase()} · {terrainLabel[terrainOf[id]]}</span>
+          <span>{county?.name ?? id.toUpperCase()} · {terrainOf[id]?.label}</span>
         </div>
       </header>
       <dl>
@@ -104,7 +104,7 @@ function ProvinceCard({ state, id, x, y }: { state: GameState; id: string; x: nu
 
 export function PoliticalMap({ state, online, historyFocus, selected, onSelect }: Props) {
   const [view, setView] = useState(homeView)
-  const [cityDetail, setCityDetail] = useState<string | null>(null)
+  const [citySelection, setCitySelection] = useState<string | null>(null)
   const [mode, setMode] = useState<MapMode>('political')
   const [hover, setHover] = useState<{ id: string; x: number; y: number } | null>(null)
   const relations = mode === 'relations' && Boolean(state.seat.nation)
@@ -115,7 +115,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
 
   useEffect(() => {
     if (!historyFocus) return
-    setCityDetail(null)
+    setCitySelection(null)
     const center = historyFocus.province
       ? map.provinces.find(({ id }) => id === historyFocus.province)?.center
       : historyFocus.nation && (map.capitals as Record<string, number[]>)[historyFocus.nation]
@@ -129,28 +129,16 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
   const crisisId = state.crisis?.id
   useEffect(() => {
     if (crisisId !== 'one_berth') return
-    setCityDetail(null)
+    setCitySelection(null)
     const zoom = 1.45
     setMode('political')
     setView(limitView({ zoom, x: centerX - kessarPort[0] * zoom, y: centerY - kessarPort[1] * zoom }))
   }, [crisisId])
 
-  function focusCity(province: string) {
-    const position = cityPoints.get(province)
-    if (!position) return
-    setCityDetail(province)
+  function selectCity(province: string) {
+    setCitySelection(province)
     setHover(null)
     onSelect(state.provinces[province])
-    const zoom = 4.1
-    setView(limitView({ zoom, x: centerX - position[0] * zoom, y: centerY - position[1] * zoom }))
-  }
-
-  function exitCity() {
-    if (cityDetail) {
-      const point = cityPoints.get(cityDetail)
-      if (point) setView(limitView({ zoom: 1.15, x: centerX - point[0] * 1.15, y: centerY - point[1] * 1.15 }))
-    }
-    setCityDetail(null)
   }
 
   function zoom(delta: number) {
@@ -198,10 +186,6 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
     if (box) setHover({ id, x: event.clientX - box.left, y: event.clientY - box.top })
   }
 
-  const currentCity = Object.keys(cities).find((id) => state.provinces[id] === selected && cities[id].capital)
-    ?? Object.keys(cities).find((id) => state.provinces[id] === selected)
-  const townServices = cityDetail && rail.routes.some((route) =>
-    (route.from === cityDetail || route.to === cityDetail) && state.rail_services?.includes(route.id))
   return (
     <div className="map-window" ref={windowRef} onPointerLeave={() => setHover(null)}>
       <svg className="political-map" data-zoomed={view.zoom > minZoom} viewBox={`${VB.x} ${VB.y} ${VB.w} ${VB.h}`}
@@ -237,8 +221,8 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
               const owner = state.provinces[id]
               const nation = state.nations[owner]
               return (
-                <path key={id} d={path} className="province" style={provinceStyle(state, owner, shownMode)}
-                  data-province={id} data-county={countyOf.get(id)?.name} data-owner={owner} data-home={owner === state.seat.nation} data-selected={Boolean(nation && owner === selected)}
+                <path key={id} d={path} className="province" style={{ ...provinceStyle(state, owner, shownMode), '--biome-color': terrainOf[id]?.color } as CSSProperties}
+                  data-province={id} data-biome={terrainOf[id]?.id} data-biome-view={shownMode === 'biomes'} data-county={countyOf.get(id)?.name} data-owner={owner} data-home={owner === state.seat.nation} data-selected={Boolean(nation && owner === selected)}
                   data-hover={hover?.id === id}
                   onPointerMove={(event) => hoverProvince(id, event)}
                   onClick={() => nation && onSelect(owner)}>
@@ -247,9 +231,10 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
               )
             })}
             <Biomes />
-            {!cityDetail && <Relief />}
-            {!cityDetail && <TerrainFeatures />}
+            <Relief />
+            <TerrainFeatures />
             <Rivers />
+            <UrbanFabric />
             <Transport state={state} />
             {shownMode === 'regions' && <g className="county-borders map-decoration">
               {countyEdges.map(({ between, path }) => <path key={between.join('|')} d={path} />)}
@@ -262,7 +247,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
           <text className="water-label map-decoration" x="250" y="387">Northern Passage</text>
           <text className="water-label map-decoration" x="915" y="825">Kessar Strait</text>
           <text className="water-label map-decoration" x="156" y="954">Western Ocean</text>
-          {!cityDetail && (shownMode === 'regions' ? (
+          {shownMode === 'regions' ? (
             <g className="county-labels map-decoration">
               {counties.map((county) => {
                 const centers = map.provinces.filter(({ id }) => county.provinces.includes(id)).map(({ center }) => center)
@@ -271,40 +256,38 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
                 return <text key={county.name} x={x} y={y + 18}>{county.name}</text>
               })}
             </g>
-          ) : <TerritoryLabels state={state} selected={selected} zoom={view.zoom} />)}
+          ) : <TerritoryLabels state={state} selected={selected} zoom={view.zoom} />}
           <MapOverlays state={state} onSelect={onSelect} />
           <NavalFleets state={state} />
           <CrisisFocus state={state} />
-          {!cityDetail && <>
-            <RuralSettlements />
-            <Facilities state={state} />
-            <CapitalMarkers state={state} />
-            <UnitCounters state={state} />
-            <LeaderMedallions state={state} selected={selected} onSelect={onSelect} />
-            <CityMarkers state={state} onCity={focusCity} />
-            <RelationPops state={state} />
-          </>}
-          {cityDetail && <CityDistrict id={cityDetail} railActive={Boolean(townServices)} />}
+          <Facilities state={state} />
+          <CapitalMarkers state={state} />
+          <UnitCounters state={state} />
+          <LeaderMedallions state={state} selected={selected} onSelect={onSelect} />
+          <CityMarkers state={state} onCity={selectCity} />
+          <RelationPops state={state} />
           <DecisionMotion state={state} online={online} />
         </g>
         <rect className="map-decoration" x={VB.x} y={VB.y} width={VB.w} height={VB.h} fill="url(#vignette)" />
       </svg>
-      {hover && !cityDetail && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} />}
+      {hover && <ProvinceCard state={state} id={hover.id} x={hover.x} y={hover.y} />}
       <div className="map-hud-top">
-        {cityDetail && <FreightSummary state={state} province={cityDetail} />}
+        {citySelection && <FreightSummary state={state} province={citySelection} onClose={() => setCitySelection(null)} />}
         <div className="map-mode" role="group" aria-label="Map view">
-          {cityDetail ? <button onClick={exitCity}>Back to map</button> :
-            currentCity && <button onClick={() => focusCity(currentCity)}>City detail</button>}
           {(Object.keys(modeLabels) as MapMode[])
             .filter((m) => m !== 'relations' || state.seat.nation)
-            .map((m) => <button key={m} aria-pressed={shownMode === m} onClick={() => { exitCity(); setMode(m) }}>{modeLabels[m]}</button>)}
+            .map((m) => <button key={m} aria-pressed={shownMode === m} onClick={() => setMode(m)}>{modeLabels[m]}</button>)}
         </div>
-        {!cityDetail && <BreakingNews state={state} />}
+        <BreakingNews state={state} />
       </div>
       <div className="map-bottom">
         <div className="map-footer">
           <div className="map-legend" aria-label={`${modeLabels[shownMode]} legend`}>
-            {shownMode === 'military' || shownMode === 'unrest' ? (
+            {shownMode === 'biomes' ? (
+              Object.values(infrastructure.biomes).map((biome) => (
+                <span key={biome.label} style={{ '--legend-color': biome.color } as CSSProperties}>{biome.label}</span>
+              ))
+            ) : shownMode === 'military' || shownMode === 'unrest' ? (
               <>
                 <span className="heat-low">{shownMode === 'military' ? 'Weak army' : 'Stable'}</span>
                 <span className="heat-high">{shownMode === 'military' ? 'Strong army' : 'Unrest'}</span>
@@ -327,7 +310,7 @@ export function PoliticalMap({ state, online, historyFocus, selected, onSelect }
           </div>
           <div className="map-zoom" role="group" aria-label="Map zoom">
             <button onClick={() => zoom(-0.5)} disabled={view.zoom === minZoom} aria-label="Zoom out">−</button>
-            <button onClick={() => { setCityDetail(null); setView(flatOverview) }} aria-label="Fit campaign map">Fit map</button>
+            <button onClick={() => { setCitySelection(null); setView(flatOverview) }} aria-label="Fit campaign map">Fit map</button>
             <button onClick={() => zoom(0.5)} disabled={view.zoom === maxZoom} aria-label="Zoom in">+</button>
           </div>
         </div>

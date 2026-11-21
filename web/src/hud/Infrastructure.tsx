@@ -1,4 +1,5 @@
 import atlas from '../atlas.json'
+import infrastructure from '../../../data/infrastructure.json'
 import rail from '../../../data/rail.json'
 import buildings from '../../../data/buildings.json'
 import type { GameState } from '../state'
@@ -12,30 +13,16 @@ function location(x: number, y: number) {
   return `translate(${x} ${y})`
 }
 
-const connections = atlas.borders.flatMap(({ between: [a, b] }) => {
-  const start = centers.get(a)
-  const end = centers.get(b)
-  if (!start || !end) return []
-  const distance = Math.hypot(start[0] - end[0], start[1] - end[1])
-  const mx = (start[0] + end[0]) / 2 + (end[1] - start[1]) * .1
-  const my = (start[1] + end[1]) / 2 - (end[0] - start[0]) * .1
-  return [{ a, b, distance, end, path: `M${start.join(',')} Q${mx},${my} ${end.join(',')}` }]
-}).sort((a, b) => a.distance - b.distance)
+const linePath = (points: number[][]) => `M${points.map((point) => point.join(',')).join(' L')}`
+const roads = infrastructure.roads.map((road) => ({ ...road, path: linePath(road.points) }))
 
-function roadNetwork(state: GameState) {
-  const parent = new Map<string, string>()
-  const root = (province: string): string => {
-    const next = parent.get(province)
-    return next ? root(next) : province
-  }
-  return connections.filter(({ a, b }) => {
-    if (state.provinces[a] !== state.provinces[b]) return false
-    const west = root(a)
-    const east = root(b)
-    if (west === east) return false
-    parent.set(east, west)
-    return true
-  })
+function passable(state: GameState, a: string, b: string) {
+  const from = state.provinces[a]
+  const to = state.provinces[b]
+  if (!from || !to) return false
+  if (from === to) return true
+  const border = state.links.filter((link) => (link.a === from && link.b === to) || (link.a === to && link.b === from))
+  return border.some((link) => link.type === 'trade') && !border.some((link) => link.type === 'war')
 }
 
 function Railcar() {
@@ -49,22 +36,33 @@ function Railcar() {
 }
 
 export function Transport({ state }: { state: GameState }) {
-  const roads = roadNetwork(state)
   const active = new Set(state.rail_services ?? [])
   const railTracks = rail.routes.filter(({ id }) => active.has(id)).map(({ id, points }) => {
     const line = points.map((point) => point.join(','))
     return { id, path: `M${line.join(' L')}`, end: points.at(-1)! }
   })
-  const roadTraffic = roads.filter((_, i) => i % 6 === 0)
+  const roadTraffic = roads.filter(({ a, b, kind }, i) => (kind === 'motorway' || i % 5 === 0) && passable(state, a, b))
   return (
     <g className="transport map-decoration" aria-hidden="true">
-      {roads.map(({ a, b, path }) => <path key={`${a}:${b}`} className="local-road" d={path} />)}
-      {roadTraffic.map(({ a, b, path }) => (
-        <g key={`truck:${a}:${b}`} className="mobile-sprite road-traffic">
-          <animateMotion path={path} rotate="auto" dur="12s" repeatCount="indefinite" />
-          <path fill="#30434a" d="M-6-2h12v5H-6Z" />
-          <path fill="#d5c49e" d="M-5-2h6v4h-6Z" />
-          <path fill="#9bbbba" d="M2-2h3v3H2Z" />
+      {roads.map(({ id, path, kind }) => <g key={id} data-road={kind}>
+        <path className={`road-edge ${kind}`} d={path} />
+        <path className={`road-bed ${kind}`} d={path} />
+        {kind === 'motorway' && <path className="road-divider" d={path} />}
+      </g>)}
+      {roads.flatMap(({ id, bridges }) => bridges.map((bridge, index) => (
+        <g key={`${id}:${index}`} data-bridge="river">
+          <path className="bridge-edge" d={linePath(bridge)} />
+          <path className="bridge-deck" d={linePath(bridge)} />
+          <path className="road-divider" d={linePath(bridge)} />
+        </g>
+      )))}
+      {roadTraffic.map(({ id, path, speed, length }, index) => (
+        <g key={id} className="mobile-sprite road-traffic" data-traffic={id}>
+          <animateMotion path={path} rotate="auto" dur={`${Math.max(8, length / (speed * 10))}s`}
+            begin={`-${index % 7}s`} repeatCount="indefinite" />
+          <path fill="#202e35" d="M-5-1.5h10v3H-5Z" />
+          <path fill={index % 3 === 0 ? '#d4b285' : '#a8bdc5'} d="M-4-1.5h5v3h-5Z" />
+          <path fill="#d3e5da" d="M2-1h2v2H2Z" />
         </g>
       ))}
       {railTracks.map(({ id, path, end }, index) => (
@@ -112,10 +110,14 @@ function PlaneSprite() {
 function FacilityArt({ kind }: { kind: string }) {
   if (kind === 'airfield') return (
     <>
-      <path fill="#3e5758" d="M-18 2-12-6H22L16 3Z" />
-      <path stroke="#e3e4cd" strokeWidth="1.1" strokeDasharray="3 3" d="M-13-1H18" />
-      <path fill="#8f9d98" d="M2-7h12v5H2Z" />
-      <path fill="#cfdbcc" d="M2-8h11v2H2Z" />
+      <path fill="#788079" d="M-25-12H30V14H-25Z" />
+      <path fill="#a3a59a" d="M-24-8h48v1h-48ZM-20 5h43v2h-43ZM17-7h2v12h-2ZM-15-7h2v12h-2Z" />
+      <path fill="#3b494b" d="M-24-6h52v8h-52Z" />
+      <path stroke="#e6ddbd" strokeWidth=".75" strokeDasharray="3 2" d="M-22-2H25" />
+      <path stroke="#f0e7ce" strokeWidth="1.3" d="M-21-5v2m2-2v2m42-2v2m2-2v2" />
+      <path fill="#536568" d="M-8 8H12v4H-8ZM17 8h8v4h-8Z" />
+      <path fill="#c4c7b6" d="M-9 7H13v2H-9ZM17 7h8v2h-8Z" />
+      <path stroke="#d8c89e" strokeWidth=".65" d="M-5 5v2m4-2v2m4-2v2m4-2v2m4-2v2" />
     </>
   )
   if (kind === 'farm') return (
