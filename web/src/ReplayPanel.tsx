@@ -40,7 +40,7 @@ export function ReplayPanel({ nations, online }: { nations: GameState['nations']
       <form onSubmit={run}>
         <label htmlFor="replay-shift">Call timing</label>
         <output htmlFor="replay-shift">{describeShift(shift)}</output>
-        <input id="replay-shift" type="range" min="-4" max="4" step="1" value={shift}
+        <input id="replay-shift" type="range" min="-5" max="5" step="1" value={shift}
           aria-valuetext={describeShift(shift)} disabled={busy}
           onChange={(event) => { setShift(event.target.valueAsNumber); setResult(undefined); setError(false) }} />
         <button className="plain-control" disabled={busy || !online}>{busy ? 'Replaying' : 'Run replay'}</button>
