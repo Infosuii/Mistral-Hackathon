@@ -35,7 +35,7 @@ _load_env(Path(__file__).resolve().parent.parent / ".env")
 API = "https://api.mistral.ai/v1"
 STT_MODEL = "voxtral-mini-transcribe-3"
 TTS_MODEL = "voxtral-mini-tts-3-0"
-CACHE = Path(__file__).resolve().parent / "cache"  # gitignored, per machine
+CACHE = Path(os.environ.get("GAMBIT_VOICE_CACHE") or Path(__file__).resolve().parent / "cache")  # gitignored, per machine
 PRERENDERED = Path(__file__).resolve().parent / "prerendered"  # committed demo lines (V3)
 AUDIO_BASE = os.environ.get("VOICE_AUDIO_BASE", "/audio")
 
@@ -74,9 +74,17 @@ def _client() -> httpx.AsyncClient:
 
 # ---------------------------------------------------------------- speech to text
 
+class BadAudio(ValueError):
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
+
+
 def sniff_format(audio: bytes) -> tuple[str, str]:
     """Guess (extension, mime) from the first bytes. The browser usually sends webm/opus."""
     head = audio[:12]
+    if head[:4] == b"fLaC":
+        return "flac", "audio/flac"
     if head[:4] == b"RIFF":
         return "wav", "audio/wav"
     if head[:4] == b"\x1aE\xdf\xa3":
@@ -87,14 +95,16 @@ def sniff_format(audio: bytes) -> tuple[str, str]:
         return "m4a", "audio/mp4"
     if head[:3] == b"ID3" or head[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"):
         return "mp3", "audio/mpeg"
-    return "webm", "audio/webm"
+    raise BadAudio(415, "Unsupported recording format.")
 
 
 async def transcribe(audio: bytes, mime: str | None = None) -> str:
     ext, sniffed = sniff_format(audio)
-    files = {"file": (f"speech.{ext}", audio, mime or sniffed)}
+    files = {"file": (f"speech.{ext}", audio, sniffed)}
     data = {"model": STT_MODEL, "language": "en", "context_bias": BIAS_TERMS}
     r = await _client().post("/audio/transcriptions", data=data, files=files)
+    if r.status_code in (400, 415, 422):
+        raise BadAudio(422, "Could not transcribe this recording.")
     if r.status_code != 200:
         raise RuntimeError(f"transcribe failed {r.status_code}: {r.text[:300]}")
     return r.json().get("text", "").strip()
@@ -153,6 +163,7 @@ JOBS: dict[str, Job] = {}
 
 async def _run(name: str, text: str, voice_id: str, emotion: str | None, fmt: str):
     job = JOBS[name]
+    tmp = CACHE / f"{name}.part"
     try:
         async for chunk in stream_speech(text, voice_id, emotion, fmt):
             async with job.cond:
@@ -161,7 +172,8 @@ async def _run(name: str, text: str, voice_id: str, emotion: str | None, fmt: st
                 job.chunks.append(chunk)
                 job.cond.notify_all()
         CACHE.mkdir(exist_ok=True)
-        tmp = CACHE / f"{name}.part"
+        if not job.chunks:
+            raise RuntimeError("Speech service returned no audio.")
         tmp.write_bytes(b"".join(job.chunks))
         tmp.replace(CACHE / name)
     except Exception as e:  # surfaced to the audio request and the log
@@ -177,8 +189,15 @@ async def _run(name: str, text: str, voice_id: str, emotion: str | None, fmt: st
         async with job.cond:
             job.done = True
             job.cond.notify_all()
-        if job.error is None:  # the cached file serves from now on; readers keep their ref
+        tmp.unlink(missing_ok=True)
+        if job.error is None:
             JOBS.pop(name, None)
+        else:
+            # Keep the failure or fallback long enough for the URL in the reply to be read.
+            def expire():
+                if JOBS.get(name) is job:
+                    JOBS.pop(name)
+            asyncio.get_running_loop().call_later(60, expire)
 
 
 def find_audio(name: str) -> Path | None:
@@ -194,7 +213,9 @@ def start_speech(text: str, voice_id: str, emotion: str | None = None,
     """Sync version of speak() for code already inside the event loop (the engine's turn).
     Returns the URL, or None if the line is not rendered and no loop is running."""
     name = f"{cache_key(text, voice_id, emotion, fmt)}.{fmt}"
-    if find_audio(name) is None and (name not in JOBS or JOBS[name].error):
+    if find_audio(name) is None and not os.environ.get("MISTRAL_API_KEY") and os.environ.get("VOICE_MOCK") == "fixed":
+        return None
+    if find_audio(name) is None and name not in JOBS:
         try:
             asyncio.get_running_loop()
         except RuntimeError:
@@ -209,7 +230,7 @@ def start_speech(text: str, voice_id: str, emotion: str | None = None,
 _tasks: set[asyncio.Task] = set()
 
 
-async def speak(text: str, voice_id: str, emotion: str | None = None, fmt: str = "mp3") -> str:
+async def speak(text: str, voice_id: str, emotion: str | None = None, fmt: str = "mp3") -> str | None:
     """Start (or reuse) synthesis and return the URL the page can play right away."""
     return start_speech(text, voice_id, emotion, fmt)
 

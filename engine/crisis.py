@@ -380,7 +380,7 @@ def crisis_step(state: State, actions: list[Action], seed: int) -> State:
 
     for a in sorted((a for a in actions if a.type == "announce"), key=lambda a: a.by):
         act = a.params.get("action")
-        if act and not any(pc.nation == a.by and pc.action == act for pc in c.public_commitments):
+        if act in cf.actions.get(a.by, []) and not any(pc.nation == a.by and pc.action == act for pc in c.public_commitments):
             c.public_commitments.append(PublicCommitment(nation=a.by, action=act, tick=c.tick))
             _say(s, f"{s.nations[a.by].name} publicly announces: {act}", "public_commitment", a.by, action=act)
 

@@ -585,7 +585,9 @@ def run_demo_path(
             client.request_json("POST", "/futures", {"snapshot_id": sid}, timeout=30.0)
         )
         assert 0.0 <= fut.before.war_p <= 1.0 and 0.0 <= fut.after.war_p <= 1.0
-        assert fut.caption.strip(), "empty futures caption"
+        assert f"{fut.before.war_p:.0%}" in fut.caption and f"{fut.after.war_p:.0%}" in fut.caption, (
+            f"forecast caption disagrees with probabilities: {fut.caption!r}"
+        )
         st = client.state()
         assert st.last_futures is not None, "state.last_futures not updated after POST /futures"
         return f"war_p {fut.before.war_p:.1%} -> {fut.after.war_p:.1%} | {fut.caption}"

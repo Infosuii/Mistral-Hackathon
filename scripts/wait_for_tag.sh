@@ -18,7 +18,10 @@ REPO="${GAMBIT_REPO:-Infosuii/Mistral-Hackathon}"
 BOARD="${GAMBIT_BOARD:-25}"
 EVERY="${GAMBIT_POLL_SECONDS:-45}"
 SINCE="${GAMBIT_SINCE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
-START_SHA="$(git rev-parse origin/main 2>/dev/null || echo none)"
+START_SHA=""
+if [ -n "$WATCH" ]; then
+  START_SHA="$(git rev-parse --verify origin/main)" || exit 1
+fi
 DEADLINE=$(( $(date +%s) + MAX_MIN * 60 ))
 
 # "→ Tamim, Om:" or "→ all:" after the arrow, before the colon.
@@ -37,8 +40,11 @@ while :; do
     exit 0
   fi
   if [ -n "$WATCH" ]; then
-    git fetch -q origin main 2>/dev/null
-    if ! git diff --quiet "$START_SHA" origin/main -- "$WATCH" 2>/dev/null; then
+    git fetch -q origin main || exit 1
+    git diff --quiet "$START_SHA" origin/main -- "$WATCH"
+    diff_status=$?
+    if [ "$diff_status" -gt 1 ]; then exit "$diff_status"; fi
+    if [ "$diff_status" -eq 1 ]; then
       echo "[main] $WATCH changed on origin/main. Pull and carry on."
       exit 0
     fi
