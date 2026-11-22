@@ -105,7 +105,7 @@ Run `python scripts/preflight.py` from the project environment to check live cre
 
 https://github.com/user-attachments/assets/677c797e-3762-4e1a-99d4-2602ae3986f6
 
-[Download the gameplay recording · 8:30, 1080p MP4](https://github.com/user-attachments/assets/677c797e-3762-4e1a-99d4-2602ae3986f6)
+8:30 · 1080p gameplay recording.
 
 ## Emotional intelligence
 
