@@ -104,7 +104,26 @@ Run `python scripts/preflight.py` from the project environment to check live cre
 | ![Five ticks later, Nordhaven stays out after the tug request misses its deadline.](docs/screenshots/counterfactual.jpg) | ![Valdoria wins re-election with 72.1 percent of the vote and a leadership score of 85 after a three-year run.](docs/screenshots/election.jpg) |
 | Ask *“What if I’d waited?”* and see which crisis decisions would change. The War-Odds Needle compares the next six months of simulated risk. | Face yearly approval reviews and a leadership score out of 100. The Historian writes its verdict from the session log. An election loss or coup can end a term early. |
 
-[Gameplay recording · 60 seconds with leader audio](docs/assets/gambit-gameplay.mp4?raw=true)
+### Gameplay walkthrough
+
+[Download the narrated walkthrough · 5:34, 1080p MP4](docs/assets/gambit-gameplay.mp4?raw=true)
+
+<details>
+<summary>Chapter timestamps</summary>
+
+| Time | In the game |
+| --- | --- |
+| 0:00 | GAMBIT and the Voxtral track win |
+| 0:09 | Atlas, city freight, tariffs, construction, typed diplomacy, news, and saves |
+| 0:56 | Recruitment, reinforcements, a province capture, peace terms, and a naval blockade |
+| 1:45 | Live hold-to-talk and typed calls, Intel, the promise ledger, War-Odds Needle, and replay |
+| 3:23 | A double promise, Wiretap, and an interruption before a blockade threat goes public |
+| 4:11 | Grey Fever, Colonels’ Coup, Pipeline Cut, the neutral mediator, and MCP tools |
+| 5:07 | The 36-month election count, the leadership score, and the Historian |
+
+The main One Berth run uses live Mistral and Voxtral. The other chapters include separate offline runs to show different outcomes. The hold-to-talk example plays a spoken line through a test microphone into Voxtral’s live transcription.
+
+</details>
 
 ## Try One Berth
 
