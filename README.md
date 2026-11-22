@@ -14,6 +14,8 @@
 
 GAMBIT is a strategy game you play by voice. A storm has closed all but one berth at Port Kessar. Two grain ships need it. General Dravic is already on the Red Phone. You can promise him the berth, call Nordhaven for tugs, or promise both ships the same slot and hope their leaders never compare notes.
 
+When you lead a nation, **you can declare war at any point in the campaign**, even in the middle of a crisis. Select another country on the map and choose **Declare war** in the War Room. You can recruit troops, attack a neighbouring province, reinforce the front or offer peace. Rival leaders can declare war on you, too.
+
 ![General Dravic calls about Port Kessar. The campaign atlas shows the five nations, and the crisis clock lists each leader’s deadline.](docs/screenshots/one-berth.jpg)
 
 > “Our people have three days of bread. That berth is ours. Say it.”
@@ -89,7 +91,7 @@ Choose **Valdoria**, set the seed to **7**, and call Queen Isolde of Kessaria to
 <details>
 <summary><strong>Explore the rest of the game</strong></summary>
 
-Govern one of five nations for a three-year term. Each month you can set tariffs, propose alliances, build factories, lay rail or recruit troops. Elections and coups can end your term early. In the War Room you can move armies province by province and negotiate peace. As an independent mediator, you see public positions and are judged on your calls alone.
+Govern one of five nations for a three-year term. Each month you can set tariffs, propose alliances, build factories or lay rail. Elections and coups can end your term early. As an independent mediator, you see public positions and are judged on your calls alone.
 
 Four crisis cards ship with the game. **One Berth** puts two grain ships in competition for the same dock. **Grey Fever** gives two countries one vaccine batch. **Colonels’ Coup** opens with tanks in Ostrava’s capital. **Pipeline Cut** starts when Ostrava shuts the northern oil line. Each crisis runs for 12 ticks, and each leader has a deadline of their own.
 
