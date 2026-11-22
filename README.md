@@ -37,20 +37,6 @@ In GAMBIT, five rival nations share a continent, trade routes, and problems they
 
 The Red Phone sits inside that simulation. A concession can buy time for an ally or give a rival a way to back down. Leaders can send private dispatches, compare promises, and use what they learn against you. The map, election results, and Historian’s verdict show where those decisions led.
 
-## Emotional intelligence
-
-**A leader reacts to how you handle the call as well as what you say.** We tuned two kinds of signal together.
-
-| What we tuned | What it changes |
-| --- | --- |
-| **Interruptions and hesitation** | The browser detects whether you cut off a leader mid-sentence and measures how long you wait after their reply. A pause over **2.5 s** lowers perceived resolve. Interrupting raises resolve, but proud leaders such as Dravic and Oryn can take it as an insult. |
-| **Trust and resolve** | We score them separately. You can sound determined while giving a leader less reason to trust you. Interrupting a blockade announcement can keep the threat off the public record and give the leader room to back down. |
-| **Voice and emotional delivery** | We cast five distinct Voxtral voices. The leader model chooses from **15 emotion tags** using the conversation, timing cues, and persona. Voxtral renders the tag as spoken delivery. Player-side analysis uses the Voxtral transcript and timing measured by the browser. |
-
-**Hear the tuning.** The same sentence and the same Voxtral voice, with two different emotion tags. [Calm](https://raw.githubusercontent.com/Infosuii/Mistral-Hackathon/main/docs/assets/voxtral-emotion-calm.mp3) · [Angry](https://raw.githubusercontent.com/Infosuii/Mistral-Hackathon/main/docs/assets/voxtral-emotion-angry.mp3)
-
-[Voice casting and audition notes](voice/CASTING.md) · [Benchmarks and blind listening test](voice/VOXTRAL.md#measured)
-
 ## Quickstart
 
 You’ll need Python 3.12+, Node.js 20.19+ or 22.12+, and a Mistral API key for live calls. On Windows, use Git Bash.
@@ -137,6 +123,20 @@ https://github.com/user-attachments/assets/78c6e230-b380-4ed6-bec0-8ca03ba87be8
 The main One Berth run uses live Mistral and Voxtral. The other chapters include separate offline runs to show different outcomes. The hold-to-talk example plays a spoken line through a test microphone into Voxtral’s live transcription.
 
 </details>
+
+## Emotional intelligence
+
+**A leader reacts to how you handle the call as well as what you say.** We tuned two kinds of signal together.
+
+| What we tuned | What it changes |
+| --- | --- |
+| **Interruptions and hesitation** | The browser detects whether you cut off a leader mid-sentence and measures how long you wait after their reply. A pause over **2.5 s** lowers perceived resolve. Interrupting raises resolve, but proud leaders such as Dravic and Oryn can take it as an insult. |
+| **Trust and resolve** | We score them separately. You can sound determined while giving a leader less reason to trust you. Interrupting a blockade announcement can keep the threat off the public record and give the leader room to back down. |
+| **Voice and emotional delivery** | We cast five distinct Voxtral voices. The leader model chooses from **15 emotion tags** using the conversation, timing cues, and persona. Voxtral renders the tag as spoken delivery. Player-side analysis uses the Voxtral transcript and timing measured by the browser. |
+
+**Hear the tuning.** The same sentence and the same Voxtral voice, with two different emotion tags. [Calm](https://raw.githubusercontent.com/Infosuii/Mistral-Hackathon/main/docs/assets/voxtral-emotion-calm.mp3) · [Angry](https://raw.githubusercontent.com/Infosuii/Mistral-Hackathon/main/docs/assets/voxtral-emotion-angry.mp3)
+
+[Voice casting and audition notes](voice/CASTING.md) · [Benchmarks and blind listening test](voice/VOXTRAL.md#measured)
 
 ## The systems behind the game
 
