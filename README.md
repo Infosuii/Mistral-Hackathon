@@ -22,23 +22,34 @@ GAMBIT is a grand-strategy game played through the Red Phone. Speak to five AI l
   <a href="#quickstart"><b>Quickstart</b></a> ·
   <a href="#how-it-works"><b>How it works</b></a> ·
   <a href="#a-tour-of-the-game"><b>Tour</b></a> ·
-  <a href="#try-one-berth"><b>Try One Berth</b></a> ·
+  <a href="#emotional-intelligence"><b>Emotional intelligence</b></a> ·
   <a href="#measured-performance"><b>Benchmarks</b></a> ·
   <a href="#documentation"><b>Docs</b></a>
 </p>
 
+<img src="docs/assets/demo.gif" alt="GAMBIT in play, from a Red Phone negotiation and a province capture to the crisis replay and Historian’s verdict." width="100%">
 
 </div>
 
 ## The project
 
-A storm closes Port Kessar to a single berth. Two grain ships need it. Ostrava is already ringing. You can promise General Dravic the morning, ask Nordhaven to open a second berth, or chance a double promise and hope nobody compares notes.
+In GAMBIT, five rival nations share a continent, trade routes, and problems they can’t solve alone. As president, you build an economy and decide when to negotiate, sanction, or fight. As mediator, you can only see public positions, and your score depends on peace across the continent and the trust you earn.
 
-What you say can change a leader’s trust and resolve. Cut in before a blockade threat becomes public and you can give Dravic room to back down. Hesitate and he may press harder. Behind the call, the leaders have their own strategies, advisers, and private dispatches.
+The Red Phone sits inside that simulation. A concession can buy time for an ally or give a rival a way to back down. Leaders can send private dispatches, compare promises, and use what they learn against you. The map, election results, and Historian’s verdict show where those decisions led.
 
-> “Our people have three days of bread. That berth is ours. Say it.”
->
-> [Hear Dravic’s Voxtral opening call · 4 seconds](https://raw.githubusercontent.com/Infosuii/Mistral-Hackathon/main/voice/prerendered/e6b69fe65c62569cd79d.mp3)
+## Emotional intelligence
+
+**A leader reacts to how you handle the call as well as what you say.** We tuned two kinds of signal together.
+
+| What we tuned | What it changes |
+| --- | --- |
+| **Interruptions and hesitation** | The browser detects whether you cut off a leader mid-sentence and measures how long you wait after their reply. A pause over **2.5 s** lowers perceived resolve. Interrupting raises resolve, but proud leaders such as Dravic and Oryn can take it as an insult. |
+| **Trust and resolve** | We score them separately. You can sound determined while giving a leader less reason to trust you. Interrupting a blockade announcement can keep the threat off the public record and give the leader room to back down. |
+| **Voice and emotional delivery** | We cast five distinct Voxtral voices. The leader model chooses from **15 emotion tags** using the conversation, timing cues, and persona. Voxtral renders the tag as spoken delivery. Player-side analysis uses the Voxtral transcript and timing measured by the browser. |
+
+**Hear the tuning.** The same sentence and the same Voxtral voice, with two different emotion tags. [Calm](https://raw.githubusercontent.com/Infosuii/Mistral-Hackathon/main/docs/assets/voxtral-emotion-calm.mp3) · [Angry](https://raw.githubusercontent.com/Infosuii/Mistral-Hackathon/main/docs/assets/voxtral-emotion-angry.mp3)
+
+[Voice casting and audition notes](voice/CASTING.md) · [Benchmarks and blind listening test](voice/VOXTRAL.md#measured)
 
 ## Quickstart
 
@@ -79,8 +90,8 @@ Run `python scripts/preflight.py` from the project environment to check live cre
 
 | Stage | What happens |
 | --- | --- |
-| **You speak** | The browser captures hold-to-talk audio and tracks interruption and hesitation. Voxtral transcribes the clip with context for names such as *Ostrava* and *Port Kessar*. Typed calls use the same negotiation logic. |
-| **The leader replies** | Mistral Large 2512 writes a short, in-character answer. Mistral Medium can race a slow response. Voxtral streams the reply in the leader’s cast voice and chosen emotion. |
+| **You speak** | Voxtral transcribes hold-to-talk audio with context for names such as *Ostrava* and *Port Kessar*. The browser supplies the [timing cues](#emotional-intelligence). Typed calls use the same negotiation logic. |
+| **The leader replies** | Mistral Large 2512 writes a short, in-character answer. Mistral Medium can race a slow response. The reply model selects an emotion and Voxtral streams it in the leader’s cast voice. |
 | **The game records the deal** | Mistral Large 4 interprets promises, agreed actions, trust, and resolve in the background. |
 | **Nations make their moves** | Large 4 writes private strategies. Mistral Medium chooses from legal moves scored by the advisers. Leaders can send private dispatches and state a public position that differs from their intent. |
 | **You test the consequences** | The engine compares matched-seed war forecasts before and after a deal. Crisis replay shifts the recorded calls by up to five ticks and reruns the decisions. Mistral explains the changes. |
@@ -106,6 +117,8 @@ Run `python scripts/preflight.py` from the project environment to check live cre
 
 ### Gameplay walkthrough
 
+https://github.com/user-attachments/assets/78c6e230-b380-4ed6-bec0-8ca03ba87be8
+
 [Download the narrated walkthrough · 5:34, 1080p MP4](docs/assets/gambit-gameplay.mp4?raw=true)
 
 <details>
@@ -125,25 +138,23 @@ The main One Berth run uses live Mistral and Voxtral. The other chapters include
 
 </details>
 
-## Try One Berth
+## The systems behind the game
 
-Start on seed **7** as **Valdoria**, then select **One Berth**. The clock advances in two-hour ticks.
-
-| When | What to try |
+| System | What it lets you do |
 | --- | --- |
-| **Tick 1** | Answer Dravic and offer Ostrava the morning berth. |
-| **Before tick 6** | Call Nordhaven. Try *“I need your tugs at Port Kessar today to open a second berth. Valdoria pays the full cost.”* |
-| **At the deadlines** | Watch the decisions and ships at the port. Check the War-Odds Needle for the six-month forecast. |
-| **After the resolution** | Replay the calls **five ticks later**. In the recorded playthrough, Nordhaven stayed out and Zarnia mobilised. |
+| **Private diplomacy** | Read a leader’s public line against their private strategy, adviser rankings, and actual choice. Leaders also send dispatches to one another. Those messages enter the recipient’s next turn, and you can see some of the manoeuvring in Intel and Wiretap. |
+| **Political and economic consequences** | Trade opens cross-border freight routes and war closes them. Capturing a province changes who gets its output. At home, a major crisis can become an approval problem for a democracy or a stability crisis for a junta. |
+| **Counterfactual replay** | Move the recorded calls and rerun the crisis from the same starting state using the engine rules and cached leader choices. A zero-tick shift reproduces the decisions. The War-Odds Needle separately uses matched seeds to compare the simulated six-month risk before and after your intervention. |
+| **Different emergencies and roles** | Four crises cover a port closure, a health emergency, a coup, and an oil cutoff. Each gives leaders different deadlines and decisions. Play as a neutral mediator to negotiate while all five nations run themselves. |
 
-For a different run, give Ostrava and Zarnia the same slot, listen when they compare notes, then try cutting off Dravic’s blockade announcement and offering a specific morning slot.
-
-The other crisis cards are **Grey Fever**, **Colonels’ Coup**, and **Pipeline Cut**. Each has its own deadlines, incoming calls, and outcomes. You can also play as a **neutral mediator**, leaving all five nations under AI control.
+[Open the guided One Berth demo](voice/DEMO.md) · [Browse the crisis definitions](data/crises/)
 
 ## Measured performance
 
 | Measurement | Observed result |
 | --- | --- |
+| **Blind emotion test** | One listener correctly identified **6/6** shuffled clips across two voices with calm, tense, and angry tags. |
+| **Calm to angry pitch change** | With the sentence held constant, pitch rose **32% for Howard** (119 → 157 Hz) and **37% for Harriet** (174 → 238 Hz). |
 | Typed line to first leader audio | About **1.8 s**, estimated by adding the **1.39 s** reply and **0.39 s** first-chunk medians across 10 live calls. |
 | Browser microphone transcription | **0.25–0.37 s** in a separate six-call Chrome WebM/Opus test. The 220 KB WAV uploads took **3.32 s** median. |
 | Human playtest | **13/13** calls transcribed and voiced without fallback in a One Berth playtest. |
