@@ -4,17 +4,11 @@
 
 <br>
 
-### Political strategy with five AI leaders
+## 🏆 Winner · Best Use of the Voxtral API
 
-Lead a nation or play the neutral mediator. Negotiate on the Red Phone, fight on the campaign map, and replay a crisis to see what changes when you call later.
+[Mistral Vibe Hackathon · Le Chonk in London](https://luma.com/le-chonk-in-london) · 21 November 2026
 
-**Winner of Best Use of the Voxtral API** · [Le Chonk in London](https://luma.com/le-chonk-in-london) · 21 November 2026
-
-<br>
-
-[![Hackathon](https://img.shields.io/badge/Voxtral%20API-Track%20Winner-e6cb91?style=for-the-badge&labelColor=102832)](#the-project)
-[![Download the demo](https://img.shields.io/badge/Gameplay-60%20second%20MP4-f39183?style=for-the-badge&labelColor=102832)](docs/assets/gambit-gameplay.mp4?raw=true)
-[![Offline play](https://img.shields.io/badge/Offline-Playable-88c2b7?style=for-the-badge&labelColor=102832)](#quickstart)
+GAMBIT is a grand-strategy game played through the Red Phone. Speak to five AI leaders, govern a nation, or mediate a crisis. Replay the decisions to see what changes when you call later.
 
 [![Mistral](https://img.shields.io/badge/Mistral-AI-FA520F?style=flat-square&logo=mistralai&logoColor=white)](#how-it-works)
 [![Voxtral](https://img.shields.io/badge/Voxtral-Speech-FA520F?style=flat-square)](voice/VOXTRAL.md)
@@ -33,11 +27,6 @@ Lead a nation or play the neutral mediator. Negotiate on the Red Phone, fight on
   <a href="#documentation"><b>Docs</b></a>
 </p>
 
-<br>
-
-<a href="docs/assets/gambit-gameplay.mp4?raw=true"><img src="docs/assets/demo.gif" alt="Gameplay preview showing the atlas, a typed Red Phone call, a province capture, the One Berth crisis, its replay, and the Historian’s verdict." width="100%"></a>
-
-<sub>Highlights from a live hackathon build. <a href="docs/assets/gambit-gameplay.mp4?raw=true"><b>Download the full 60-second playthrough with leader audio.</b></a></sub>
 
 </div>
 
@@ -114,6 +103,8 @@ Run `python scripts/preflight.py` from the project environment to check live cre
 | --- | --- |
 | ![Five ticks later, Nordhaven stays out after the tug request misses its deadline.](docs/screenshots/counterfactual.jpg) | ![Valdoria wins re-election with 72.1 percent of the vote and a leadership score of 85 after a three-year run.](docs/screenshots/election.jpg) |
 | Ask *“What if I’d waited?”* and see which crisis decisions would change. The War-Odds Needle compares the next six months of simulated risk. | Face yearly approval reviews and a leadership score out of 100. The Historian writes its verdict from the session log. An election loss or coup can end a term early. |
+
+[Gameplay recording · 60 seconds with leader audio](docs/assets/gambit-gameplay.mp4?raw=true)
 
 ## Try One Berth
 

@@ -17,7 +17,7 @@
   <g transform="translate(70 55)" fill="none" stroke="#e6cb91" stroke-width="2.5" stroke-linejoin="round">
     <path d="M18 0 36 18 18 36 0 18Z M18 7v22 M7 18h22"/>
   </g>
-  <text x="125" y="80" fill="#a6babc" font-family="Arial,sans-serif" font-size="19" font-weight="700" letter-spacing="3">MISTRAL VIBE HACKATHON</text>
+  <text x="125" y="80" fill="#a6babc" font-family="Arial,sans-serif" font-size="19" font-weight="700" letter-spacing="1.05">WINNER · BEST USE OF THE VOXTRAL API</text>
   <text x="63" y="211" fill="#edcf92" font-family="Arial,sans-serif" font-size="113" font-weight="800" letter-spacing="9">GAMBIT</text>
   <text x="70" y="285" fill="#fff4e6" font-family="Arial,sans-serif" font-size="45" font-weight="700">Every call is a move.</text>
   <line x1="70" y1="330" x2="602" y2="330" stroke="#f39183" stroke-width="3"/>
