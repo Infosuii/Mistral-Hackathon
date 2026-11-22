@@ -13,7 +13,7 @@ Lead a nation or play the neutral mediator. Negotiate on the Red Phone, fight on
 <br>
 
 [![Hackathon](https://img.shields.io/badge/Voxtral%20API-Track%20Winner-e6cb91?style=for-the-badge&labelColor=102832)](#the-project)
-[![Watch the demo](https://img.shields.io/badge/Gameplay-Watch%2060%20seconds-f39183?style=for-the-badge&labelColor=102832)](docs/assets/gambit-gameplay.mp4)
+[![Download the demo](https://img.shields.io/badge/Gameplay-60%20second%20MP4-f39183?style=for-the-badge&labelColor=102832)](docs/assets/gambit-gameplay.mp4?raw=true)
 [![Offline play](https://img.shields.io/badge/Offline-Playable-88c2b7?style=for-the-badge&labelColor=102832)](#quickstart)
 
 [![Mistral](https://img.shields.io/badge/Mistral-AI-FA520F?style=flat-square&logo=mistralai&logoColor=white)](#how-it-works)
@@ -35,9 +35,9 @@ Lead a nation or play the neutral mediator. Negotiate on the Red Phone, fight on
 
 <br>
 
-<a href="docs/assets/gambit-gameplay.mp4"><img src="docs/assets/demo.gif" alt="Gameplay preview showing the atlas, a typed Red Phone call, a province capture, the One Berth crisis, its replay, and the Historian’s verdict." width="100%"></a>
+<a href="docs/assets/gambit-gameplay.mp4?raw=true"><img src="docs/assets/demo.gif" alt="Gameplay preview showing the atlas, a typed Red Phone call, a province capture, the One Berth crisis, its replay, and the Historian’s verdict." width="100%"></a>
 
-<sub>Highlights from a live hackathon build. <a href="docs/assets/gambit-gameplay.mp4"><b>Watch the full 60-second playthrough with leader audio.</b></a></sub>
+<sub>Highlights from a live hackathon build. <a href="docs/assets/gambit-gameplay.mp4?raw=true"><b>Download the full 60-second playthrough with leader audio.</b></a></sub>
 
 </div>
 
