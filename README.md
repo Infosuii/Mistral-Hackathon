@@ -103,26 +103,9 @@ Run `python scripts/preflight.py` from the project environment to check live cre
 
 ### Gameplay walkthrough
 
-https://github.com/user-attachments/assets/78c6e230-b380-4ed6-bec0-8ca03ba87be8
+https://github.com/user-attachments/assets/677c797e-3762-4e1a-99d4-2602ae3986f6
 
-[Download the narrated walkthrough · 5:34, 1080p MP4](docs/assets/gambit-gameplay.mp4?raw=true)
-
-<details>
-<summary>Chapter timestamps</summary>
-
-| Time | In the game |
-| --- | --- |
-| 0:00 | GAMBIT and the Voxtral track win |
-| 0:09 | Atlas, city freight, tariffs, construction, typed diplomacy, news, and saves |
-| 0:56 | Recruitment, reinforcements, a province capture, peace terms, and a naval blockade |
-| 1:45 | Live hold-to-talk and typed calls, Intel, the promise ledger, War-Odds Needle, and replay |
-| 3:23 | A double promise, Wiretap, and an interruption before a blockade threat goes public |
-| 4:11 | Grey Fever, Colonels’ Coup, Pipeline Cut, the neutral mediator, and MCP tools |
-| 5:07 | The 36-month election count, the leadership score, and the Historian |
-
-The main One Berth run uses live Mistral and Voxtral. The other chapters include separate offline runs to show different outcomes. The hold-to-talk example plays a spoken line through a test microphone into Voxtral’s live transcription.
-
-</details>
+[Download the gameplay recording · 8:30, 1080p MP4](https://github.com/user-attachments/assets/677c797e-3762-4e1a-99d4-2602ae3986f6)
 
 ## Emotional intelligence
 
